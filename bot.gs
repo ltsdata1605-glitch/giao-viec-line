@@ -450,6 +450,34 @@ function doPost(e) {
               replyGiaoForm(event.replyToken);
               continue;
             }
+
+            // 4. Việc chưa xong của cá nhân
+            if (["/vieccuatoi", "việc của tôi", "viec cua toi"].indexOf(text) !== -1) {
+              var flex = buildMyTasksFlexMessage(uId, name);
+              replyMessages(event.replyToken, [flex], "LINE my tasks reply");
+              continue;
+            }
+
+            // 5. Việc chưa xong của nhóm
+            if (["/chuaxong", "chưa xong", "chua xong"].indexOf(text) !== -1) {
+              var flex = buildChuaXongFlexMessage();
+              replyMessages(event.replyToken, [flex], "LINE pending tasks reply");
+              continue;
+            }
+
+            // 6. Việc trễ hạn của nhóm
+            if (["/trehan", "trễ hạn", "tre han"].indexOf(text) !== -1) {
+              var flex = buildTreHanFlexMessage();
+              replyMessages(event.replyToken, [flex], "LINE overdue tasks reply");
+              continue;
+            }
+
+            // 7. Báo cáo tiến độ công việc
+            if (["/baocao", "báo cáo", "bao cao", "báo cáo cuối ngày", "bao cao cuoi ngay"].indexOf(text) !== -1) {
+              var flex = buildBaoCaoCuoiNgayFlexMessage();
+              replyMessages(event.replyToken, [flex], "LINE daily report reply");
+              continue;
+            }
             
             // 4. Tương tác hôm nay
             if ([
@@ -757,14 +785,28 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
   var isUrgent = String(uuTien).trim() === "GẤP";
   var isImportant = String(uuTien).trim() === "Quan trọng";
   
-  var colorTheme = isOverdue ? "#EF4444" : (isSupport ? "#F59E0B" : (isUrgent ? "#FF334B" : (isImportant ? "#F59E0B" : "#1DB446")));
-  var badgeText = isOverdue ? "QUÁ HẠN" : (isSupport ? "CẦN HỖ TRỢ" : (isUrgent ? "GẤP" : (isImportant ? "QUAN TRỌNG" : "NHẮC VIỆC")));
+  var colorTheme = "#1DB446"; // Mặc định Bình thường
+  var badgeText = "NHẮC VIỆC";
+  if (isOverdue) {
+    colorTheme = "#C70039"; // Đỏ đậm
+    badgeText = "QUÁ HẠN";
+  } else if (isSupport) {
+    colorTheme = "#7B61FF"; // Tím
+    badgeText = "CẦN HỖ TRỢ";
+  } else if (isUrgent) {
+    colorTheme = "#FF334B"; // Đỏ
+    badgeText = "GẤP";
+  } else if (isImportant) {
+    colorTheme = "#FF9900"; // Cam
+    badgeText = "QUAN TRỌNG";
+  }
+
   var titleText = String(ten || "Công việc mới").trim();
   var bodyText = String(noiDung || "Không có nội dung chi tiết").trim();
 
   var fields = [];
   
-  // 1. Phụ trách (Hiển thị tên người phụ trách)
+  // 1. Phụ trách
   var assignees = "";
   if (extraData && extraData.idNV) {
     assignees = resolveMemberNamesList(extraData.idNV);
@@ -775,8 +817,8 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
     type: "box",
     layout: "baseline",
     contents: [
-      { type: "text", text: "Phụ trách", size: "xs", color: "#888888", flex: 2 },
-      { type: "text", text: assignees, size: "xs", color: "#333333", flex: 4, wrap: true, weight: "bold" }
+      { type: "text", text: "Phụ trách", size: "xs", color: "#888888", flex: 3 },
+      { type: "text", text: assignees, size: "xs", color: "#333333", flex: 7, wrap: true, weight: "bold" }
     ]
   });
 
@@ -786,8 +828,8 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
       type: "box",
       layout: "baseline",
       contents: [
-        { type: "text", text: "Deadline", size: "xs", color: "#888888", flex: 2 },
-        { type: "text", text: formatDateTimeDisplay(extraData.deadline), size: "xs", color: "#D32F2F", flex: 4, wrap: true, weight: "bold" }
+        { type: "text", text: "Deadline", size: "xs", color: "#888888", flex: 3 },
+        { type: "text", text: formatDateTimeDisplay(extraData.deadline), size: "xs", color: "#C70039", flex: 7, wrap: true, weight: "bold" }
       ]
     });
   }
@@ -798,8 +840,8 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
       type: "box",
       layout: "baseline",
       contents: [
-        { type: "text", text: "Loại CV", size: "xs", color: "#888888", flex: 2 },
-        { type: "text", text: extraData.loaiCV, size: "xs", color: "#333333", flex: 4, wrap: true }
+        { type: "text", text: "Loại CV", size: "xs", color: "#888888", flex: 3 },
+        { type: "text", text: extraData.loaiCV, size: "xs", color: "#333333", flex: 7, wrap: true }
       ]
     });
   }
@@ -810,8 +852,8 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
       type: "box",
       layout: "baseline",
       contents: [
-        { type: "text", text: "Người giao", size: "xs", color: "#888888", flex: 2 },
-        { type: "text", text: resolveMemberName(extraData.nguoiGiao), size: "xs", color: "#333333", flex: 4, wrap: true }
+        { type: "text", text: "Người giao", size: "xs", color: "#888888", flex: 3 },
+        { type: "text", text: resolveMemberName(extraData.nguoiGiao), size: "xs", color: "#333333", flex: 7, wrap: true }
       ]
     });
   }
@@ -824,8 +866,8 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
         type: "box",
         layout: "baseline",
         contents: [
-          { type: "text", text: "Theo dõi", size: "xs", color: "#888888", flex: 2 },
-          { type: "text", text: followersText, size: "xs", color: "#555555", flex: 4, wrap: true }
+          { type: "text", text: "Theo dõi", size: "xs", color: "#888888", flex: 3 },
+          { type: "text", text: followersText, size: "xs", color: "#555555", flex: 7, wrap: true }
         ]
       });
     }
@@ -836,8 +878,8 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
     type: "box",
     layout: "baseline",
     contents: [
-      { type: "text", text: "Xác nhận", size: "xs", color: "#888888", flex: 2 },
-      { type: "text", text: String(hinhThucXN || "Không"), size: "xs", color: "#333333", flex: 4, wrap: true }
+      { type: "text", text: "Xác nhận", size: "xs", color: "#888888", flex: 3 },
+      { type: "text", text: String(hinhThucXN || "Không"), size: "xs", color: "#333333", flex: 7, wrap: true }
     ]
   });
 
@@ -846,8 +888,8 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
     type: "box",
     layout: "baseline",
     contents: [
-      { type: "text", text: "Lần nhắc", size: "xs", color: "#888888", flex: 2 },
-      { type: "text", text: String(soLan || 1), size: "xs", color: "#333333", flex: 4 }
+      { type: "text", text: "Lần nhắc", size: "xs", color: "#888888", flex: 3 },
+      { type: "text", text: String(soLan || 1), size: "xs", color: "#333333", flex: 7 }
     ]
   });
 
@@ -857,8 +899,8 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
       type: "box",
       layout: "baseline",
       contents: [
-        { type: "text", text: "Ghi chú", size: "xs", color: "#888888", flex: 2 },
-        { type: "text", text: extraData.ghiChu, size: "xs", color: "#555555", flex: 4, wrap: true, style: "italic" }
+        { type: "text", text: "Ghi chú", size: "xs", color: "#888888", flex: 3 },
+        { type: "text", text: extraData.ghiChu, size: "xs", color: "#555555", flex: 7, wrap: true, style: "italic" }
       ]
     });
   }
@@ -869,7 +911,7 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
     header: {
       type: "box",
       layout: "vertical",
-      paddingAll: "14px",
+      paddingAll: "12px",
       backgroundColor: colorTheme,
       contents: [
         {
@@ -894,7 +936,7 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
       type: "box",
       layout: "vertical",
       spacing: "md",
-      paddingAll: "16px",
+      paddingAll: "14px",
       contents: [
         {
           type: "text",
@@ -910,7 +952,7 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
         {
           type: "box",
           layout: "vertical",
-          spacing: "sm",
+          spacing: "xs",
           margin: "md",
           contents: fields
         }
@@ -959,30 +1001,28 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
     });
   }
 
-  // Thêm nút "Bắt đầu làm" nếu trạng thái chưa là Đang làm và chưa hoàn tất
-  if (currentStatus === "Chờ xác nhận" || currentStatus === "Chưa gửi" || currentStatus === "") {
-    footerContents.push({
-      type: "button",
-      style: "primary",
-      color: "#3B82F6",
-      height: "sm",
-      margin: "sm",
-      action: {
-        type: "postback",
-        label: "⚡ Bắt đầu làm",
-        data: "action=danglam&row=" + rIdx
-      }
-    });
-  }
+  // Row 2: "Dời 15 phút" and "Cần hỗ trợ"
+  var subButtons = [];
+  subButtons.push({
+    type: "button",
+    style: "secondary",
+    color: "#4B5563",
+    height: "sm",
+    flex: 1,
+    action: {
+      type: "postback",
+      label: "🕒 Dời 15 phút",
+      data: "action=delay&mins=15&row=" + rIdx
+    }
+  });
 
-  // Thêm nút "Cần hỗ trợ" nếu chưa ở trạng thái "Cần hỗ trợ"
   if (currentStatus !== "Cần hỗ trợ") {
-    footerContents.push({
+    subButtons.push({
       type: "button",
       style: "secondary",
-      color: "#EF4444",
+      color: "#7B61FF",
       height: "sm",
-      margin: "sm",
+      flex: 1,
       action: {
         type: "postback",
         label: "🚨 Cần hỗ trợ",
@@ -991,61 +1031,27 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
     });
   }
 
-  // Thêm các nút Delay ngang: "🕒 Dời 15m", "🕒 Dời 30m", "🕒 Sáng mai"
   footerContents.push({
     type: "box",
     layout: "horizontal",
-    margin: "md",
+    margin: "sm",
     spacing: "sm",
-    contents: [
-      {
-        type: "button",
-        style: "secondary",
-        color: "#4B5563",
-        height: "xs",
-        action: {
-          type: "postback",
-          label: "🕒 Dời 15m",
-          data: "action=delay&mins=15&row=" + rIdx
-        }
-      },
-      {
-        type: "button",
-        style: "secondary",
-        color: "#4B5563",
-        height: "xs",
-        action: {
-          type: "postback",
-          label: "🕒 Dời 30m",
-          data: "action=delay&mins=30&row=" + rIdx
-        }
-      },
-      {
-        type: "button",
-        style: "secondary",
-        color: "#4B5563",
-        height: "xs",
-        action: {
-          type: "postback",
-          label: "🕒 Sáng mai",
-          data: "action=delay&mins=tomorrow&row=" + rIdx
-        }
-      }
-    ]
+    contents: subButtons
   });
 
   bubble.footer = {
     type: "box",
     layout: "vertical",
-    paddingAll: "12px",
+    paddingAll: "10px",
     contents: footerContents
   };
 
   return {
     type: "flex",
-    altText: titleText,
+    altText: "Việc mới: " + titleText,
     contents: bubble
   };
+}
 }
 
 
@@ -1463,148 +1469,93 @@ function CHAY_QUET_VIEC_THU_CONG() {
 // ==========================================
 // HÀM HỖ TRỢ HƯỚNG DẪN & CHAT RIÊNG
 // ==========================================
-function buildHelpText() {
-  return "🤖 CÚ PHÁP BOT NHẮC VIỆC\n\n" +
-    "📝 /gv hoặc /link - Mở form giao việc\n" +
-    "🆔 /id - Lấy ID nhóm hoặc cá nhân\n" +
-    "📌 /tthomnay hoặc /tuongtac - Xem tương tác hôm nay\n" +
-    "📅 /tt7ngay - Xem tương tác 7 ngày\n" +
-    "📖 /hd hoặc /huongdan - Giới thiệu tính năng BOT\n" +
-    "❓ /help - Xem cú pháp";
-}
-
 function replyHelp(token) {
-  sendLineReply(token, buildHelpText());
+  var flexMsg = buildHelpFlexMessage();
+  replyMessages(token, [flexMsg], "LINE help flex reply");
 }
 
 function buildGiaoFormFlexMessage() {
   var bubble = {
-    "type": "bubble",
-    "size": "kilo",
-    "body": {
-      "type": "box",
-      "layout": "vertical",
-      "spacing": "md",
-      "contents": [
+    type: "bubble",
+    size: "kilo",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#1DB446",
+      paddingAll: "12px",
+      contents: [
         {
-          "type": "text",
-          "text": "📝 GIAO VIỆC NHANH",
-          "weight": "bold",
-          "color": "#1DB446",
-          "size": "md"
-        },
-        {
-          "type": "text",
-          "text": "Bấm nút bên dưới để mở form nhập thông tin giao việc.",
-          "size": "xs",
-          "color": "#666666",
-          "wrap": true
+          type: "text",
+          text: "📝 GIAO VIỆC NHANH",
+          color: "#FFFFFF",
+          weight: "bold",
+          size: "sm"
         }
       ]
     },
-    "footer": {
-      "type": "box",
-      "layout": "vertical",
-      "contents": [
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "xs",
+      paddingAll: "14px",
+      contents: [
         {
-          "type": "button",
-          "style": "primary",
-          "color": "#1DB446",
-          "height": "sm",
-          "action": {
-            "type": "uri",
-            "label": "Mở Form",
-            "uri": LIFF_URL
+          type: "text",
+          text: "Bấm nút dưới để mở form giao việc và phân công công việc cho thành viên.",
+          size: "xs",
+          color: "#333333",
+          wrap: true
+        }
+      ]
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      paddingAll: "10px",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          color: "#1DB446",
+          height: "sm",
+          action: {
+            type: "uri",
+            label: "Mở Form",
+            uri: LIFF_URL
           }
         }
       ]
     }
   };
   return {
-    "type": "flex",
-    "altText": "Mở Form Giao Việc",
-    "contents": bubble
+    type: "flex",
+    altText: "Mở Form Giao Việc",
+    contents: bubble
   };
 }
 
 function replyGiaoForm(token) {
-  var flexMsg = {
-    type: "flex",
-    altText: "Mở form giao việc",
-    contents: {
-      type: "bubble",
-      size: "kilo",
-      body: {
-        type: "box",
-        layout: "vertical",
-        spacing: "md",
-        contents: [
-          {
-            type: "text",
-            text: "📝 GIAO VIỆC NHANH",
-            weight: "bold",
-            size: "md",
-            color: "#1DB446",
-            wrap: true
-          },
-          {
-            type: "text",
-            text: "Bấm nút bên dưới để mở form giao việc.",
-            size: "sm",
-            color: "#555555",
-            wrap: true
-          },
-          {
-            type: "text",
-            text: "Nếu bấm nút báo lỗi hệ thống, hãy kiểm tra lại cấu hình LIFF Endpoint trong LINE Developers.",
-            size: "xxs",
-            color: "#999999",
-            wrap: true,
-            margin: "sm"
-          }
-        ]
-      },
-      footer: {
-        type: "box",
-        layout: "vertical",
-        spacing: "sm",
-        contents: [
-          {
-            type: "button",
-            style: "primary",
-            color: "#1DB446",
-            height: "sm",
-            action: {
-              type: "uri",
-              label: "Mở form giao việc",
-              uri: LIFF_URL
-            }
-          }
-        ]
-      }
-    },
-    quickReply: {
-      items: [
-        {
-          type: "action",
-          action: {
-            type: "uri",
-            label: "Mở form",
-            uri: LIFF_URL
-          }
-        },
-        {
-          type: "action",
-          action: {
-            type: "message",
-            label: "Trợ giúp",
-            text: "/help"
-          }
+  var flexMsg = buildGiaoFormFlexMessage();
+  flexMsg.quickReply = {
+    items: [
+      {
+        type: "action",
+        action: {
+          type: "uri",
+          label: "Mở form",
+          uri: LIFF_URL
         }
-      ]
-    }
+      },
+      {
+        type: "action",
+        action: {
+          type: "message",
+          label: "Trợ giúp",
+          text: "/help"
+        }
+      }
+    ]
   };
-
   replyMessages(token, [flexMsg], "LINE giao form flex reply");
 }
 
@@ -1815,25 +1766,8 @@ function SET_DEFAULT_RICH_MENU() {
 }
 
 function replyHuongDanBot(token) {
-  var text =
-    "🤖 GIỚI THIỆU BOT NHẮC VIỆC\n\n" +
-    "Bot dùng để giao việc, nhắc việc và theo dõi tương tác trong nhóm LINE.\n\n" +
-    "📝 Giao việc:\n" +
-    "Quản lý mở form để tạo công việc, chọn nhóm nhận, người phụ trách, thời gian nhắc và hình thức xác nhận.\n\n" +
-    "🔔 Nhắc việc tự động:\n" +
-    "Đến giờ, bot tự gửi thông báo công việc vào nhóm.\n\n" +
-    "✅ Xác nhận hoàn tất:\n" +
-    "Nhân viên bấm Hoàn tất hoặc gửi ảnh nghiệm thu, trạng thái sẽ được cập nhật vào Google Sheet.\n\n" +
-    "📊 Theo dõi tương tác:\n" +
-    "Bot ghi nhận tin nhắn, sticker, ảnh và báo cáo tương tác hôm nay hoặc 7 ngày.\n\n" +
-    "📌 Lệnh nhanh:\n" +
-    "/gv - Mở form giao việc\n" +
-    "/id - Lấy ID nhóm/cá nhân\n" +
-    "/tthomnay - Tương tác hôm nay\n" +
-    "/tt7ngay - Tương tác 7 ngày\n" +
-    "/help - Xem cú pháp";
-
-  sendLineReply(token, text);
+  var flexMsg = buildHdFlexMessage();
+  replyMessages(token, [flexMsg], "LINE guide flex reply");
 }
 
 
@@ -1849,5 +1783,707 @@ function TEST_LIFF_URL() {
     "\n3. Web App đã deploy New version chưa" +
     "\n4. Execute as: Me, Who has access: Anyone"
   );
+}
+
+// ==========================================
+// TÍNH NĂNG FLEX MESSAGE NÂNG CẤP & LỆNH TRA CỨU
+// ==========================================
+
+function getActiveTasksList() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName("Sự kiện");
+  if (!sheet) return [];
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var lastCol = Math.max(sheet.getLastColumn() || 23, 23);
+  return sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+}
+
+function buildHelpFlexMessage() {
+  var bubble = {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#1DB446",
+      paddingAll: "12px",
+      contents: [
+        {
+          type: "text",
+          text: "🤖 TRỢ GIÚP TRA CỨU",
+          color: "#FFFFFF",
+          weight: "bold",
+          size: "sm"
+        }
+      ]
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "md",
+      paddingAll: "14px",
+      contents: [
+        {
+          type: "text",
+          text: "Gửi các cú pháp sau vào khung chat để thực hiện:",
+          size: "xs",
+          color: "#666666"
+        },
+        {
+          type: "separator"
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "📝 /gv", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
+                { type: "text", text: "Mở form giao việc LIFF", size: "xs", color: "#333333", flex: 7 }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "👤 /vieccuatoi", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
+                { type: "text", text: "Xem việc chưa xong của tôi", size: "xs", color: "#333333", flex: 7 }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "📂 /chuaxong", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
+                { type: "text", text: "Danh sách việc chưa hoàn thành", size: "xs", color: "#333333", flex: 7 }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "⚠️ /trehan", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
+                { type: "text", text: "Danh sách việc quá hạn", size: "xs", color: "#333333", flex: 7 }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "📊 /baocao", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
+                { type: "text", text: "Xem báo cáo tiến độ hôm nay", size: "xs", color: "#333333", flex: 7 }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "📖 /hd", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
+                { type: "text", text: "Xem hướng dẫn chi tiết", size: "xs", color: "#333333", flex: 7 }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "🆔 /id", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
+                { type: "text", text: "Lấy Group ID / User ID", size: "xs", color: "#333333", flex: 7 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    footer: {
+      type: "box",
+      layout: "horizontal",
+      spacing: "sm",
+      paddingAll: "10px",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          color: "#1DB446",
+          height: "sm",
+          action: {
+            type: "uri",
+            label: "Giao Việc",
+            uri: LIFF_URL
+          }
+        },
+        {
+          type: "button",
+          style: "secondary",
+          color: "#4B5563",
+          height: "sm",
+          action: {
+            type: "message",
+            label: "Việc Của Tôi",
+            text: "/vieccuatoi"
+          }
+        }
+      ]
+    }
+  };
+  return {
+    type: "flex",
+    altText: "Trợ giúp bot nhắc việc",
+    contents: bubble
+  };
+}
+
+function buildHdFlexMessage() {
+  var bubble = {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#1DB446",
+      paddingAll: "12px",
+      contents: [
+        {
+          type: "text",
+          text: "📖 HƯỚNG DẪN SỬ DỤNG BOT NHẮC VIỆC",
+          color: "#FFFFFF",
+          weight: "bold",
+          size: "sm"
+        }
+      ]
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "md",
+      paddingAll: "14px",
+      contents: [
+        {
+          type: "text",
+          text: "Bot giúp giao việc, nhắc việc và tự động báo cáo tiến độ qua LINE.",
+          size: "xs",
+          color: "#333333",
+          wrap: true
+        },
+        {
+          type: "separator"
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          spacing: "xs",
+          contents: [
+            { type: "text", text: "1. Giao việc nhanh", weight: "bold", size: "xs", color: "#1DB446" },
+            { type: "text", text: "Dùng nút 'Giao Việc' hoặc gửi /gv để mở form điền thông tin người phụ trách, hạn hoàn thành (Deadline) và hình thức xác nhận.", size: "xs", color: "#555555", wrap: true },
+            { type: "text", text: "2. Nhắc việc & Leo thang", weight: "bold", size: "xs", color: "#1DB446", margin: "sm" },
+            { type: "text", text: "Bot tự động nhắc nhở người phụ trách theo tần suất cấu hình. Nếu nhắc >= 3 lần mà chưa xong, bot sẽ tag thêm cả người theo dõi để theo dõi sát sao.", size: "xs", color: "#555555", wrap: true },
+            { type: "text", text: "3. Nghiệm thu & Tương tác", weight: "bold", size: "xs", color: "#1DB446", margin: "sm" },
+            { type: "text", text: "Người phụ trách bấm Hoàn tất hoặc tải ảnh nghiệm thu lên để hoàn tất. Bot tự động lưu giữ lịch sử thực hiện của bạn.", size: "xs", color: "#555555", wrap: true }
+          ]
+        }
+      ]
+    }
+  };
+  return {
+    type: "flex",
+    altText: "Hướng dẫn sử dụng bot",
+    contents: bubble
+  };
+}
+
+function buildMyTasksFlexMessage(uId, uName) {
+  var tasks = getActiveTasksList();
+  var myTasks = [];
+  
+  for (var i = 0; i < tasks.length; i++) {
+    var row = tasks[i];
+    var rowIndex = i + 2;
+    var status = String(row[11] || "").trim();
+    if (status === "Đã gửi" || status === "Đã hủy") continue;
+    
+    var idNV = String(row[6] || "").trim();
+    var assignees = idNV.split(",").map(function(s) { return s.trim(); });
+    
+    if (assignees.indexOf(uId) !== -1) {
+      myTasks.push({
+        rowIndex: rowIndex,
+        name: row[0],
+        deadline: row[15],
+        status: status,
+        priority: row[9]
+      });
+    }
+  }
+  
+  var contents = [];
+  if (myTasks.length === 0) {
+    contents.push({
+      type: "text",
+      text: "🎉 Tuyệt vời! Bạn không có công việc nào chưa hoàn thành.",
+      size: "xs",
+      color: "#666666",
+      wrap: true
+    });
+  } else {
+    myTasks.forEach(function(task, idx) {
+      if (idx > 0) contents.push({ type: "separator", margin: "sm" });
+      
+      var statusColor = "#1DB446";
+      if (task.status === "Quá hạn") statusColor = "#C70039";
+      else if (task.status === "Cần hỗ trợ") statusColor = "#7B61FF";
+      else if (task.status === "Đang làm") statusColor = "#3B82F6";
+      else statusColor = "#F59E0B";
+      
+      contents.push({
+        type: "box",
+        layout: "horizontal",
+        spacing: "sm",
+        margin: "sm",
+        contents: [
+          {
+            type: "text",
+            text: "• " + task.name,
+            size: "xs",
+            color: "#333333",
+            weight: "bold",
+            flex: 5,
+            wrap: true
+          },
+          {
+            type: "text",
+            text: task.status,
+            size: "xxs",
+            color: statusColor,
+            weight: "bold",
+            flex: 2,
+            align: "end"
+          },
+          {
+            type: "text",
+            text: task.deadline ? formatDateTimeDisplay(task.deadline).split(" ")[1] : "N/A",
+            size: "xs",
+            color: "#888888",
+            flex: 2,
+            align: "end"
+          }
+        ]
+      });
+    });
+  }
+  
+  var bubble = {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#3B82F6",
+      paddingAll: "12px",
+      contents: [
+        {
+          type: "text",
+          text: "👤 VIỆC CHƯA XONG CỦA: " + uName.toUpperCase(),
+          color: "#FFFFFF",
+          weight: "bold",
+          size: "sm"
+        }
+      ]
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      paddingAll: "14px",
+      contents: contents
+    }
+  };
+  
+  return {
+    type: "flex",
+    altText: "Việc chưa xong của tôi",
+    contents: bubble
+  };
+}
+
+function buildChuaXongFlexMessage() {
+  var tasks = getActiveTasksList();
+  var pendingTasks = [];
+  
+  for (var i = 0; i < tasks.length; i++) {
+    var row = tasks[i];
+    var status = String(row[11] || "").trim();
+    if (status === "Đã gửi" || status === "Đã hủy") continue;
+    
+    pendingTasks.push({
+      name: row[0],
+      assignee: resolveMemberNamesList(row[6]),
+      deadline: row[15],
+      status: status
+    });
+  }
+  
+  var contents = [];
+  if (pendingTasks.length === 0) {
+    contents.push({
+      type: "text",
+      text: "🎉 Tất cả công việc trong nhóm đã hoàn thành!",
+      size: "xs",
+      color: "#666666",
+      wrap: true
+    });
+  } else {
+    pendingTasks.forEach(function(task, idx) {
+      if (idx > 0) contents.push({ type: "separator", margin: "sm" });
+      
+      var statusColor = "#1DB446";
+      if (task.status === "Quá hạn") statusColor = "#C70039";
+      else if (task.status === "Cần hỗ trợ") statusColor = "#7B61FF";
+      else if (task.status === "Đang làm") statusColor = "#3B82F6";
+      else statusColor = "#F59E0B";
+      
+      contents.push({
+        type: "box",
+        layout: "vertical",
+        margin: "sm",
+        spacing: "xs",
+        contents: [
+          {
+            type: "box",
+            layout: "horizontal",
+            contents: [
+              {
+                type: "text",
+                text: "• " + task.name,
+                size: "xs",
+                color: "#333333",
+                weight: "bold",
+                flex: 7,
+                wrap: true
+              },
+              {
+                type: "text",
+                text: task.status,
+                size: "xxs",
+                color: statusColor,
+                weight: "bold",
+                flex: 3,
+                align: "end"
+              }
+            ]
+          },
+          {
+            type: "box",
+            layout: "horizontal",
+            contents: [
+              {
+                type: "text",
+                text: "👤: " + task.assignee,
+                size: "xxs",
+                color: "#666666",
+                flex: 6,
+                wrap: true
+              },
+              {
+                type: "text",
+                text: "⏰: " + (task.deadline ? formatDateTimeDisplay(task.deadline) : "N/A"),
+                size: "xxs",
+                color: "#888888",
+                flex: 4,
+                align: "end"
+              }
+            ]
+          }
+        ]
+      });
+    });
+  }
+  
+  var bubble = {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#F59E0B",
+      paddingAll: "12px",
+      contents: [
+        {
+          type: "text",
+          text: "📂 TOÀN BỘ CÔNG VIỆC CHƯA XONG",
+          color: "#FFFFFF",
+          weight: "bold",
+          size: "sm"
+        }
+      ]
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      paddingAll: "14px",
+      contents: contents
+    }
+  };
+  
+  return {
+    type: "flex",
+    altText: "Danh sách công việc chưa xong",
+    contents: bubble
+  };
+}
+
+function buildTreHanFlexMessage() {
+  var tasks = getActiveTasksList();
+  var overdueTasks = [];
+  
+  for (var i = 0; i < tasks.length; i++) {
+    var row = tasks[i];
+    var status = String(row[11] || "").trim();
+    if (status === "Quá hạn") {
+      overdueTasks.push({
+        name: row[0],
+        assignee: resolveMemberNamesList(row[6]),
+        deadline: row[15]
+      });
+    }
+  }
+  
+  var contents = [];
+  if (overdueTasks.length === 0) {
+    contents.push({
+      type: "text",
+      text: "✅ Tuyệt vời! Nhóm không có công việc nào trễ hạn.",
+      size: "xs",
+      color: "#666666",
+      wrap: true
+    });
+  } else {
+    overdueTasks.forEach(function(task, idx) {
+      if (idx > 0) contents.push({ type: "separator", margin: "sm" });
+      
+      contents.push({
+        type: "box",
+        layout: "vertical",
+        margin: "sm",
+        spacing: "xs",
+        contents: [
+          {
+            type: "text",
+            text: "🚨 " + task.name,
+            size: "xs",
+            color: "#C70039",
+            weight: "bold",
+            wrap: true
+          },
+          {
+            type: "box",
+            layout: "horizontal",
+            contents: [
+              {
+                type: "text",
+                text: "👤: " + task.assignee,
+                size: "xxs",
+                color: "#666666",
+                flex: 6,
+                wrap: true
+              },
+              {
+                type: "text",
+                text: "Hạn: " + (task.deadline ? formatDateTimeDisplay(task.deadline) : "N/A"),
+                size: "xxs",
+                color: "#C70039",
+                weight: "bold",
+                flex: 4,
+                align: "end"
+              }
+            ]
+          }
+        ]
+      });
+    });
+  }
+  
+  var bubble = {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#C70039",
+      paddingAll: "12px",
+      contents: [
+        {
+          type: "text",
+          text: "⚠️ DANH SÁCH CÔNG VIỆC TRỄ HẠN",
+          color: "#FFFFFF",
+          weight: "bold",
+          size: "sm"
+        }
+      ]
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      paddingAll: "14px",
+      contents: contents
+    }
+  };
+  
+  return {
+    type: "flex",
+    altText: "Danh sách công việc trễ hạn",
+    contents: bubble
+  };
+}
+
+function buildBaoCaoCuoiNgayFlexMessage() {
+  var tasks = getActiveTasksList();
+  
+  var total = 0;
+  var completed = 0;
+  var overdue = 0;
+  var support = 0;
+  var doing = 0;
+  var pending = 0;
+  var canceled = 0;
+  
+  for (var i = 0; i < tasks.length; i++) {
+    var row = tasks[i];
+    if (String(row[0]).trim() === "") continue;
+    total++;
+    var status = String(row[11] || "").trim();
+    if (status === "Đã gửi") completed++;
+    else if (status === "Quá hạn") overdue++;
+    else if (status === "Cần hỗ trợ") support++;
+    else if (status === "Đang làm") doing++;
+    else if (status === "Đã hủy") canceled++;
+    else pending++;
+  }
+  
+  var bubble = {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#1DB446",
+      paddingAll: "12px",
+      contents: [
+        {
+          type: "text",
+          text: "📊 BÁO CÁO TIẾN ĐỘ CÔNG VIỆC",
+          color: "#FFFFFF",
+          weight: "bold",
+          size: "sm"
+        }
+      ]
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "md",
+      paddingAll: "14px",
+      contents: [
+        {
+          type: "text",
+          text: "Tổng hợp trạng thái công việc trong hệ thống:",
+          size: "xs",
+          color: "#666666"
+        },
+        {
+          type: "separator"
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "📊 Tổng số công việc", size: "xs", color: "#333333", flex: 7 },
+                { type: "text", text: String(total), size: "xs", weight: "bold", color: "#333333", flex: 3, align: "end" }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "🎉 Đã hoàn thành", size: "xs", color: "#1DB446", flex: 7 },
+                { type: "text", text: String(completed), size: "xs", weight: "bold", color: "#1DB446", flex: 3, align: "end" }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "⚡ Đang tiến hành", size: "xs", color: "#3B82F6", flex: 7 },
+                { type: "text", text: String(doing), size: "xs", weight: "bold", color: "#3B82F6", flex: 3, align: "end" }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "🆘 Cần hỗ trợ", size: "xs", color: "#7B61FF", flex: 7 },
+                { type: "text", text: String(support), size: "xs", weight: "bold", color: "#7B61FF", flex: 3, align: "end" }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "⏳ Đang chờ xác nhận/ảnh", size: "xs", color: "#F59E0B", flex: 7 },
+                { type: "text", text: String(pending), size: "xs", weight: "bold", color: "#F59E0B", flex: 3, align: "end" }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "⚠️ Đã quá hạn", size: "xs", color: "#C70039", flex: 7 },
+                { type: "text", text: String(overdue), size: "xs", weight: "bold", color: "#C70039", flex: 3, align: "end" }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "🚫 Đã hủy", size: "xs", color: "#999999", flex: 7 },
+                { type: "text", text: String(canceled), size: "xs", weight: "bold", color: "#999999", flex: 3, align: "end" }
+              ]
+            }
+          ]
+        },
+        {
+          type: "separator"
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            {
+              type: "text",
+              text: "Tỷ lệ hoàn thành: " + (total > 0 ? Math.round((completed / total) * 100) : 0) + "%",
+              size: "xs",
+              weight: "bold",
+              color: "#1DB446"
+            }
+          ]
+        }
+      ]
+    }
+  };
+  
+  return {
+    type: "flex",
+    altText: "Báo cáo cuối ngày",
+    contents: bubble
+  };
 }
 
