@@ -518,8 +518,17 @@
               logMsg("Chưa đăng nhập LIFF, gọi liff.login()...");
               liff.login();
             } else {
-              logMsg("Đã đăng nhập LIFF, tải danh sách...");
-              loadDropdownLists();
+              logMsg("Đã đăng nhập LIFF, lấy profile...");
+              liff.getProfile()
+                .then(profile => {
+                  window.currentLiffUserId = profile.userId;
+                  logMsg("Lấy được userId: " + window.currentLiffUserId);
+                  loadDropdownLists();
+                })
+                .catch(profErr => {
+                  logMsg("Lỗi lấy profile: " + profErr.toString());
+                  loadDropdownLists();
+                });
             }
           })
           .catch((err) => {
