@@ -909,7 +909,6 @@
       console.log(msg);
     }
     
-    // Đặt mặc định cho ô Ngày giờ gửi là thời gian hiện tại theo múi giờ local
     window.addEventListener('load', () => {
       try {
         logMsg("Window Loaded.");
@@ -917,6 +916,16 @@
         const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
         document.getElementById('ngayGio').value = localISOTime;
         logMsg("Set local date success.");
+        
+        // Render chips & presets
+        renderTemplateChips();
+        setupTimePresets();
+        
+        // Toggle debug logs if query param is set
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('debug') === 'true') {
+          document.getElementById('debugLog').style.display = 'block';
+        }
         
         // Khởi chạy LIFF
         initLiff();
