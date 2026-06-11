@@ -335,7 +335,15 @@
       </div>
 
       <div class="form-group">
-        <label for="linkAnh">Link ảnh đính kèm</label>
+        <label for="imageFile">Ảnh đính kèm</label>
+        <input type="file" id="imageFile" accept="image/*">
+        <small style="display:block;margin-top:6px;color:var(--text-secondary);font-size:12px;">
+          Có thể chọn ảnh trực tiếp. Nếu không chọn, có thể dán link bên dưới.
+        </small>
+      </div>
+
+      <div class="form-group">
+        <label for="linkAnh">Hoặc dán link ảnh</label>
         <input type="url" id="linkAnh" placeholder="https://example.com/image.jpg (Không bắt buộc)">
       </div>
 
