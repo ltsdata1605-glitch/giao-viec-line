@@ -292,7 +292,122 @@
     .checkbox-item input[type="checkbox"] {
       width: auto;
       cursor: pointer;
-      margin: 0;
+    /* Form Sections */
+    .form-section {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-left: 3px solid var(--primary);
+      padding-left: 8px;
+    }
+
+    /* Chips Group & Chip */
+    .chips-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .chip {
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 8px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: var(--transition);
+      color: var(--text-secondary);
+      user-select: none;
+    }
+    .chip:hover {
+      border-color: var(--primary-glow);
+    }
+    .chip.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      font-weight: 500;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
+
+    /* Confirm Modal Details */
+    .confirm-details {
+      text-align: left;
+      margin: 16px 0 24px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      padding: 14px;
+      border: 1px solid var(--border-color);
+    }
+    .confirm-row {
+      display: flex;
+      margin-bottom: 10px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .confirm-row:last-child {
+      margin-bottom: 0;
+    }
+    .confirm-label {
+      flex: 2;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .confirm-val {
+      flex: 3;
+      color: var(--text-main);
+      font-weight: 600;
+      word-break: break-word;
+    }
+    .modal-btn-group {
+      display: flex;
+      gap: 12px;
+    }
+    .btn-secondary {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    .btn-primary {
+      flex: 1;
+      background: linear-gradient(135deg, #1db446 0%, #17983b 100%);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+    .btn-primary:hover {
+      box-shadow: 0 6px 16px rgba(29, 180, 70, 0.5);
+    }
+    
+    /* Default hide debug log */
+    #debugLog {
+      display: none;
     }
   </style>
 </head>
@@ -309,124 +424,181 @@
       ⚠️ <strong>CẢNH BÁO:</strong> Chưa cấu hình <code>LIFF_ID</code> trong <i>Script Properties</i>.
     </div>
 
-    <form id="liffForm" onsubmit="submitForm(event)">
+    <!-- Quick Templates Section -->
+    <div class="form-group" style="margin-bottom: 24px;">
+      <label style="font-size: 14px; font-weight: 600; color: var(--primary);">Mẫu công việc nhanh (Click chọn)</label>
+      <div class="chips-group" id="templateChips">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <form id="liffForm" onsubmit="showConfirmModal(event)">
       
-      <div class="form-group">
-        <label for="ten">Tên sự kiện <span style="color: var(--danger)">*</span></label>
-        <input type="text" id="ten" required placeholder="Ví dụ: Họp tuần đột xuất, Nghiệm thu thiết kế...">
-      </div>
-
-      <div class="form-group">
-        <label for="noiDung">Nội dung chi tiết</label>
-        <textarea id="noiDung" placeholder="Nội dung, công việc cần triển khai..."></textarea>
-      </div>
-
-      <div class="form-row">
+      <!-- Section 1: Thông tin công việc -->
+      <div class="form-section">
+        <div class="section-title">1. Thông tin công việc</div>
+        
         <div class="form-group">
-          <label for="ngayGio">Ngày giờ gửi <span style="color: var(--danger)">*</span></label>
-          <input type="datetime-local" id="ngayGio" required>
+          <label for="ten">Tên sự kiện <span style="color: var(--danger)">*</span></label>
+          <input type="text" id="ten" required placeholder="Ví dụ: Họp tuần đột xuất, Nghiệm thu thiết kế...">
         </div>
+
         <div class="form-group">
-          <label for="lapLai">Lặp lại</label>
-          <select id="lapLai">
-            <option value="Không">Không</option>
-            <option value="Hàng giờ">Hàng giờ</option>
-            <option value="Hàng ngày">Hàng ngày</option>
-            <option value="Hàng tuần">Hàng tuần</option>
+          <label for="noiDung">Nội dung chi tiết</label>
+          <textarea id="noiDung" placeholder="Nội dung, công việc cần triển khai..."></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="loaiCV">Loại công việc</label>
+            <select id="loaiCV">
+              <option value="Khác">Khác</option>
+              <option value="Bán hàng">Bán hàng</option>
+              <option value="Kiểm kê">Kiểm kê</option>
+              <option value="Truyền thông">Truyền thông</option>
+              <option value="KTSP">KTSP</option>
+              <option value="Vận hành">Vận hành</option>
+              <option value="CVST">CVST</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="doUuTien">Độ ưu tiên</label>
+            <select id="doUuTien">
+              <option value="Bình thường">Bình thường</option>
+              <option value="Quan trọng">🍊 Quan trọng</option>
+              <option value="GẤP">🚨 GẤP</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Người nhận & Người giao -->
+      <div class="form-section">
+        <div class="section-title">2. Phân công & Người nhận</div>
+        
+        <div class="form-group">
+          <label for="idGroup">Nhóm nhận <span style="color: var(--danger)">*</span> <span id="loadingGroups" class="loading-text">(Đang tải...)</span></label>
+          <select id="idGroup" required disabled>
+            <option value="" disabled selected>Chọn nhóm nhận việc...</option>
           </select>
         </div>
-      </div>
 
-      <div class="form-row">
         <div class="form-group">
-          <label for="deadline">Hạn hoàn thành (Deadline)</label>
-          <input type="datetime-local" id="deadline">
-        </div>
-        <div class="form-group">
-          <label for="loaiCV">Loại công việc</label>
-          <select id="loaiCV">
-            <option value="Khác">Khác</option>
-            <option value="Bán hàng">Bán hàng</option>
-            <option value="Kiểm kê">Kiểm kê</option>
-            <option value="Truền thông">Truyền thông</option>
-            <option value="KTSP">KTSP</option>
-            <option value="Vận hành">Vận hành</option>
-            <option value="CVST">CVST</option>
+          <label for="idAssigner">Người giao việc <span id="loadingAssigner" class="loading-text">(Đang tải...)</span></label>
+          <select id="idAssigner" disabled>
+            <option value="">Chọn người giao việc...</option>
           </select>
         </div>
-      </div>
 
-      <div class="form-group">
-        <label for="idGroup">Nhóm nhận <span style="color: var(--danger)">*</span> <span id="loadingGroups" class="loading-text">(Đang tải...)</span></label>
-        <select id="idGroup" required disabled>
-          <option value="" disabled selected>Chọn nhóm nhận việc...</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="idAssigner">Người giao việc <span id="loadingAssigner" class="loading-text">(Đang tải...)</span></label>
-        <select id="idAssigner" disabled>
-          <option value="">Chọn người giao việc...</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label>Người phụ trách <span id="loadingMembers" class="loading-text">(Đang tải...)</span></label>
-        <div id="idMemberContainer" class="checkbox-list-container">
-          <!-- Dynamically populated checklist -->
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Người theo dõi <span id="loadingFollowers" class="loading-text">(Đang tải...)</span></label>
-        <div id="idFollowerContainer" class="checkbox-list-container">
-          <!-- Dynamically populated checklist -->
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="imageFile">Ảnh đính kèm</label>
-        <input type="file" id="imageFile" accept="image/*">
-        <small style="display:block;margin-top:6px;color:var(--text-secondary);font-size:12px;">
-          Có thể chọn ảnh trực tiếp. Nếu không chọn, có thể dán link bên dưới.
-        </small>
-      </div>
-
-      <div class="form-group">
-        <label for="linkAnh">Hoặc dán link ảnh</label>
-        <input type="url" id="linkAnh" placeholder="https://example.com/image.jpg (Không bắt buộc)">
-      </div>
-
-      <div class="form-row">
         <div class="form-group">
-          <label for="hinhThucXN">Yêu cầu nghiệm thu</label>
-          <select id="hinhThucXN">
-            <option value="Bấm nút">Bấm hoàn tất</option>
-            <option value="Gửi ảnh">Gửi ảnh</option>
-            <option value="Gửi ảnh + ghi chú">Gửi ảnh + ghi chú</option>
-            <option value="Không">Không cần</option>
-          </select>
+          <label>Người phụ trách <span id="loadingMembers" class="loading-text">(Đang tải...)</span></label>
+          <div id="idMemberContainer" class="checkbox-list-container">
+            <!-- Dynamically populated checklist -->
+          </div>
         </div>
+
         <div class="form-group">
-          <label for="doUuTien">Độ ưu tiên</label>
-          <select id="doUuTien">
-            <option value="Bình thường">Bình thường</option>
-            <option value="Quan trọng">🍊 Quan trọng</option>
-            <option value="GẤP">🚨 GẤP</option>
-          </select>
+          <label>Người theo dõi <span id="loadingFollowers" class="loading-text">(Đang tải...)</span></label>
+          <div id="idFollowerContainer" class="checkbox-list-container">
+            <!-- Dynamically populated checklist -->
+          </div>
         </div>
       </div>
 
-      <div class="form-row">
-        <div class="form-group" style="grid-column: span 2;">
-          <label for="tanSuat">Tần suất nhắc (phút)</label>
-          <input type="number" id="tanSuat" min="5" value="15">
+      <!-- Section 3: Thời gian -->
+      <div class="form-section">
+        <div class="section-title">3. Thời gian nhắc việc</div>
+        
+        <div class="form-group">
+          <label>Chọn nhanh thời gian nhắc</label>
+          <div class="chips-group" id="timePresets">
+            <div class="chip active" data-preset="now">Gửi ngay</div>
+            <div class="chip" data-preset="15m">Sau 15 phút</div>
+            <div class="chip" data-preset="30m">Sau 30 phút</div>
+            <div class="chip" data-preset="17h">Hôm nay 17:00</div>
+            <div class="chip" data-preset="8h">Ngày mai 08:00</div>
+            <div class="chip" data-preset="custom">Tùy chọn</div>
+          </div>
+        </div>
+
+        <!-- Custom Time Inputs Group (hidden by default unless Custom is clicked) -->
+        <div id="customTimeGroup" style="display: none; animation: fadeIn 0.3s ease;">
+          <div class="form-row">
+            <div class="form-group" style="grid-column: span 2;">
+              <label for="ngayGio">Ngày giờ gửi nhắc <span style="color: var(--danger)">*</span></label>
+              <input type="datetime-local" id="ngayGio" required>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="deadline">Hạn hoàn thành (Deadline)</label>
+            <input type="datetime-local" id="deadline">
+          </div>
+          <div class="form-group">
+            <label for="lapLai">Lặp lại</label>
+            <select id="lapLai">
+              <option value="Không">Không</option>
+              <option value="Hàng giờ">Hàng giờ</option>
+              <option value="Hàng ngày">Hàng ngày</option>
+              <option value="Hàng tuần">Hàng tuần</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      <div class="form-group">
-        <label for="ghiChu">Ghi chú thêm</label>
-        <textarea id="ghiChu" placeholder="Ghi chú thêm cho người phụ trách..."></textarea>
+      <!-- Section 4: Nghiệm thu -->
+      <div class="form-section">
+        <div class="section-title">4. Nghiệm thu & Nhắc nhở</div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="hinhThucXN">Yêu cầu nghiệm thu</label>
+            <select id="hinhThucXN" onchange="toggleNghieMthuInfo()">
+              <option value="Bấm nút">Bấm hoàn tất</option>
+              <option value="Gửi ảnh">Gửi ảnh</option>
+              <option value="Gửi ảnh + ghi chú">Gửi ảnh + ghi chú</option>
+              <option value="Không">Không cần</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="tanSuat">Tần suất nhắc (phút)</label>
+            <input type="number" id="tanSuat" min="5" value="15">
+          </div>
+        </div>
+        
+        <div id="nghieMthuInfo" style="display: none; margin-top: 10px; padding: 10px; background: rgba(245, 158, 11, 0.15); border: 1px dashed #f59e0b; border-radius: 8px; font-size: 12px; color: #fef3c7;">
+          💡 <strong>Nghiệm thu đặc biệt:</strong> Người phụ trách sẽ cần gửi 1 ảnh nghiệm thu trước, sau đó gửi tin nhắn ghi chú nghiệm thu tiếp theo để hoàn thành nhiệm vụ này.
+        </div>
+      </div>
+
+      <!-- Section 5: Ảnh đính kèm -->
+      <div class="form-section">
+        <div class="section-title">5. Ảnh đính kèm gợi ý</div>
+        
+        <div class="form-group">
+          <label for="imageFile">Ảnh đính kèm gợi ý</label>
+          <input type="file" id="imageFile" accept="image/*">
+          <small style="display:block;margin-top:6px;color:var(--text-secondary);font-size:12px;">
+            Có thể chọn ảnh trực tiếp. Nếu không chọn, có thể dán link bên dưới.
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="linkAnh">Hoặc dán link ảnh</label>
+          <input type="url" id="linkAnh" placeholder="https://example.com/image.jpg (Không bắt buộc)">
+        </div>
+      </div>
+
+      <!-- Section 6: Ghi chú -->
+      <div class="form-section">
+        <div class="section-title">6. Ghi chú thêm</div>
+        
+        <div class="form-group">
+          <label for="ghiChu">Ghi chú thêm</label>
+          <textarea id="ghiChu" placeholder="Ghi chú thêm cho người phụ trách..."></textarea>
+        </div>
       </div>
 
       <button type="submit" id="btnSubmit" class="btn-submit" disabled>
@@ -441,14 +613,35 @@
     </div>
   </div>
 
+  <!-- Modal Confirmation -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-card" style="max-width: 450px;">
+      <h2 class="modal-title">Xác Nhận Công Việc</h2>
+      <p class="modal-desc" style="margin-bottom: 12px;">Vui lòng kiểm tra lại thông tin trước khi tạo:</p>
+      
+      <div class="confirm-details" id="confirmDetails">
+        <!-- Javascript will render details here -->
+      </div>
+      
+      <div class="modal-btn-group">
+        <button type="button" class="btn-secondary" onclick="closeConfirmModal()">Quay lại</button>
+        <button type="button" class="btn-primary" onclick="executeSubmitForm()">Xác nhận gửi</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Success -->
   <div class="modal-overlay" id="successModal">
     <div class="modal-card">
       <div class="success-icon-wrap">
         <span class="success-icon">✓</span>
       </div>
-      <h2 class="modal-title">Giao Việc Thành Công!</h2>
-      <p class="modal-desc">Công việc mới đã được ghi nhận. Cửa sổ này sẽ tự động đóng sau giây lát...</p>
+      <h2 class="modal-title" style="color: #38ef7d;">Tạo Thành Công!</h2>
+      <p class="modal-desc" style="margin-bottom: 24px;">Công việc mới đã được ghi nhận vào hệ thống.</p>
+      <div class="modal-btn-group" style="flex-direction: column; gap: 10px;">
+        <button type="button" class="btn-primary" style="width: 100%;" onclick="createNewTaskPreset()">Tạo tiếp việc mới</button>
+        <button type="button" class="btn-secondary" style="width: 100%;" onclick="closeLiffForm()">Đóng form</button>
+      </div>
     </div>
   </div>
 
@@ -461,6 +654,252 @@
     // Nhúng URL Web App tự động (Kèm fallback link chính thức của bạn)
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwt7wU2EeCGWsGCPhJhFTehtqA3vqzgBoy9dHv11RRZU0KbX3X7KW1-LuivVmpr31lG/exec";
     
+    const QUICK_TEMPLATES = {
+      "Truyền thông Rush": {
+        ten: "Truyền thông Rush",
+        noiDung: "Đăng bài truyền thông gấp lên các kênh và báo cáo kết quả tương tác.",
+        loaiCV: "Truyền thông",
+        doUuTien: "GẤP",
+        hinhThucXN: "Bấm nút"
+      },
+      "Kiểm tra tồn": {
+        ten: "Kiểm tra tồn kho",
+        noiDung: "Đối chiếu số lượng tồn kho thực tế của các mặt hàng chủ chốt so với hệ thống.",
+        loaiCV: "Kiểm kê",
+        doUuTien: "Bình thường",
+        hinhThucXN: "Gửi ảnh"
+      },
+      "Chụp ảnh trưng bày": {
+        ten: "Chụp ảnh trưng bày quầy kệ",
+        noiDung: "Chụp ảnh khu trưng bày mặt tiền, đảm bảo sản phẩm ngăn nắp và đúng tiêu chuẩn.",
+        loaiCV: "Kiểm kê",
+        doUuTien: "Bình thường",
+        hinhThucXN: "Gửi ảnh"
+      },
+      "Nhắc họp đầu ca": {
+        ten: "Nhắc họp giao ban đầu ca",
+        noiDung: "Tập hợp đội ngũ đầu ca, phổ biến mục tiêu doanh số và phân chia vị trí.",
+        loaiCV: "Vận hành",
+        doUuTien: "Quan trọng",
+        hinhThucXN: "Bấm nút"
+      },
+      "Hoàn tất báo cáo": {
+        ten: "Hoàn tất báo cáo ngày",
+        noiDung: "Tổng hợp số liệu doanh số bán hàng, bàn giao quỹ và ghi nhận vấn đề phát sinh.",
+        loaiCV: "Bán hàng",
+        doUuTien: "Quan trọng",
+        hinhThucXN: "Bấm nút"
+      },
+      "Kiểm tra quầy kệ": {
+        ten: "Kiểm tra vệ sinh quầy kệ",
+        noiDung: "Kiểm tra vệ sinh và lau dọn quầy kệ trưng bày sản phẩm.",
+        loaiCV: "Vận hành",
+        doUuTien: "Bình thường",
+        hinhThucXN: "Gửi ảnh"
+      },
+      "Gọi khách hẹn nhận hàng": {
+        ten: "Gọi điện khách hẹn lấy hàng",
+        noiDung: "Liên hệ khách hàng thông báo hàng đã về và hẹn giờ qua cửa hàng nhận.",
+        loaiCV: "Bán hàng",
+        doUuTien: "Bình thường",
+        hinhThucXN: "Bấm nút"
+      },
+      "Chăm sóc khách sau bán": {
+        ten: "Chăm sóc khách hàng sau mua",
+        noiDung: "Gọi điện hỏi thăm trải nghiệm sản phẩm của khách mua tuần trước.",
+        loaiCV: "Bán hàng",
+        doUuTien: "Bình thường",
+        hinhThucXN: "Bấm nút"
+      }
+    };
+
+    function renderTemplateChips() {
+      const container = document.getElementById('templateChips');
+      if (!container) return;
+      container.innerHTML = '';
+      Object.keys(QUICK_TEMPLATES).forEach(key => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.textContent = key;
+        chip.addEventListener('click', () => {
+          container.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          const t = QUICK_TEMPLATES[key];
+          document.getElementById('ten').value = t.ten;
+          document.getElementById('noiDung').value = t.noiDung;
+          document.getElementById('loaiCV').value = t.loaiCV;
+          document.getElementById('doUuTien').value = t.doUuTien;
+          document.getElementById('hinhThucXN').value = t.hinhThucXN;
+          toggleNghieMthuInfo();
+        });
+        container.appendChild(chip);
+      });
+    }
+
+    function setupTimePresets() {
+      const chips = document.querySelectorAll('#timePresets .chip');
+      chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          chips.forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          
+          const preset = chip.getAttribute('data-preset');
+          const customGroup = document.getElementById('customTimeGroup');
+          
+          if (preset === 'custom') {
+            customGroup.style.display = 'block';
+          } else {
+            customGroup.style.display = 'none';
+            const now = new Date();
+            let targetTime = new Date(now.getTime());
+            
+            if (preset === '15m') {
+              targetTime.setMinutes(now.getMinutes() + 15);
+            } else if (preset === '30m') {
+              targetTime.setMinutes(now.getMinutes() + 30);
+            } else if (preset === '17h') {
+              targetTime.setHours(17, 0, 0, 0);
+              if (targetTime < now) {
+                targetTime.setDate(now.getDate() + 1);
+              }
+            } else if (preset === '8h') {
+              targetTime.setDate(now.getDate() + 1);
+              targetTime.setHours(8, 0, 0, 0);
+            } // preset 'now' keeps current time
+            
+            const tzoffset = targetTime.getTimezoneOffset() * 60000;
+            const localISOTime = (new Date(targetTime - tzoffset)).toISOString().slice(0, 16);
+            document.getElementById('ngayGio').value = localISOTime;
+          }
+        });
+      });
+    }
+
+    function toggleNghieMthuInfo() {
+      const val = document.getElementById('hinhThucXN').value;
+      const info = document.getElementById('nghieMthuInfo');
+      if (val === 'Gửi ảnh + ghi chú') {
+        info.style.display = 'block';
+      } else {
+        info.style.display = 'none';
+      }
+    }
+
+    function showConfirmModal(event) {
+      event.preventDefault();
+      
+      const ten = document.getElementById('ten').value.trim();
+      const idGroup = document.getElementById('idGroup').value;
+      const ngayGio = document.getElementById('ngayGio').value;
+      
+      if (!ten) {
+        alert("❌ Tên sự kiện không được để trống!");
+        return;
+      }
+      if (!idGroup) {
+        alert("❌ Vui lòng chọn Nhóm nhận việc!");
+        return;
+      }
+      if (!ngayGio) {
+        alert("❌ Vui lòng chọn Thời gian gửi nhắc!");
+        return;
+      }
+      
+      const groupSelect = document.getElementById('idGroup');
+      const groupName = groupSelect.options[groupSelect.selectedIndex].text;
+      
+      const assignees = [];
+      document.querySelectorAll('input[name="idMemberCheckbox"]:checked').forEach(cb => {
+        const labelText = cb.parentElement.textContent.trim();
+        assignees.push(labelText);
+      });
+      const assigneesStr = assignees.length > 0 ? assignees.join(', ') : 'Chưa phân công';
+      
+      const presetActive = document.querySelector('#timePresets .chip.active');
+      const timeLabel = presetActive ? presetActive.textContent : 'Tùy chọn';
+      const actualTime = document.getElementById('ngayGio').value.replace('T', ' ');
+      
+      const deadlineVal = document.getElementById('deadline').value;
+      const deadlineStr = deadlineVal ? deadlineVal.replace('T', ' ') : '(Giống giờ gửi nhắc)';
+      
+      const xnSelect = document.getElementById('hinhThucXN');
+      const xnLabel = xnSelect.options[xnSelect.selectedIndex].text;
+      
+      const detailsHtml = `
+        <div class="confirm-row">
+          <div class="confirm-label">Tên công việc</div>
+          <div class="confirm-val">${ten}</div>
+        </div>
+        <div class="confirm-row">
+          <div class="confirm-label">Nhóm nhận</div>
+          <div class="confirm-val">${groupName}</div>
+        </div>
+        <div class="confirm-row">
+          <div class="confirm-label">Phụ trách</div>
+          <div class="confirm-val">${assigneesStr}</div>
+        </div>
+        <div class="confirm-row">
+          <div class="confirm-label">Thời gian nhắc</div>
+          <div class="confirm-val">${actualTime} (${timeLabel})</div>
+        </div>
+        <div class="confirm-row">
+          <div class="confirm-label">Hạn hoàn thành</div>
+          <div class="confirm-val">${deadlineStr}</div>
+        </div>
+        <div class="confirm-row">
+          <div class="confirm-label">Nghiệm thu</div>
+          <div class="confirm-val">${xnLabel}</div>
+        </div>
+      `;
+      
+      document.getElementById('confirmDetails').innerHTML = detailsHtml;
+      document.getElementById('confirmModal').classList.add('active');
+    }
+
+    function closeConfirmModal() {
+      document.getElementById('confirmModal').classList.remove('active');
+    }
+
+    function closeLiffForm() {
+      if (typeof liff !== 'undefined' && liff.isInClient()) {
+        liff.closeWindow();
+      } else {
+        document.getElementById('successModal').classList.remove('active');
+        alert("Bạn có thể đóng tab trình duyệt này.");
+      }
+    }
+
+    function createNewTaskPreset() {
+      document.getElementById('successModal').classList.remove('active');
+      
+      document.getElementById('liffForm').reset();
+      
+      document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+      
+      const container = document.getElementById('templateChips');
+      if (container) {
+        container.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      }
+      
+      const timeChips = document.querySelectorAll('#timePresets .chip');
+      timeChips.forEach(c => c.classList.remove('active'));
+      if (timeChips[0]) timeChips[0].classList.add('active');
+      document.getElementById('customTimeGroup').style.display = 'none';
+      
+      const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+      document.getElementById('ngayGio').value = localISOTime;
+      
+      const btn = document.getElementById('btnSubmit');
+      const spinner = document.getElementById('btnSpinner');
+      const btnText = document.getElementById('btnText');
+      btn.disabled = false;
+      spinner.style.display = 'none';
+      btnText.textContent = "Tạo Công Việc";
+      
+      toggleNghieMthuInfo();
+    }
+
     function logMsg(msg) {
       const logDiv = document.getElementById('debugLog');
       if (logDiv) {
@@ -470,7 +909,6 @@
       console.log(msg);
     }
     
-    // Đặt mặc định cho ô Ngày giờ gửi là thời gian hiện tại theo múi giờ local
     window.addEventListener('load', () => {
       try {
         logMsg("Window Loaded.");
@@ -478,6 +916,16 @@
         const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
         document.getElementById('ngayGio').value = localISOTime;
         logMsg("Set local date success.");
+        
+        // Render chips & presets
+        renderTemplateChips();
+        setupTimePresets();
+        
+        // Toggle debug logs if query param is set
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('debug') === 'true') {
+          document.getElementById('debugLog').style.display = 'block';
+        }
         
         // Khởi chạy LIFF
         initLiff();
@@ -709,9 +1157,10 @@
       });
     }
 
-    // Submit form qua POST fetch
-    async function submitForm(event) {
-      event.preventDefault();
+    // Submit form qua POST fetch (gọi từ Modal xác nhận)
+    async function executeSubmitForm() {
+      // Đóng modal xác nhận
+      closeConfirmModal();
       
       const btn = document.getElementById('btnSubmit');
       const spinner = document.getElementById('btnSpinner');
@@ -719,8 +1168,8 @@
 
       // Lock nút và chạy spinner
       btn.disabled = true;
-      spinner.style.display = 'inline-block';
-      btnText.textContent = "Đang xử lý...";
+      if (spinner) spinner.style.display = 'inline-block';
+      if (btnText) btnText.textContent = "Đang tạo công việc...";
 
       try {
         const imageFile = await readImageFileAsBase64();
@@ -764,6 +1213,7 @@
           apiUrl = window.location.href.split('?')[0].split('#')[0];
         }
 
+        logMsg("Bắt đầu gửi request tạo công việc...");
         fetch(apiUrl, {
           method: "POST",
           body: JSON.stringify(payload)
@@ -787,25 +1237,12 @@
 
       if (res.success) {
         document.getElementById('successModal').classList.add('active');
-        
-        setTimeout(() => {
-          if (typeof liff !== 'undefined' && liff.isInClient()) {
-            liff.closeWindow();
-          } else {
-            document.getElementById('successModal').classList.remove('active');
-            document.getElementById('liffForm').reset();
-            btn.disabled = false;
-            spinner.style.display = 'none';
-            btnText.textContent = "Tạo Công Việc";
-            alert("✅ " + res.message);
-          }
-        }, 2200);
-
+        logMsg("Tạo công việc thành công.");
       } else {
         alert("❌ Lỗi: " + res.message);
         btn.disabled = false;
-        spinner.style.display = 'none';
-        btnText.textContent = "Tạo Công Việc";
+        if (spinner) spinner.style.display = 'none';
+        if (btnText) btnText.textContent = "Tạo Công Việc";
       }
     }
 
@@ -817,8 +1254,8 @@
       const spinner = document.getElementById('btnSpinner');
       const btnText = document.getElementById('btnText');
       btn.disabled = false;
-      spinner.style.display = 'none';
-      btnText.textContent = "Tạo Công Việc";
+      if (spinner) spinner.style.display = 'none';
+      if (btnText) btnText.textContent = "Tạo Công Việc";
     }
   </script>
 </body>
