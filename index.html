@@ -654,6 +654,252 @@
     // Nhúng URL Web App tự động (Kèm fallback link chính thức của bạn)
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwt7wU2EeCGWsGCPhJhFTehtqA3vqzgBoy9dHv11RRZU0KbX3X7KW1-LuivVmpr31lG/exec";
     
+    const QUICK_TEMPLATES = {
+      "Truyền thông Rush": {
+        ten: "Truyền thông Rush",
+        noiDung: "Đăng bài truyền thông gấp lên các kênh và báo cáo kết quả tương tác.",
+        loaiCV: "Truyền thông",
+        doUuTien: "GẤP",
+        hinhThucXN: "Bấm nút"
+      },
+      "Kiểm tra tồn": {
+        ten: "Kiểm tra tồn kho",
+        noiDung: "Đối chiếu số lượng tồn kho thực tế của các mặt hàng chủ chốt so với hệ thống.",
+        loaiCV: "Kiểm kê",
+        doUuTien: "Bình thường",
+        hinhThucXN: "Gửi ảnh"
+      },
+      "Chụp ảnh trưng bày": {
+        ten: "Chụp ảnh trưng bày quầy kệ",
+        noiDung: "Chụp ảnh khu trưng bày mặt tiền, đảm bảo sản phẩm ngăn nắp và đúng tiêu chuẩn.",
+        loaiCV: "Kiểm kê",
+        doUuTien: "Bình thường",
+        hinhThucXN: "Gửi ảnh"
+      },
+      "Nhắc họp đầu ca": {
+        ten: "Nhắc họp giao ban đầu ca",
+        noiDung: "Tập hợp đội ngũ đầu ca, phổ biến mục tiêu doanh số và phân chia vị trí.",
+        loaiCV: "Vận hành",
+        doUuTien: "Quan trọng",
+        hinhThucXN: "Bấm nút"
+      },
+      "Hoàn tất báo cáo": {
+        ten: "Hoàn tất báo cáo ngày",
+        noiDung: "Tổng hợp số liệu doanh số bán hàng, bàn giao quỹ và ghi nhận vấn đề phát sinh.",
+        loaiCV: "Bán hàng",
+        doUuTien: "Quan trọng",
+        hinhThucXN: "Bấm nút"
+      },
+      "Kiểm tra quầy kệ": {
+        ten: "Kiểm tra vệ sinh quầy kệ",
+        noiDung: "Kiểm tra vệ sinh và lau dọn quầy kệ trưng bày sản phẩm.",
+        loaiCV: "Vận hành",
+        doUuTien: "Bình thường",
+        hinhThucXN: "Gửi ảnh"
+      },
+      "Gọi khách hẹn nhận hàng": {
+        ten: "Gọi điện khách hẹn lấy hàng",
+        noiDung: "Liên hệ khách hàng thông báo hàng đã về và hẹn giờ qua cửa hàng nhận.",
+        loaiCV: "Bán hàng",
+        doUuTien: "Bình thường",
+        hinhThucXN: "Bấm nút"
+      },
+      "Chăm sóc khách sau bán": {
+        ten: "Chăm sóc khách hàng sau mua",
+        noiDung: "Gọi điện hỏi thăm trải nghiệm sản phẩm của khách mua tuần trước.",
+        loaiCV: "Bán hàng",
+        doUuTien: "Bình thường",
+        hinhThucXN: "Bấm nút"
+      }
+    };
+
+    function renderTemplateChips() {
+      const container = document.getElementById('templateChips');
+      if (!container) return;
+      container.innerHTML = '';
+      Object.keys(QUICK_TEMPLATES).forEach(key => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.textContent = key;
+        chip.addEventListener('click', () => {
+          container.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          const t = QUICK_TEMPLATES[key];
+          document.getElementById('ten').value = t.ten;
+          document.getElementById('noiDung').value = t.noiDung;
+          document.getElementById('loaiCV').value = t.loaiCV;
+          document.getElementById('doUuTien').value = t.doUuTien;
+          document.getElementById('hinhThucXN').value = t.hinhThucXN;
+          toggleNghieMthuInfo();
+        });
+        container.appendChild(chip);
+      });
+    }
+
+    function setupTimePresets() {
+      const chips = document.querySelectorAll('#timePresets .chip');
+      chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          chips.forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          
+          const preset = chip.getAttribute('data-preset');
+          const customGroup = document.getElementById('customTimeGroup');
+          
+          if (preset === 'custom') {
+            customGroup.style.display = 'block';
+          } else {
+            customGroup.style.display = 'none';
+            const now = new Date();
+            let targetTime = new Date(now.getTime());
+            
+            if (preset === '15m') {
+              targetTime.setMinutes(now.getMinutes() + 15);
+            } else if (preset === '30m') {
+              targetTime.setMinutes(now.getMinutes() + 30);
+            } else if (preset === '17h') {
+              targetTime.setHours(17, 0, 0, 0);
+              if (targetTime < now) {
+                targetTime.setDate(now.getDate() + 1);
+              }
+            } else if (preset === '8h') {
+              targetTime.setDate(now.getDate() + 1);
+              targetTime.setHours(8, 0, 0, 0);
+            } // preset 'now' keeps current time
+            
+            const tzoffset = targetTime.getTimezoneOffset() * 60000;
+            const localISOTime = (new Date(targetTime - tzoffset)).toISOString().slice(0, 16);
+            document.getElementById('ngayGio').value = localISOTime;
+          }
+        });
+      });
+    }
+
+    function toggleNghieMthuInfo() {
+      const val = document.getElementById('hinhThucXN').value;
+      const info = document.getElementById('nghieMthuInfo');
+      if (val === 'Gửi ảnh + ghi chú') {
+        info.style.display = 'block';
+      } else {
+        info.style.display = 'none';
+      }
+    }
+
+    function showConfirmModal(event) {
+      event.preventDefault();
+      
+      const ten = document.getElementById('ten').value.trim();
+      const idGroup = document.getElementById('idGroup').value;
+      const ngayGio = document.getElementById('ngayGio').value;
+      
+      if (!ten) {
+        alert("❌ Tên sự kiện không được để trống!");
+        return;
+      }
+      if (!idGroup) {
+        alert("❌ Vui lòng chọn Nhóm nhận việc!");
+        return;
+      }
+      if (!ngayGio) {
+        alert("❌ Vui lòng chọn Thời gian gửi nhắc!");
+        return;
+      }
+      
+      const groupSelect = document.getElementById('idGroup');
+      const groupName = groupSelect.options[groupSelect.selectedIndex].text;
+      
+      const assignees = [];
+      document.querySelectorAll('input[name="idMemberCheckbox"]:checked').forEach(cb => {
+        const labelText = cb.parentElement.textContent.trim();
+        assignees.push(labelText);
+      });
+      const assigneesStr = assignees.length > 0 ? assignees.join(', ') : 'Chưa phân công';
+      
+      const presetActive = document.querySelector('#timePresets .chip.active');
+      const timeLabel = presetActive ? presetActive.textContent : 'Tùy chọn';
+      const actualTime = document.getElementById('ngayGio').value.replace('T', ' ');
+      
+      const deadlineVal = document.getElementById('deadline').value;
+      const deadlineStr = deadlineVal ? deadlineVal.replace('T', ' ') : '(Giống giờ gửi nhắc)';
+      
+      const xnSelect = document.getElementById('hinhThucXN');
+      const xnLabel = xnSelect.options[xnSelect.selectedIndex].text;
+      
+      const detailsHtml = `
+        <div class="confirm-row">
+          <div class="confirm-label">Tên công việc</div>
+          <div class="confirm-val">${ten}</div>
+        </div>
+        <div class="confirm-row">
+          <div class="confirm-label">Nhóm nhận</div>
+          <div class="confirm-val">${groupName}</div>
+        </div>
+        <div class="confirm-row">
+          <div class="confirm-label">Phụ trách</div>
+          <div class="confirm-val">${assigneesStr}</div>
+        </div>
+        <div class="confirm-row">
+          <div class="confirm-label">Thời gian nhắc</div>
+          <div class="confirm-val">${actualTime} (${timeLabel})</div>
+        </div>
+        <div class="confirm-row">
+          <div class="confirm-label">Hạn hoàn thành</div>
+          <div class="confirm-val">${deadlineStr}</div>
+        </div>
+        <div class="confirm-row">
+          <div class="confirm-label">Nghiệm thu</div>
+          <div class="confirm-val">${xnLabel}</div>
+        </div>
+      `;
+      
+      document.getElementById('confirmDetails').innerHTML = detailsHtml;
+      document.getElementById('confirmModal').classList.add('active');
+    }
+
+    function closeConfirmModal() {
+      document.getElementById('confirmModal').classList.remove('active');
+    }
+
+    function closeLiffForm() {
+      if (typeof liff !== 'undefined' && liff.isInClient()) {
+        liff.closeWindow();
+      } else {
+        document.getElementById('successModal').classList.remove('active');
+        alert("Bạn có thể đóng tab trình duyệt này.");
+      }
+    }
+
+    function createNewTaskPreset() {
+      document.getElementById('successModal').classList.remove('active');
+      
+      document.getElementById('liffForm').reset();
+      
+      document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+      
+      const container = document.getElementById('templateChips');
+      if (container) {
+        container.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      }
+      
+      const timeChips = document.querySelectorAll('#timePresets .chip');
+      timeChips.forEach(c => c.classList.remove('active'));
+      if (timeChips[0]) timeChips[0].classList.add('active');
+      document.getElementById('customTimeGroup').style.display = 'none';
+      
+      const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+      document.getElementById('ngayGio').value = localISOTime;
+      
+      const btn = document.getElementById('btnSubmit');
+      const spinner = document.getElementById('btnSpinner');
+      const btnText = document.getElementById('btnText');
+      btn.disabled = false;
+      spinner.style.display = 'none';
+      btnText.textContent = "Tạo Công Việc";
+      
+      toggleNghieMthuInfo();
+    }
+
     function logMsg(msg) {
       const logDiv = document.getElementById('debugLog');
       if (logDiv) {
