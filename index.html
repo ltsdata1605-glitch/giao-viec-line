@@ -424,124 +424,181 @@
       ⚠️ <strong>CẢNH BÁO:</strong> Chưa cấu hình <code>LIFF_ID</code> trong <i>Script Properties</i>.
     </div>
 
-    <form id="liffForm" onsubmit="submitForm(event)">
+    <!-- Quick Templates Section -->
+    <div class="form-group" style="margin-bottom: 24px;">
+      <label style="font-size: 14px; font-weight: 600; color: var(--primary);">Mẫu công việc nhanh (Click chọn)</label>
+      <div class="chips-group" id="templateChips">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <form id="liffForm" onsubmit="showConfirmModal(event)">
       
-      <div class="form-group">
-        <label for="ten">Tên sự kiện <span style="color: var(--danger)">*</span></label>
-        <input type="text" id="ten" required placeholder="Ví dụ: Họp tuần đột xuất, Nghiệm thu thiết kế...">
-      </div>
-
-      <div class="form-group">
-        <label for="noiDung">Nội dung chi tiết</label>
-        <textarea id="noiDung" placeholder="Nội dung, công việc cần triển khai..."></textarea>
-      </div>
-
-      <div class="form-row">
+      <!-- Section 1: Thông tin công việc -->
+      <div class="form-section">
+        <div class="section-title">1. Thông tin công việc</div>
+        
         <div class="form-group">
-          <label for="ngayGio">Ngày giờ gửi <span style="color: var(--danger)">*</span></label>
-          <input type="datetime-local" id="ngayGio" required>
+          <label for="ten">Tên sự kiện <span style="color: var(--danger)">*</span></label>
+          <input type="text" id="ten" required placeholder="Ví dụ: Họp tuần đột xuất, Nghiệm thu thiết kế...">
         </div>
+
         <div class="form-group">
-          <label for="lapLai">Lặp lại</label>
-          <select id="lapLai">
-            <option value="Không">Không</option>
-            <option value="Hàng giờ">Hàng giờ</option>
-            <option value="Hàng ngày">Hàng ngày</option>
-            <option value="Hàng tuần">Hàng tuần</option>
+          <label for="noiDung">Nội dung chi tiết</label>
+          <textarea id="noiDung" placeholder="Nội dung, công việc cần triển khai..."></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="loaiCV">Loại công việc</label>
+            <select id="loaiCV">
+              <option value="Khác">Khác</option>
+              <option value="Bán hàng">Bán hàng</option>
+              <option value="Kiểm kê">Kiểm kê</option>
+              <option value="Truyền thông">Truyền thông</option>
+              <option value="KTSP">KTSP</option>
+              <option value="Vận hành">Vận hành</option>
+              <option value="CVST">CVST</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="doUuTien">Độ ưu tiên</label>
+            <select id="doUuTien">
+              <option value="Bình thường">Bình thường</option>
+              <option value="Quan trọng">🍊 Quan trọng</option>
+              <option value="GẤP">🚨 GẤP</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Người nhận & Người giao -->
+      <div class="form-section">
+        <div class="section-title">2. Phân công & Người nhận</div>
+        
+        <div class="form-group">
+          <label for="idGroup">Nhóm nhận <span style="color: var(--danger)">*</span> <span id="loadingGroups" class="loading-text">(Đang tải...)</span></label>
+          <select id="idGroup" required disabled>
+            <option value="" disabled selected>Chọn nhóm nhận việc...</option>
           </select>
         </div>
-      </div>
 
-      <div class="form-row">
         <div class="form-group">
-          <label for="deadline">Hạn hoàn thành (Deadline)</label>
-          <input type="datetime-local" id="deadline">
-        </div>
-        <div class="form-group">
-          <label for="loaiCV">Loại công việc</label>
-          <select id="loaiCV">
-            <option value="Khác">Khác</option>
-            <option value="Bán hàng">Bán hàng</option>
-            <option value="Kiểm kê">Kiểm kê</option>
-            <option value="Truền thông">Truyền thông</option>
-            <option value="KTSP">KTSP</option>
-            <option value="Vận hành">Vận hành</option>
-            <option value="CVST">CVST</option>
+          <label for="idAssigner">Người giao việc <span id="loadingAssigner" class="loading-text">(Đang tải...)</span></label>
+          <select id="idAssigner" disabled>
+            <option value="">Chọn người giao việc...</option>
           </select>
         </div>
-      </div>
 
-      <div class="form-group">
-        <label for="idGroup">Nhóm nhận <span style="color: var(--danger)">*</span> <span id="loadingGroups" class="loading-text">(Đang tải...)</span></label>
-        <select id="idGroup" required disabled>
-          <option value="" disabled selected>Chọn nhóm nhận việc...</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="idAssigner">Người giao việc <span id="loadingAssigner" class="loading-text">(Đang tải...)</span></label>
-        <select id="idAssigner" disabled>
-          <option value="">Chọn người giao việc...</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label>Người phụ trách <span id="loadingMembers" class="loading-text">(Đang tải...)</span></label>
-        <div id="idMemberContainer" class="checkbox-list-container">
-          <!-- Dynamically populated checklist -->
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Người theo dõi <span id="loadingFollowers" class="loading-text">(Đang tải...)</span></label>
-        <div id="idFollowerContainer" class="checkbox-list-container">
-          <!-- Dynamically populated checklist -->
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="imageFile">Ảnh đính kèm</label>
-        <input type="file" id="imageFile" accept="image/*">
-        <small style="display:block;margin-top:6px;color:var(--text-secondary);font-size:12px;">
-          Có thể chọn ảnh trực tiếp. Nếu không chọn, có thể dán link bên dưới.
-        </small>
-      </div>
-
-      <div class="form-group">
-        <label for="linkAnh">Hoặc dán link ảnh</label>
-        <input type="url" id="linkAnh" placeholder="https://example.com/image.jpg (Không bắt buộc)">
-      </div>
-
-      <div class="form-row">
         <div class="form-group">
-          <label for="hinhThucXN">Yêu cầu nghiệm thu</label>
-          <select id="hinhThucXN">
-            <option value="Bấm nút">Bấm hoàn tất</option>
-            <option value="Gửi ảnh">Gửi ảnh</option>
-            <option value="Gửi ảnh + ghi chú">Gửi ảnh + ghi chú</option>
-            <option value="Không">Không cần</option>
-          </select>
+          <label>Người phụ trách <span id="loadingMembers" class="loading-text">(Đang tải...)</span></label>
+          <div id="idMemberContainer" class="checkbox-list-container">
+            <!-- Dynamically populated checklist -->
+          </div>
         </div>
+
         <div class="form-group">
-          <label for="doUuTien">Độ ưu tiên</label>
-          <select id="doUuTien">
-            <option value="Bình thường">Bình thường</option>
-            <option value="Quan trọng">🍊 Quan trọng</option>
-            <option value="GẤP">🚨 GẤP</option>
-          </select>
+          <label>Người theo dõi <span id="loadingFollowers" class="loading-text">(Đang tải...)</span></label>
+          <div id="idFollowerContainer" class="checkbox-list-container">
+            <!-- Dynamically populated checklist -->
+          </div>
         </div>
       </div>
 
-      <div class="form-row">
-        <div class="form-group" style="grid-column: span 2;">
-          <label for="tanSuat">Tần suất nhắc (phút)</label>
-          <input type="number" id="tanSuat" min="5" value="15">
+      <!-- Section 3: Thời gian -->
+      <div class="form-section">
+        <div class="section-title">3. Thời gian nhắc việc</div>
+        
+        <div class="form-group">
+          <label>Chọn nhanh thời gian nhắc</label>
+          <div class="chips-group" id="timePresets">
+            <div class="chip active" data-preset="now">Gửi ngay</div>
+            <div class="chip" data-preset="15m">Sau 15 phút</div>
+            <div class="chip" data-preset="30m">Sau 30 phút</div>
+            <div class="chip" data-preset="17h">Hôm nay 17:00</div>
+            <div class="chip" data-preset="8h">Ngày mai 08:00</div>
+            <div class="chip" data-preset="custom">Tùy chọn</div>
+          </div>
+        </div>
+
+        <!-- Custom Time Inputs Group (hidden by default unless Custom is clicked) -->
+        <div id="customTimeGroup" style="display: none; animation: fadeIn 0.3s ease;">
+          <div class="form-row">
+            <div class="form-group" style="grid-column: span 2;">
+              <label for="ngayGio">Ngày giờ gửi nhắc <span style="color: var(--danger)">*</span></label>
+              <input type="datetime-local" id="ngayGio" required>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="deadline">Hạn hoàn thành (Deadline)</label>
+            <input type="datetime-local" id="deadline">
+          </div>
+          <div class="form-group">
+            <label for="lapLai">Lặp lại</label>
+            <select id="lapLai">
+              <option value="Không">Không</option>
+              <option value="Hàng giờ">Hàng giờ</option>
+              <option value="Hàng ngày">Hàng ngày</option>
+              <option value="Hàng tuần">Hàng tuần</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      <div class="form-group">
-        <label for="ghiChu">Ghi chú thêm</label>
-        <textarea id="ghiChu" placeholder="Ghi chú thêm cho người phụ trách..."></textarea>
+      <!-- Section 4: Nghiệm thu -->
+      <div class="form-section">
+        <div class="section-title">4. Nghiệm thu & Nhắc nhở</div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="hinhThucXN">Yêu cầu nghiệm thu</label>
+            <select id="hinhThucXN" onchange="toggleNghieMthuInfo()">
+              <option value="Bấm nút">Bấm hoàn tất</option>
+              <option value="Gửi ảnh">Gửi ảnh</option>
+              <option value="Gửi ảnh + ghi chú">Gửi ảnh + ghi chú</option>
+              <option value="Không">Không cần</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="tanSuat">Tần suất nhắc (phút)</label>
+            <input type="number" id="tanSuat" min="5" value="15">
+          </div>
+        </div>
+        
+        <div id="nghieMthuInfo" style="display: none; margin-top: 10px; padding: 10px; background: rgba(245, 158, 11, 0.15); border: 1px dashed #f59e0b; border-radius: 8px; font-size: 12px; color: #fef3c7;">
+          💡 <strong>Nghiệm thu đặc biệt:</strong> Người phụ trách sẽ cần gửi 1 ảnh nghiệm thu trước, sau đó gửi tin nhắn ghi chú nghiệm thu tiếp theo để hoàn thành nhiệm vụ này.
+        </div>
+      </div>
+
+      <!-- Section 5: Ảnh đính kèm -->
+      <div class="form-section">
+        <div class="section-title">5. Ảnh đính kèm gợi ý</div>
+        
+        <div class="form-group">
+          <label for="imageFile">Ảnh đính kèm gợi ý</label>
+          <input type="file" id="imageFile" accept="image/*">
+          <small style="display:block;margin-top:6px;color:var(--text-secondary);font-size:12px;">
+            Có thể chọn ảnh trực tiếp. Nếu không chọn, có thể dán link bên dưới.
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="linkAnh">Hoặc dán link ảnh</label>
+          <input type="url" id="linkAnh" placeholder="https://example.com/image.jpg (Không bắt buộc)">
+        </div>
+      </div>
+
+      <!-- Section 6: Ghi chú -->
+      <div class="form-section">
+        <div class="section-title">6. Ghi chú thêm</div>
+        
+        <div class="form-group">
+          <label for="ghiChu">Ghi chú thêm</label>
+          <textarea id="ghiChu" placeholder="Ghi chú thêm cho người phụ trách..."></textarea>
+        </div>
       </div>
 
       <button type="submit" id="btnSubmit" class="btn-submit" disabled>
@@ -556,14 +613,35 @@
     </div>
   </div>
 
+  <!-- Modal Confirmation -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-card" style="max-width: 450px;">
+      <h2 class="modal-title">Xác Nhận Công Việc</h2>
+      <p class="modal-desc" style="margin-bottom: 12px;">Vui lòng kiểm tra lại thông tin trước khi tạo:</p>
+      
+      <div class="confirm-details" id="confirmDetails">
+        <!-- Javascript will render details here -->
+      </div>
+      
+      <div class="modal-btn-group">
+        <button type="button" class="btn-secondary" onclick="closeConfirmModal()">Quay lại</button>
+        <button type="button" class="btn-primary" onclick="executeSubmitForm()">Xác nhận gửi</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Success -->
   <div class="modal-overlay" id="successModal">
     <div class="modal-card">
       <div class="success-icon-wrap">
         <span class="success-icon">✓</span>
       </div>
-      <h2 class="modal-title">Giao Việc Thành Công!</h2>
-      <p class="modal-desc">Công việc mới đã được ghi nhận. Cửa sổ này sẽ tự động đóng sau giây lát...</p>
+      <h2 class="modal-title" style="color: #38ef7d;">Tạo Thành Công!</h2>
+      <p class="modal-desc" style="margin-bottom: 24px;">Công việc mới đã được ghi nhận vào hệ thống.</p>
+      <div class="modal-btn-group" style="flex-direction: column; gap: 10px;">
+        <button type="button" class="btn-primary" style="width: 100%;" onclick="createNewTaskPreset()">Tạo tiếp việc mới</button>
+        <button type="button" class="btn-secondary" style="width: 100%;" onclick="closeLiffForm()">Đóng form</button>
+      </div>
     </div>
   </div>
 
