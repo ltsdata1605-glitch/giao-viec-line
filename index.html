@@ -337,6 +337,25 @@
         </div>
       </div>
 
+      <div class="form-row">
+        <div class="form-group">
+          <label for="deadline">Hạn hoàn thành (Deadline)</label>
+          <input type="datetime-local" id="deadline">
+        </div>
+        <div class="form-group">
+          <label for="loaiCV">Loại công việc</label>
+          <select id="loaiCV">
+            <option value="Khác">Khác</option>
+            <option value="Bán hàng">Bán hàng</option>
+            <option value="Kiểm kê">Kiểm kê</option>
+            <option value="Truền thông">Truyền thông</option>
+            <option value="KTSP">KTSP</option>
+            <option value="Vận hành">Vận hành</option>
+            <option value="CVST">CVST</option>
+          </select>
+        </div>
+      </div>
+
       <div class="form-group">
         <label for="idGroup">Nhóm nhận <span style="color: var(--danger)">*</span> <span id="loadingGroups" class="loading-text">(Đang tải...)</span></label>
         <select id="idGroup" required disabled>
@@ -345,10 +364,24 @@
       </div>
 
       <div class="form-group">
-        <label for="idMember">Người phụ trách <span id="loadingMembers" class="loading-text">(Đang tải...)</span></label>
-        <select id="idMember" disabled>
-          <option value="">Không có phụ trách (Bỏ trống)</option>
+        <label for="idAssigner">Người giao việc <span id="loadingAssigner" class="loading-text">(Đang tải...)</span></label>
+        <select id="idAssigner" disabled>
+          <option value="">Chọn người giao việc...</option>
         </select>
+      </div>
+
+      <div class="form-group">
+        <label>Người phụ trách <span id="loadingMembers" class="loading-text">(Đang tải...)</span></label>
+        <div id="idMemberContainer" class="checkbox-list-container">
+          <!-- Dynamically populated checklist -->
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Người theo dõi <span id="loadingFollowers" class="loading-text">(Đang tải...)</span></label>
+        <div id="idFollowerContainer" class="checkbox-list-container">
+          <!-- Dynamically populated checklist -->
+        </div>
       </div>
 
       <div class="form-group">
@@ -366,17 +399,19 @@
 
       <div class="form-row">
         <div class="form-group">
-          <label for="hinhThucXN">Hình thức xác nhận</label>
+          <label for="hinhThucXN">Yêu cầu nghiệm thu</label>
           <select id="hinhThucXN">
-            <option value="Bấm nút">Bấm nút</option>
+            <option value="Bấm nút">Bấm hoàn tất</option>
             <option value="Gửi ảnh">Gửi ảnh</option>
-            <option value="Không">Không</option>
+            <option value="Gửi ảnh + ghi chú">Gửi ảnh + ghi chú</option>
+            <option value="Không">Không cần</option>
           </select>
         </div>
         <div class="form-group">
           <label for="doUuTien">Độ ưu tiên</label>
           <select id="doUuTien">
             <option value="Bình thường">Bình thường</option>
+            <option value="Quan trọng">🍊 Quan trọng</option>
             <option value="GẤP">🚨 GẤP</option>
           </select>
         </div>
@@ -387,6 +422,11 @@
           <label for="tanSuat">Tần suất nhắc (phút)</label>
           <input type="number" id="tanSuat" min="5" value="15">
         </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ghiChu">Ghi chú thêm</label>
+        <textarea id="ghiChu" placeholder="Ghi chú thêm cho người phụ trách..."></textarea>
       </div>
 
       <button type="submit" id="btnSubmit" class="btn-submit" disabled>
