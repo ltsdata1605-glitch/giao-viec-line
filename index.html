@@ -599,23 +599,63 @@
         groupSelect.appendChild(opt);
       }
 
-      // 2. Người phụ trách
-      const memberSelect = document.getElementById('idMember');
+      // 2. Người giao việc
+      const assignerSelect = document.getElementById('idAssigner');
+      const loadingAssigner = document.getElementById('loadingAssigner');
+      if (loadingAssigner) loadingAssigner.style.display = 'none';
+      assignerSelect.disabled = false;
+      assignerSelect.innerHTML = '<option value="">Chọn người giao việc...</option>';
+
+      // 3. Người phụ trách checklist
+      const memberContainer = document.getElementById('idMemberContainer');
       document.getElementById('loadingMembers').style.display = 'none';
-      memberSelect.disabled = false;
-      
-      memberSelect.innerHTML = '<option value="">Không có phụ trách (Bỏ trống)</option>';
-      
+
+      // 4. Người theo dõi checklist
+      const followerContainer = document.getElementById('idFollowerContainer');
+      document.getElementById('loadingFollowers').style.display = 'none';
+
       if (data.members && data.members.length > 0) {
         logMsg("Số lượng thành viên: " + data.members.length);
+        
+        memberContainer.innerHTML = '';
+        followerContainer.innerHTML = '';
+
         data.members.forEach(m => {
+          // Add to Người giao việc
           const opt = document.createElement('option');
           opt.value = m.id;
           opt.textContent = m.name;
-          memberSelect.appendChild(opt);
+          if (window.currentLiffUserId && m.id === window.currentLiffUserId) {
+            opt.selected = true;
+          }
+          assignerSelect.appendChild(opt);
+
+          // Add to Người phụ trách checklist
+          const labelMc = document.createElement('label');
+          labelMc.className = 'checkbox-item';
+          const cbMc = document.createElement('input');
+          cbMc.type = 'checkbox';
+          cbMc.name = 'idMemberCheckbox';
+          cbMc.value = m.id;
+          labelMc.appendChild(cbMc);
+          labelMc.appendChild(document.createTextNode(' ' + m.name));
+          memberContainer.appendChild(labelMc);
+
+          // Add to Người theo dõi checklist
+          const labelFc = document.createElement('label');
+          labelFc.className = 'checkbox-item';
+          const cbFc = document.createElement('input');
+          cbFc.type = 'checkbox';
+          cbFc.name = 'idFollowerCheckbox';
+          cbFc.value = m.id;
+          labelFc.appendChild(cbFc);
+          labelFc.appendChild(document.createTextNode(' ' + m.name));
+          followerContainer.appendChild(labelFc);
         });
       } else {
         logMsg("Không tìm thấy thành viên.");
+        memberContainer.textContent = "Không tìm thấy nhân viên nào.";
+        followerContainer.textContent = "Không tìm thấy nhân viên nào.";
       }
 
       // Enable nút bấm
@@ -628,6 +668,13 @@
       document.getElementById('loadingGroups').style.color = "var(--danger)";
       document.getElementById('loadingMembers').textContent = "(Lỗi tải!)";
       document.getElementById('loadingMembers').style.color = "var(--danger)";
+      document.getElementById('loadingFollowers').textContent = "(Lỗi tải!)";
+      document.getElementById('loadingFollowers').style.color = "var(--danger)";
+      const loadingAssigner = document.getElementById('loadingAssigner');
+      if (loadingAssigner) {
+        loadingAssigner.textContent = "(Lỗi tải!)";
+        loadingAssigner.style.color = "var(--danger)";
+      }
     }
     function readImageFileAsBase64() {
       return new Promise((resolve, reject) => {
@@ -678,18 +725,33 @@
       try {
         const imageFile = await readImageFileAsBase64();
 
+        const selectedMembers = [];
+        document.querySelectorAll('input[name="idMemberCheckbox"]:checked').forEach(cb => {
+          selectedMembers.push(cb.value);
+        });
+
+        const selectedFollowers = [];
+        document.querySelectorAll('input[name="idFollowerCheckbox"]:checked').forEach(cb => {
+          selectedFollowers.push(cb.value);
+        });
+
         const formData = {
           ten: document.getElementById('ten').value,
           noiDung: document.getElementById('noiDung').value,
           ngayGio: document.getElementById('ngayGio').value,
           lapLai: document.getElementById('lapLai').value,
+          deadline: document.getElementById('deadline').value,
+          loaiCV: document.getElementById('loaiCV').value,
           idGroup: document.getElementById('idGroup').value,
-          idMember: document.getElementById('idMember').value,
+          idMember: selectedMembers.join(','),
+          idAssigner: document.getElementById('idAssigner').value || window.currentLiffUserId || '',
+          idFollower: selectedFollowers.join(','),
           linkAnh: document.getElementById('linkAnh').value,
           imageFile: imageFile,
           hinhThucXN: document.getElementById('hinhThucXN').value,
           doUuTien: document.getElementById('doUuTien').value,
-          tanSuat: document.getElementById('tanSuat').value
+          tanSuat: document.getElementById('tanSuat').value,
+          ghiChu: document.getElementById('ghiChu').value
         };
 
         const payload = {
