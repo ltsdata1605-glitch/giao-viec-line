@@ -429,113 +429,8 @@ function doPost(e) {
               }
             }
             
-            // 1. Trợ giúp cú pháp
-            if (["/help", "help"].indexOf(text) !== -1) {
-              replyHelp(event.replyToken);
-              continue;
-            }
-            
-            // 2. Hướng dẫn / giới thiệu BOT
-            if (["/hd", "/huongdan", "hướng dẫn", "huong dan"].indexOf(text) !== -1) {
-              replyHuongDanBot(event.replyToken);
-              continue;
-            }
-            
-            // 3. Mở form giao việc
-            if ([
-              "/link", "/tao", "/do", "/gv",
-              "/giao", "link", "tạo việc", "tao viec",
-              "giao việc", "giao viec", "mở giao việc", "mo giao viec"
-            ].indexOf(text) !== -1) {
-              replyGiaoForm(event.replyToken);
-              continue;
-            }
-
-            // 4. Việc chưa xong của cá nhân
-            if (["/vieccuatoi", "việc của tôi", "viec cua toi"].indexOf(text) !== -1) {
-              var flex = buildMyTasksFlexMessage(uId, name);
-              replyMessages(event.replyToken, [flex], "LINE my tasks reply");
-              continue;
-            }
-
-            // 5. Việc chưa xong của nhóm
-            if (["/chuaxong", "chưa xong", "chua xong"].indexOf(text) !== -1) {
-              var flex = buildChuaXongFlexMessage();
-              replyMessages(event.replyToken, [flex], "LINE pending tasks reply");
-              continue;
-            }
-
-            // 6. Việc trễ hạn của nhóm
-            if (["/trehan", "trễ hạn", "tre han"].indexOf(text) !== -1) {
-              var flex = buildTreHanFlexMessage();
-              replyMessages(event.replyToken, [flex], "LINE overdue tasks reply");
-              continue;
-            }
-
-            // 7. Báo cáo tiến độ công việc
-            if (["/baocao", "báo cáo", "bao cao", "báo cáo cuối ngày", "bao cao cuoi ngay"].indexOf(text) !== -1) {
-              var flex = buildBaoCaoCuoiNgayFlexMessage();
-              replyMessages(event.replyToken, [flex], "LINE daily report reply");
-              continue;
-            }
-            
-            // 4. Tương tác hôm nay
-            if ([
-              "/tthomnay", "/tuongtac", "tương tác", "tuong tac",
-              "tương tác hôm nay", "tuong tac hom nay",
-              "/homnay", "hôm nay", "hom nay", "/tthn"
-            ].indexOf(text) !== -1) {
-              if (gId) {
-                guiBaoCaoTuongTac(gId, event.replyToken, 1);
-              } else {
-                sendLineReply(event.replyToken, "📌 Lệnh này dùng tốt nhất trong nhóm. Vui lòng dùng trong nhóm cần xem tương tác.");
-              }
-              continue;
-            }
-            
-            // 5. Tương tác 7 ngày
-            if ([
-              "/tt7ngay", "tương tác 7 ngày", "tuong tac 7 ngay",
-              "/7ngay", "7 ngày", "7 ngay", "/ttt"
-            ].indexOf(text) !== -1) {
-              if (gId) {
-                guiBaoCaoTuongTac(gId, event.replyToken, 7);
-              } else {
-                sendLineReply(event.replyToken, "📅 Lệnh này dùng tốt nhất trong nhóm. Vui lòng dùng trong nhóm cần xem tương tác 7 ngày.");
-              }
-              continue;
-            }
-            
-            // 6. Lấy ID
-            if (["/id", "id", "lấy id", "lay id"].indexOf(text) !== -1) {
-              if (gId) {
-                sendLineReply(event.replyToken, "🆔 Group ID:\n" + gId + "\n\n👤 User ID:\n" + uId);
-              } else {
-                sendLineReply(event.replyToken, "👤 User ID:\n" + uId);
-              }
-              continue;
-            }
-            
-            // 7. Gửi ảnh hướng dẫn
-            if (text === "/anh") {
-              sendLineReply(event.replyToken, "📸 Khi công việc yêu cầu ảnh: bấm nút ‘Gửi ảnh nghiệm thu’, sau đó gửi ảnh trực tiếp trong nhóm này.");
-              continue;
-            }
-            
-            // 7. Tra cứu Chatbot
-            var sChat = ss.getSheetByName("Chatbot");
-            if (sChat) {
-              var cData = sChat.getDataRange().getValues();
-              var foundChatbot = false;
-              for (var k = 1; k < cData.length; k++) {
-                if (String(cData[k][0]).trim().toLowerCase() === text) {
-                  sendBotReply(event.replyToken, cData[k][1], cData[k][2]);
-                  foundChatbot = true;
-                  break;
-                }
-              }
-              if (foundChatbot) continue;
-            }
+            var handled = handleTextCommand(event, originalText, uId, gId);
+            if (handled) continue;
           }
           
           // Xử lý ảnh nghiệm thu (Chỉ chạy trong nhóm)
@@ -1675,7 +1570,11 @@ function SETUP_RICH_MENU() {
   var data = JSON.parse(body);
   PropertiesService.getScriptProperties().setProperty("RICH_MENU_ID", data.richMenuId);
 
-  SpreadsheetApp.getUi().alert("✅ Đã tạo Rich Menu thành công!\nID: " + data.richMenuId);
+  try {
+    SpreadsheetApp.getUi().alert("✅ Đã tạo Rich Menu thành công!\nID: " + data.richMenuId);
+  } catch (e) {
+    // Headless execution, ignore
+  }
 }
 
 function UPLOAD_RICH_MENU_IMAGE_FROM_DRIVE() {
@@ -1762,7 +1661,11 @@ function SET_DEFAULT_RICH_MENU() {
   });
 
   writeLog("Set default rich menu: " + res.getResponseCode() + " | " + res.getContentText(), "INFO");
-  SpreadsheetApp.getUi().alert("✅ Đã đặt Rich Menu mặc định cho bot.");
+  try {
+    SpreadsheetApp.getUi().alert("✅ Đã đặt Rich Menu mặc định cho bot.");
+  } catch (e) {
+    // Headless execution
+  }
 }
 
 function replyHuongDanBot(token) {
@@ -1994,7 +1897,7 @@ function buildHdFlexMessage() {
   };
 }
 
-function buildMyTasksFlexMessage(uId, uName) {
+function buildMyTasksFlexMessage(uId, uName, gId) {
   var tasks = getActiveTasksList();
   var myTasks = [];
   
@@ -2003,6 +1906,9 @@ function buildMyTasksFlexMessage(uId, uName) {
     var rowIndex = i + 2;
     var status = String(row[11] || "").trim();
     if (status === "Đã gửi" || status === "Đã hủy") continue;
+    
+    var idG = String(row[5] || "").trim();
+    if (gId && idG !== gId) continue;
     
     var idNV = String(row[6] || "").trim();
     var assignees = idNV.split(",").map(function(s) { return s.trim(); });
@@ -2108,7 +2014,7 @@ function buildMyTasksFlexMessage(uId, uName) {
   };
 }
 
-function buildChuaXongFlexMessage() {
+function buildChuaXongFlexMessage(gId) {
   var tasks = getActiveTasksList();
   var pendingTasks = [];
   
@@ -2116,6 +2022,9 @@ function buildChuaXongFlexMessage() {
     var row = tasks[i];
     var status = String(row[11] || "").trim();
     if (status === "Đã gửi" || status === "Đã hủy") continue;
+    
+    var idG = String(row[5] || "").trim();
+    if (gId && idG !== gId) continue;
     
     pendingTasks.push({
       name: row[0],
@@ -2235,7 +2144,7 @@ function buildChuaXongFlexMessage() {
   };
 }
 
-function buildTreHanFlexMessage() {
+function buildTreHanFlexMessage(gId) {
   var tasks = getActiveTasksList();
   var overdueTasks = [];
   
@@ -2243,6 +2152,9 @@ function buildTreHanFlexMessage() {
     var row = tasks[i];
     var status = String(row[11] || "").trim();
     if (status === "Quá hạn") {
+      var idG = String(row[5] || "").trim();
+      if (gId && idG !== gId) continue;
+      
       overdueTasks.push({
         name: row[0],
         assignee: resolveMemberNamesList(row[6]),
@@ -2485,5 +2397,506 @@ function buildBaoCaoCuoiNgayFlexMessage() {
     altText: "Báo cáo cuối ngày",
     contents: bubble
   };
+}
+
+function isAdmin(userId) {
+  if (!userId) return false;
+  // Cấu hình ID Admin
+  var adminList = [
+    "Ua5509d3b3780ee833633e8b4ad332b70",
+    "U5bc60a8b92b67f62fa417df854e4df75"
+  ];
+  return adminList.indexOf(userId) !== -1;
+}
+
+function getLast5ErrorLogs() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName("Logs");
+  if (!sheet) return "Không tìm thấy sheet Logs.";
+  
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return "Chưa có log nào.";
+  
+  var data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  var errorLogs = [];
+  
+  for (var i = data.length - 1; i >= 0; i--) {
+    var type = String(data[i][1]).trim().toUpperCase();
+    if (type === "ERROR") {
+      errorLogs.push(data[i][0] + " [" + type + "] " + data[i][2]);
+      if (errorLogs.length >= 5) break;
+    }
+  }
+  
+  if (errorLogs.length === 0) return "Không có log lỗi nào gần đây.";
+  return errorLogs.join("\n");
+}
+
+function buildBotStatusFlexMessage() {
+  var ssOk = "OK";
+  try {
+    var ss = getSpreadsheet();
+    if (!ss.getSheetByName("Sự kiện")) ssOk = "Lỗi Sheet";
+  } catch (e) {
+    ssOk = "Lỗi: " + e.toString();
+  }
+  
+  var triggerOk = "Chưa kích hoạt";
+  try {
+    var triggers = ScriptApp.getProjectTriggers();
+    var active = triggers.some(function(t) { return t.getHandlerFunction() === "checkAndSendLineMessage"; });
+    if (active) triggerOk = "Đang chạy (1 phút/lần)";
+  } catch (e) {
+    triggerOk = "Lỗi: " + e.toString();
+  }
+  
+  var richMenuId = "Không có";
+  try {
+    var res = UrlFetchApp.fetch("https://api.line.me/v2/bot/user/all/richmenu", {
+      headers: { Authorization: "Bearer " + TOKEN },
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() === 200) {
+      var resObj = JSON.parse(res.getContentText());
+      richMenuId = resObj.richMenuId || "Không có rich menu mặc định";
+    }
+  } catch (e) {
+    richMenuId = "Lỗi: " + e.toString();
+  }
+  
+  var bubble = {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#4F46E5",
+      paddingAll: "12px",
+      contents: [
+        {
+          type: "text",
+          text: "🤖 TRẠNG THÁI HỆ THỐNG BOT",
+          color: "#FFFFFF",
+          weight: "bold",
+          size: "sm"
+        }
+      ]
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "md",
+      paddingAll: "14px",
+      contents: [
+        {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "🌐 Webhook", size: "xs", color: "#666666", flex: 4 },
+                { type: "text", text: "Đang hoạt động (OK)", size: "xs", weight: "bold", color: "#1DB446", flex: 6 }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "📊 Google Sheet", size: "xs", color: "#666666", flex: 4 },
+                { type: "text", text: ssOk, size: "xs", weight: "bold", color: ssOk === "OK" ? "#1DB446" : "#C70039", flex: 6 }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "⏰ Trình kích hoạt", size: "xs", color: "#666666", flex: 4 },
+                { type: "text", text: triggerOk, size: "xs", weight: "bold", color: triggerOk.indexOf("Đang chạy") !== -1 ? "#1DB446" : "#C70039", flex: 6 }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "🔑 LIFF ID", size: "xs", color: "#666666", flex: 4 },
+                { type: "text", text: LIFF_ID || "Chưa thiết lập", size: "xs", color: "#333333", flex: 6 }
+              ]
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "🖼️ Rich Menu ID", size: "xs", color: "#666666", flex: 4 },
+                { type: "text", text: richMenuId, size: "xs", color: "#333333", wrap: true, flex: 6 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  };
+  return {
+    type: "flex",
+    altText: "Trạng thái hệ thống Bot",
+    contents: bubble
+  };
+}
+
+function buildTemplatesFlexMessage() {
+  var templates = [
+    { title: "Kiểm tra tồn", desc: "Tên: Kiểm tra tồn kho\nNội dung: Đối chiếu số lượng thực tế..." },
+    { title: "Truyền thông Rush", desc: "Tên: Truyền thông Rush\nNội dung: Đăng bài gấp lên fanpage..." },
+    { title: "Chụp ảnh trưng bày", desc: "Tên: Chụp ảnh quầy trưng bày\nNội dung: Chụp góc nghiêng và chính diện..." },
+    { title: "Nhắc họp đầu ca", desc: "Tên: Họp đầu ca 15 phút\nNội dung: Điểm danh và triển khai kế hoạch..." },
+    { title: "Hoàn tất báo cáo", desc: "Tên: Hoàn tất báo cáo ngày\nNội dung: Gửi số liệu trước 18:00..." },
+    { title: "Kiểm tra quầy kệ", desc: "Tên: Sắp xếp vệ sinh quầy kệ\nNội dung: Lau dọn quầy kệ khu A..." },
+    { title: "Gọi hẹn nhận hàng", desc: "Tên: Gọi khách hẹn nhận hàng\nNội dung: Liên hệ khách báo hàng đã về..." },
+    { title: "Chăm sóc sau bán", desc: "Tên: Chăm sóc khách hàng\nNội dung: Gọi khách hỏi thăm trải nghiệm..." }
+  ];
+  
+  var contents = [];
+  templates.forEach(function(t, idx) {
+    if (idx > 0) contents.push({ type: "separator", margin: "sm" });
+    contents.push({
+      type: "box",
+      layout: "vertical",
+      margin: "sm",
+      contents: [
+        { type: "text", text: "📋 Mẫu: " + t.title, size: "xs", weight: "bold", color: "#1DB446" },
+        { type: "text", text: t.desc, size: "xxs", color: "#666666", wrap: true }
+      ]
+    });
+  });
+  
+  var bubble = {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#1DB446",
+      paddingAll: "12px",
+      contents: [
+        {
+          type: "text",
+          text: "📋 MẪU CÔNG VIỆC NHANH (LIFF TEMPLATES)",
+          color: "#FFFFFF",
+          weight: "bold",
+          size: "sm"
+        }
+      ]
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      paddingAll: "14px",
+      contents: contents
+    }
+  };
+  return {
+    type: "flex",
+    altText: "Mẫu công việc nhanh",
+    contents: bubble
+  };
+}
+
+function buildDaGiaoFlexMessage(uId, uName, gId) {
+  var tasks = getActiveTasksList();
+  var myAssignedTasks = [];
+  
+  for (var i = 0; i < tasks.length; i++) {
+    var row = tasks[i];
+    var status = String(row[11] || "").trim();
+    if (status === "Đã gửi" || status === "Đã hủy") continue;
+    
+    var nguoiGiao = String(row[17] || "").trim();
+    var idG = String(row[5] || "").trim();
+    
+    if (nguoiGiao === uId) {
+      if (gId && idG !== gId) continue;
+      myAssignedTasks.push({
+        name: row[0],
+        assignee: resolveMemberNamesList(row[6]),
+        deadline: row[15],
+        status: status
+      });
+    }
+  }
+  
+  var contents = [];
+  if (myAssignedTasks.length === 0) {
+    contents.push({
+      type: "text",
+      text: "Bạn chưa giao công việc nào chưa hoàn thành.",
+      size: "xs",
+      color: "#666666",
+      wrap: true
+    });
+  } else {
+    myAssignedTasks.forEach(function(task, idx) {
+      if (idx > 0) contents.push({ type: "separator", margin: "sm" });
+      
+      var statusColor = "#1DB446";
+      if (task.status === "Quá hạn") statusColor = "#C70039";
+      else if (task.status === "Cần hỗ trợ") statusColor = "#7B61FF";
+      else if (task.status === "Đang làm") statusColor = "#3B82F6";
+      else statusColor = "#F59E0B";
+      
+      contents.push({
+        type: "box",
+        layout: "vertical",
+        margin: "sm",
+        spacing: "xs",
+        contents: [
+          {
+            type: "box",
+            layout: "horizontal",
+            contents: [
+              {
+                type: "text",
+                text: "• " + task.name,
+                size: "xs",
+                color: "#333333",
+                weight: "bold",
+                flex: 7,
+                wrap: true
+              },
+              {
+                type: "text",
+                text: task.status,
+                size: "xxs",
+                color: statusColor,
+                weight: "bold",
+                flex: 3,
+                align: "end"
+              }
+            ]
+          },
+          {
+            type: "box",
+            layout: "horizontal",
+            contents: [
+              {
+                type: "text",
+                text: "👤 Nhận: " + task.assignee,
+                size: "xxs",
+                color: "#666666",
+                flex: 6,
+                wrap: true
+              },
+              {
+                type: "text",
+                text: "⏰: " + (task.deadline ? formatDateTimeDisplay(task.deadline) : "N/A"),
+                size: "xxs",
+                color: "#888888",
+                flex: 4,
+                align: "end"
+              }
+            ]
+          }
+        ]
+      });
+    });
+  }
+  
+  var bubble = {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#10B981",
+      paddingAll: "12px",
+      contents: [
+        {
+          type: "text",
+          text: "📤 VIỆC TÔI ĐÃ GIAO",
+          color: "#FFFFFF",
+          weight: "bold",
+          size: "sm"
+        }
+      ]
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      paddingAll: "14px",
+      contents: contents
+    }
+  };
+  
+  return {
+    type: "flex",
+    altText: "Việc tôi đã giao",
+    contents: bubble
+  };
+}
+
+function handleTextCommand(event, text, uId, gId) {
+  var ss = getSpreadsheet();
+  var name = getUserName(uId, gId);
+  var cmd = text.trim().toLowerCase();
+  
+  // Ghi log nhận lệnh
+  writeLog("Lệnh bot nhận được: '" + text + "' | userId=" + uId + " | groupId=" + (gId || "Chat riêng"), "INFO");
+  
+  // 1. Trợ giúp cú pháp
+  if (["/help", "help", "trợ giúp", "tro giup", "cú pháp", "cu phap"].indexOf(cmd) !== -1) {
+    replyHelp(event.replyToken);
+    return true;
+  }
+  
+  // 2. Hướng dẫn / giới thiệu BOT
+  if (["/hd", "/huongdan", "hướng dẫn", "huong dan", "giới thiệu", "gioi thieu"].indexOf(cmd) !== -1) {
+    replyHuongDanBot(event.replyToken);
+    return true;
+  }
+  
+  // 3. Mở form giao việc
+  if ([
+    "/gv", "/link", "/giao", "/tao", "/do", "link",
+    "tạo việc", "tao viec", "giao việc", "giao viec", "mở giao việc", "mo giao viec"
+  ].indexOf(cmd) !== -1) {
+    replyGiaoForm(event.replyToken);
+    return true;
+  }
+  
+  // 4. Lấy ID
+  if (["/id", "id", "lấy id", "lay id"].indexOf(cmd) !== -1) {
+    if (gId) {
+      sendLineReply(event.replyToken, "🆔 Group ID:\n" + gId + "\n\n👤 User ID:\n" + uId);
+    } else {
+      sendLineReply(event.replyToken, "👤 User ID:\n" + uId);
+    }
+    return true;
+  }
+  
+  // 5. Tương tác hôm nay
+  if ([
+    "/tthomnay", "/tuongtac", "tương tác", "tuong tac",
+    "tương tác hôm nay", "tuong tac hom nay",
+    "/homnay", "hôm nay", "hom nay", "/tthn"
+  ].indexOf(cmd) !== -1) {
+    if (gId) {
+      guiBaoCaoTuongTac(gId, event.replyToken, 1);
+    } else {
+      sendLineReply(event.replyToken, "📌 Lệnh này chỉ dùng được trong nhóm LINE để tra cứu tương tác của nhóm.");
+    }
+    return true;
+  }
+  
+  // 6. Tương tác 7 ngày
+  if ([
+    "/tt7ngay", "tương tác 7 ngày", "tuong tac 7 ngay",
+    "/7ngay", "7 ngày", "7 ngay", "/ttt"
+  ].indexOf(cmd) !== -1) {
+    if (gId) {
+      guiBaoCaoTuongTac(gId, event.replyToken, 7);
+    } else {
+      sendLineReply(event.replyToken, "📅 Lệnh này chỉ dùng được trong nhóm LINE để tra cứu tương tác của nhóm.");
+    }
+    return true;
+  }
+  
+  // 7. Việc của tôi
+  if (["/vieccuatoi", "việc của tôi", "viec cua toi"].indexOf(cmd) !== -1) {
+    var flex = buildMyTasksFlexMessage(uId, name, gId);
+    replyMessages(event.replyToken, [flex], "LINE my tasks reply");
+    return true;
+  }
+  
+  // 8. Chưa xong
+  if (["/chuaxong", "chưa xong", "chua xong"].indexOf(cmd) !== -1) {
+    if (gId) {
+      var flex = buildChuaXongFlexMessage(gId);
+      replyMessages(event.replyToken, [flex], "LINE pending tasks reply");
+    } else {
+      sendLineReply(event.replyToken, "📌 Lệnh này chỉ dùng được trong nhóm LINE để tra cứu công việc chưa xong của nhóm.");
+    }
+    return true;
+  }
+  
+  // 9. Trễ hạn
+  if (["/trehan", "trễ hạn", "tre han"].indexOf(cmd) !== -1) {
+    if (gId) {
+      var flex = buildTreHanFlexMessage(gId);
+      replyMessages(event.replyToken, [flex], "LINE overdue tasks reply");
+    } else {
+      sendLineReply(event.replyToken, "⚠️ Lệnh này chỉ dùng được trong nhóm LINE để tra cứu công việc trễ hạn của nhóm.");
+    }
+    return true;
+  }
+  
+  // 10. Đã giao
+  if (["/dagiao", "đã giao", "da giao"].indexOf(cmd) !== -1) {
+    var flex = buildDaGiaoFlexMessage(uId, name, gId);
+    replyMessages(event.replyToken, [flex], "LINE tasks assigned by me reply");
+    return true;
+  }
+  
+  // 11. Bot status
+  if (["/bot", "trạng thái bot", "trang thai bot"].indexOf(cmd) !== -1) {
+    var flex = buildBotStatusFlexMessage();
+    replyMessages(event.replyToken, [flex], "LINE bot status reply");
+    return true;
+  }
+  
+  // 12. Mẫu việc
+  if (["/mau", "mẫu", "mau", "mẫu công việc", "mau cong viec"].indexOf(cmd) !== -1) {
+    var flex = buildTemplatesFlexMessage();
+    replyMessages(event.replyToken, [flex], "LINE templates list reply");
+    return true;
+  }
+  
+  // 13. Xem log (Admin only)
+  if (["/log", "xem log", "log"].indexOf(cmd) !== -1) {
+    if (isAdmin(uId)) {
+      var logs = getLast5ErrorLogs();
+      sendLineReply(event.replyToken, "📝 5 DÒNG LOG LỖI GẦN NHẤT:\n\n" + logs);
+    } else {
+      sendLineReply(event.replyToken, "🚫 Bạn không có quyền Admin để sử dụng lệnh này!");
+    }
+    return true;
+  }
+  
+  // 14. Reset menu (Admin only)
+  if (["/resetmenu", "reset menu"].indexOf(cmd) !== -1) {
+    if (isAdmin(uId)) {
+      try {
+        SETUP_RICH_MENU();
+        var richMenuId = PropertiesService.getScriptProperties().getProperty("RICH_MENU_ID");
+        var successMsg = "✅ Đã tạo lại Rich Menu thành công!\nID: " + richMenuId + "\n\n" +
+                         "👉 Bước tiếp theo:\n" +
+                         "1. Mở Google Sheet.\n" +
+                         "2. Chọn menu 🤖 LINE BOT -> '🖼️ Upload ảnh Rich Menu' để tải ảnh lên.\n" +
+                         "3. Chọn '✅ Đặt Rich Menu mặc định' để áp dụng cho toàn bộ thành viên.";
+        sendLineReply(event.replyToken, successMsg);
+      } catch (err) {
+        sendLineReply(event.replyToken, "❌ Lỗi tạo Rich Menu: " + err.toString());
+      }
+    } else {
+      sendLineReply(event.replyToken, "🚫 Bạn không có quyền Admin để sử dụng lệnh này!");
+    }
+    return true;
+  }
+  
+  // 15. Tra cứu Chatbot
+  var sChat = ss.getSheetByName("Chatbot");
+  if (sChat) {
+    var cData = sChat.getDataRange().getValues();
+    for (var k = 1; k < cData.length; k++) {
+      if (String(cData[k][0]).trim().toLowerCase() === cmd) {
+        sendBotReply(event.replyToken, cData[k][1], cData[k][2]);
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
 
