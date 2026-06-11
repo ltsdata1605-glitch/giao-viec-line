@@ -1157,9 +1157,10 @@
       });
     }
 
-    // Submit form qua POST fetch
-    async function submitForm(event) {
-      event.preventDefault();
+    // Submit form qua POST fetch (gọi từ Modal xác nhận)
+    async function executeSubmitForm() {
+      // Đóng modal xác nhận
+      closeConfirmModal();
       
       const btn = document.getElementById('btnSubmit');
       const spinner = document.getElementById('btnSpinner');
@@ -1167,8 +1168,8 @@
 
       // Lock nút và chạy spinner
       btn.disabled = true;
-      spinner.style.display = 'inline-block';
-      btnText.textContent = "Đang xử lý...";
+      if (spinner) spinner.style.display = 'inline-block';
+      if (btnText) btnText.textContent = "Đang tạo công việc...";
 
       try {
         const imageFile = await readImageFileAsBase64();
@@ -1212,6 +1213,7 @@
           apiUrl = window.location.href.split('?')[0].split('#')[0];
         }
 
+        logMsg("Bắt đầu gửi request tạo công việc...");
         fetch(apiUrl, {
           method: "POST",
           body: JSON.stringify(payload)
@@ -1235,25 +1237,12 @@
 
       if (res.success) {
         document.getElementById('successModal').classList.add('active');
-        
-        setTimeout(() => {
-          if (typeof liff !== 'undefined' && liff.isInClient()) {
-            liff.closeWindow();
-          } else {
-            document.getElementById('successModal').classList.remove('active');
-            document.getElementById('liffForm').reset();
-            btn.disabled = false;
-            spinner.style.display = 'none';
-            btnText.textContent = "Tạo Công Việc";
-            alert("✅ " + res.message);
-          }
-        }, 2200);
-
+        logMsg("Tạo công việc thành công.");
       } else {
         alert("❌ Lỗi: " + res.message);
         btn.disabled = false;
-        spinner.style.display = 'none';
-        btnText.textContent = "Tạo Công Việc";
+        if (spinner) spinner.style.display = 'none';
+        if (btnText) btnText.textContent = "Tạo Công Việc";
       }
     }
 
@@ -1265,8 +1254,8 @@
       const spinner = document.getElementById('btnSpinner');
       const btnText = document.getElementById('btnText');
       btn.disabled = false;
-      spinner.style.display = 'none';
-      btnText.textContent = "Tạo Công Việc";
+      if (spinner) spinner.style.display = 'none';
+      if (btnText) btnText.textContent = "Tạo Công Việc";
     }
   </script>
 </body>
