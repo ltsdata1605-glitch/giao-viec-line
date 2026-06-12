@@ -1149,64 +1149,135 @@
           cbFc.name = 'idFollowerCheckbox';
           cbFc.value = m.id;
           labelFc.appendChild(cbFc);
-          labelFc.appendChild(document.createTextNode(' ' + m.name));
-          followerContainer.appendChild(labelFc);
-        });
-      } else {
-        logMsg("Không tìm thấy thành viên.");
-        memberContainer.textContent = "Không tìm thấy nhân viên nào.";
-        followerContainer.textContent = "Không tìm thấy nhân viên nào.";
-      }
+          labelFc.appendChild(document.createText    let selectedImages = []; // Danh sách ảnh đã chọn và nén
 
-      // Enable nút bấm
-      document.getElementById('btnSubmit').disabled = false;
-      logMsg("Cập nhật giao diện thành công.");
-    }
-    function onListsFailed(err) {
-      logMsg("onListsFailed() chạy. Lỗi: " + err.toString());
-      document.getElementById('loadingGroups').textContent = "(Lỗi tải!)";
-      document.getElementById('loadingGroups').style.color = "var(--danger)";
-      document.getElementById('loadingMembers').textContent = "(Lỗi tải!)";
-      document.getElementById('loadingMembers').style.color = "var(--danger)";
-      document.getElementById('loadingFollowers').textContent = "(Lỗi tải!)";
-      document.getElementById('loadingFollowers').style.color = "var(--danger)";
-      const loadingAssigner = document.getElementById('loadingAssigner');
-      if (loadingAssigner) {
-        loadingAssigner.textContent = "(Lỗi tải!)";
-        loadingAssigner.style.color = "var(--danger)";
-      }
-    }
-    function readImageFileAsBase64() {
+    // Nén ảnh bằng Canvas
+    function compressAndResizeImage(file) {
       return new Promise((resolve, reject) => {
-        const input = document.getElementById('imageFile');
-        const file = input && input.files && input.files[0];
-
-        if (!file) {
-          resolve(null);
-          return;
-        }
-
         if (!file.type.startsWith('image/')) {
-          reject(new Error('File đã chọn không phải ảnh.'));
-          return;
-        }
-
-        if (file.size > 5 * 1024 * 1024) {
-          reject(new Error('Ảnh quá lớn. Vui lòng chọn ảnh dưới 5MB.'));
+          reject(new Error('File không phải là ảnh.'));
           return;
         }
 
         const reader = new FileReader();
-        reader.onload = () => {
-          resolve({
-            name: file.name,
-            type: file.type,
-            dataUrl: reader.result
-          });
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            const maxSide = 1600;
+
+            if (width > maxSide || height > maxSide) {
+              if (width > height) {
+                height = Math.round((height * maxSide) / width);
+                width = maxSide;
+              } else {
+                width = Math.round((width * maxSide) / height);
+                height = maxSide;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const quality = 0.8;
+            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            
+            const base64Str = dataUrl.split(',')[1];
+            const sizeInBytes = Math.round((base64Str.length * 3) / 4);
+
+            resolve({
+              name: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
+              type: 'image/jpeg',
+              dataUrl: dataUrl,
+              size: sizeInBytes
+            });
+          };
+          img.onerror = function() {
+            reject(new Error('Không thể tải ảnh để nén.'));
+          };
+          img.src = e.target.result;
         };
-        reader.onerror = () => reject(new Error('Không đọc được file ảnh.'));
+        reader.onerror = function() {
+          reject(new Error('Không thể đọc file.'));
+        };
         reader.readAsDataURL(file);
       });
+    }
+
+    async function handleFileSelect(event) {
+      const files = Array.from(event.target.files);
+      if (!files.length) return;
+
+      const maxImages = 5;
+      if (selectedImages.length + files.length > maxImages) {
+        alert(`❌ Chỉ được chọn tối đa ${maxImages} ảnh. Bạn đã có ${selectedImages.length} ảnh và chọn thêm ${files.length} ảnh.`);
+        event.target.value = '';
+        return;
+      }
+
+      const submitBtn = document.getElementById('btnSubmit');
+      const btnText = document.getElementById('btnText');
+      const originalText = btnText ? btnText.textContent : "Tạo Công Việc";
+      
+      submitBtn.disabled = true;
+      if (btnText) btnText.textContent = "Đang nén ảnh...";
+
+      for (let i = 0; i < files.length; i++) {
+        try {
+          logMsg(`Đang nén ảnh: ${files[i].name}`);
+          const compressed = await compressAndResizeImage(files[i]);
+          
+          if (compressed.size > 1.5 * 1024 * 1024) {
+            alert(`⚠️ Cảnh báo: Ảnh "${files[i].name}" sau khi nén vẫn có dung lượng khá lớn (${(compressed.size / (1024 * 1024)).toFixed(2)} MB).`);
+          }
+          
+          selectedImages.push(compressed);
+        } catch (err) {
+          logMsg(`Lỗi nén ảnh ${files[i].name}: ${err.toString()}`);
+          alert(`❌ Lỗi nén ảnh ${files[i].name}: ${err.message}`);
+        }
+      }
+
+      event.target.value = '';
+      submitBtn.disabled = false;
+      if (btnText) btnText.textContent = originalText;
+
+      renderPreviews();
+    }
+
+    function renderPreviews() {
+      const container = document.getElementById('imagePreviewContainer');
+      container.innerHTML = '';
+
+      selectedImages.forEach((img, index) => {
+        const card = document.createElement('div');
+        card.className = 'preview-card';
+
+        const imgEl = document.createElement('img');
+        imgEl.src = img.dataUrl;
+        card.appendChild(imgEl);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.onclick = (e) => {
+          e.stopPropagation();
+          deleteImage(index);
+        };
+        card.appendChild(deleteBtn);
+
+        container.appendChild(card);
+      });
+    }
+
+    function deleteImage(index) {
+      selectedImages.splice(index, 1);
+      renderPreviews();
     }
 
     // Submit form qua POST fetch (gọi từ Modal xác nhận)
@@ -1224,8 +1295,6 @@
       if (btnText) btnText.textContent = "Đang tạo công việc...";
 
       try {
-        const imageFile = await readImageFileAsBase64();
-
         const selectedMembers = [];
         document.querySelectorAll('input[name="idMemberCheckbox"]:checked').forEach(cb => {
           selectedMembers.push(cb.value);
@@ -1243,6 +1312,48 @@
           lapLai: document.getElementById('lapLai').value,
           deadline: document.getElementById('deadline').value,
           loaiCV: document.getElementById('loaiCV').value,
+          idGroup: document.getElementById('idGroup').value,
+          idMember: selectedMembers.join(','),
+          idAssigner: document.getElementById('idAssigner').value || window.currentLiffUserId || '',
+          idFollower: selectedFollowers.join(','),
+          linkAnh: document.getElementById('linkAnh').value,
+          imageFiles: selectedImages.map(img => ({
+            name: img.name,
+            type: img.type,
+            dataUrl: img.dataUrl
+          })),
+          hinhThucXN: document.getElementById('hinhThucXN').value,
+          doUuTien: document.getElementById('doUuTien').value,
+          tanSuat: document.getElementById('tanSuat').value,
+          ghiChu: document.getElementById('ghiChu').value
+        };
+
+        const payload = {
+          action: "createTask",
+          data: formData
+        };
+
+        let apiUrl = WEB_APP_URL;
+        if (!apiUrl) {
+          apiUrl = window.location.href.split('?')[0].split('#')[0];
+        }
+
+        logMsg("Bắt đầu gửi request tạo công việc...");
+        fetch(apiUrl, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        })
+        .then(response => {
+          if (!response.ok) throw new Error("HTTP error " + response.status);
+          return response.json();
+        })
+        .then(res => onFormSuccess(res))
+        .catch(err => onFormFailure(err));
+
+      } catch (err) {
+        onFormFailure(err);
+      }
+    }mentById('loaiCV').value,
           idGroup: document.getElementById('idGroup').value,
           idMember: selectedMembers.join(','),
           idAssigner: document.getElementById('idAssigner').value || window.currentLiffUserId || '',
