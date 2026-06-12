@@ -1379,41 +1379,6 @@
         .then(res => onFormSuccess(res))
         .catch(err => onFormFailure(err));
 
-      } catch (err) {
-        onFormFailure(err);
-      }
-          imageFile: imageFile,
-          hinhThucXN: document.getElementById('hinhThucXN').value,
-          doUuTien: document.getElementById('doUuTien').value,
-          tanSuat: document.getElementById('tanSuat').value,
-          ghiChu: document.getElementById('ghiChu').value
-        };
-
-        const payload = {
-          action: "createTask",
-          data: formData
-        };
-
-        let apiUrl = WEB_APP_URL;
-        if (!apiUrl) {
-          apiUrl = window.location.href.split('?')[0].split('#')[0];
-        }
-
-        logMsg("Bắt đầu gửi request tạo công việc...");
-        fetch(apiUrl, {
-          method: "POST",
-          body: JSON.stringify(payload)
-        })
-        .then(response => {
-          if (!response.ok) throw new Error("HTTP error " + response.status);
-          return response.json();
-        })
-        .then(res => onFormSuccess(res))
-        .catch(err => onFormFailure(err));
-
-      } catch (err) {
-        onFormFailure(err);
-      }
     }
 
     function onFormSuccess(res) {
