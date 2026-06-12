@@ -1698,8 +1698,24 @@ function writeLog(message, type, functionName, payload) {
     
     var maxLogs = 2000;
     var lastRow = sheet.getLastRow();
-    if (lastRow > maxLogs + 1) {
-      sheet.deleteRows(2, lastRow - (maxLogs + 1));
+    if (lastRow > maxLogs + 200) {
+      try {
+        var numToDelete = lastRow - (maxLogs + 1);
+        if (numToDelete > 1000) {
+          var keepRange = sheet.getRange(lastRow - maxLogs + 1, 1, maxLogs, 5);
+          var keepValues = keepRange.getValues();
+          sheet.getRange(2, 1, lastRow - 1, 5).clearContent();
+          sheet.getRange(2, 1, maxLogs, 5).setValues(keepValues);
+          var currentMax = sheet.getMaxRows();
+          if (currentMax > maxLogs + 100) {
+            sheet.deleteRows(maxLogs + 2, currentMax - (maxLogs + 1));
+          }
+        } else {
+          sheet.deleteRows(2, numToDelete);
+        }
+      } catch (delErr) {
+        Logger.log("Lỗi dọn dẹp logs: " + delErr.toString());
+      }
     }
   } catch (e) {
     Logger.log("Lỗi ghi log: " + e.toString());
@@ -4681,6 +4697,11 @@ function guiBaoCaoCuoiNgayTuDong() {
     }
   }
   writeLog("Đã chạy báo cáo cuối ngày tự động. Đã gửi thành công cho " + groupsSent + " nhóm.", "INFO");
+  try {
+    cleanOldLogsAndInteractions();
+  } catch (cleanErr) {
+    writeLog("Lỗi dọn dẹp logs cuối ngày: " + cleanErr.toString(), "WARN");
+  }
 }
 
 function guiBaoCaoTuanTuDong() {
@@ -8258,4 +8279,50 @@ function getAdminUserIds() {
     }
   });
   return adminList;
+}
+
+function cleanOldLogsAndInteractions() {
+  try {
+    var ss = getSpreadsheet();
+    
+    // 1. Dọn dẹp sheet Interaction_Logs
+    var intSheet = ss.getSheetByName("Interaction_Logs");
+    if (intSheet) {
+      var lastRow = intSheet.getLastRow();
+      var maxIntLogs = 10000;
+      if (lastRow > maxIntLogs + 500) {
+        var keepRange = intSheet.getRange(lastRow - maxIntLogs + 1, 1, maxIntLogs, 13);
+        var keepValues = keepRange.getValues();
+        intSheet.getRange(2, 1, lastRow - 1, 13).clearContent();
+        intSheet.getRange(2, 1, maxIntLogs, 13).setValues(keepValues);
+        
+        var currentMax = intSheet.getMaxRows();
+        if (currentMax > maxIntLogs + 100) {
+          intSheet.deleteRows(maxIntLogs + 2, currentMax - (maxIntLogs + 1));
+        }
+        writeLog("Đã dọn dẹp Interaction_Logs bằng cách ghi đè tối ưu (giữ " + maxIntLogs + " dòng)", "INFO");
+      }
+    }
+    
+    // 2. Dọn dẹp sheet Logs
+    var logSheet = ss.getSheetByName("Logs");
+    if (logSheet) {
+      var lastRow = logSheet.getLastRow();
+      var maxLogs = 2000;
+      if (lastRow > maxLogs + 200) {
+        var keepRange = logSheet.getRange(lastRow - maxLogs + 1, 1, maxLogs, 5);
+        var keepValues = keepRange.getValues();
+        logSheet.getRange(2, 1, lastRow - 1, 5).clearContent();
+        logSheet.getRange(2, 1, maxLogs, 5).setValues(keepValues);
+        
+        var currentMax = logSheet.getMaxRows();
+        if (currentMax > maxLogs + 100) {
+          logSheet.deleteRows(maxLogs + 2, currentMax - (maxLogs + 1));
+        }
+        writeLog("Đã dọn dẹp Logs bằng cách ghi đè tối ưu (giữ " + maxLogs + " dòng)", "INFO");
+      }
+    }
+  } catch (err) {
+    Logger.log("Lỗi dọn dẹp logs định kỳ: " + err.toString());
+  }
 }
