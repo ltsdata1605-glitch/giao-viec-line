@@ -18,7 +18,7 @@ function getLiffId() {
   if (!liffId) {
     liffId = getSetting("LIFF_ID", "");
   }
-  return liffId || "2010231412-AYj2xgdU"; // Default fallback
+  return liffId || "2010371497-R9x4l665"; // Default fallback
 }
 
 function getLiffUrl() {
@@ -32,7 +32,7 @@ function onOpen() {
   // Tự động cấu hình LIFF ID của bạn vào hệ thống nếu chưa có
   var props = PropertiesService.getScriptProperties();
   if (!props.getProperty('LIFF_ID')) {
-    props.setProperty('LIFF_ID', '2010231412-AYj2xgdU');
+    props.setProperty('LIFF_ID', '2010371497-R9x4l665');
   }
   
   var ui = SpreadsheetApp.getUi();
@@ -5424,7 +5424,7 @@ function CAP_NHAT_TOKEN_MENU() {
 
 function CAP_NHAT_LIFF_ID_MENU() {
   var ui = SpreadsheetApp.getUi();
-  var current = PropertiesService.getScriptProperties().getProperty("LIFF_ID") || "2010231412-AYj2xgdU";
+  var current = PropertiesService.getScriptProperties().getProperty("LIFF_ID") || "2010371497-R9x4l665";
   var input = ui.prompt(
     "📱 Cập nhật LIFF ID",
     "Nhập LIFF ID mới (hiện tại: " + current + "):",
