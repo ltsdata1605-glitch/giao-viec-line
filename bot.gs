@@ -5907,58 +5907,49 @@ function buildInteractionReport(groupId, days) {
   
   var insight = buildInteractionInsight(stats);
   
+  var details = [];
+  if (stats.text > 0) details.push(stats.text + " Tin nhắn");
+  if (stats.sticker > 0) details.push(stats.sticker + " Sticker");
+  if (stats.image > 0) details.push(stats.image + " Ảnh thường");
+  if (stats.command > 0) details.push(stats.command + " Lệnh bot");
+  if (stats.hoantat > 0) details.push(stats.hoantat + " Hoàn tất việc");
+  if (stats.proof > 0) details.push(stats.proof + " Ảnh nghiệm thu");
+  
+  var detailsStr = details.length > 0 ? " (" + details.join(", ") + ")" : "";
+  
   var rep = reportTitle + "\n" +
             "Group: " + groupName + "\n" +
-            "Ngày: " + dateStr + "\n\n" +
-            "Tổng tương tác:\n" +
-            "- Tin nhắn: " + stats.text + "\n" +
-            "- Sticker: " + stats.sticker + "\n" +
-            "- Ảnh: " + stats.image + "\n" +
-            "- Lệnh bot: " + stats.command + "\n" +
-            "- Hoàn tất việc: " + stats.hoantat + "\n" +
-            "- Ảnh nghiệm thu: " + stats.proof + "\n\n" +
-            "Thành viên hoạt động: " + X + "/" + Y + "\n" +
-            "Tổng điểm tương tác: " + stats.totalScore.toFixed(1) + "\n\n";
+            "Ngày: " + dateStr + "\n" +
+            "Hoạt động: " + X + "/" + Y + " TV\n" +
+            "Tổng tương tác: " + stats.total + " lượt" + detailsStr + "\n\n";
   
   var allMembers = Object.keys(stats.members).map(function(userId) {
     return {
       userId: userId,
       name: stats.members[userId].name,
-      score: stats.members[userId].score,
       total: stats.members[userId].total
     };
   });
   
   if (allMembers.length === 0) {
-    rep += "🔥 TOP tương tác:\n(Không có dữ liệu)\n\n⚠️ Ít tương tác:\n(Không có dữ liệu)\n\n📌 Nhận xét tự động:\n- " + insight;
+    rep += "🔥 Thành viên tích cực:\n(Không có dữ liệu)\n\n📌 Nhận xét: " + insight;
     return rep;
   }
   
-  var topList = [].concat(allMembers).sort(function(a, b) {
-    if (b.score !== a.score) return b.score - a.score;
+  // Sắp xếp theo số lượt tương tác giảm dần
+  var sortedMembers = allMembers.sort(function(a, b) {
     return b.total - a.total;
   });
   
-  var bottomList = [].concat(allMembers).sort(function(a, b) {
-    if (a.score !== b.score) return a.score - b.score;
-    return a.total - b.total;
-  });
+  var limit = 5;
+  var showTop = sortedMembers.slice(0, limit);
   
-  var limit = 10;
-  var showTop = topList.slice(0, limit);
-  var showBottom = bottomList.slice(0, limit);
-  
-  rep += "🔥 TOP tương tác:\n";
+  rep += "🔥 Thành viên tích cực:\n";
   showTop.forEach(function(m, idx) {
-    rep += (idx + 1) + ". " + m.name + " - " + m.score.toFixed(1) + " điểm - " + m.total + " lượt\n";
+    rep += (idx + 1) + ". " + m.name + " (" + m.total + " lượt)\n";
   });
   
-  rep += "\n⚠️ Ít tương tác:\n";
-  showBottom.forEach(function(m, idx) {
-    rep += (idx + 1) + ". " + m.name + " - " + m.score.toFixed(1) + " điểm - " + m.total + " lượt\n";
-  });
-  
-  rep += "\n📌 Nhận xét tự động:\n- " + insight;
+  rep += "\n📌 Nhận xét: " + insight;
   
   return rep;
 }

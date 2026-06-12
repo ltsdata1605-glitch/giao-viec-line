@@ -1860,13 +1860,13 @@ runTest("Test báo cáo tương tác nhóm (/tthomnay) có dữ liệu", () => {
   
   assert.ok(report.includes("📊 TƯƠNG TÁC HÔM NAY"));
   assert.ok(report.includes("Group: Group Báo Cáo"));
-  assert.ok(report.includes("- Tin nhắn: 1"));
-  assert.ok(report.includes("- Sticker: 1"));
-  assert.ok(report.includes("- Ảnh nghiệm thu: 1"));
-  assert.ok(report.includes("Thành viên hoạt động: 2/12")); // 12 from mock members count
-  assert.ok(report.includes("Tổng điểm tương tác: 6.5"));
-  assert.ok(report.includes("Thành viên Hai - 5.0 điểm - 1 lượt"));
-  assert.ok(report.includes("Thành viên Một - 1.5 điểm - 2 lượt"));
+  assert.ok(report.includes("Hoạt động: 2/12 TV")); // 12 from mock members count
+  assert.ok(report.includes("Tổng tương tác: 3 lượt"));
+  assert.ok(report.includes("1 Tin nhắn"));
+  assert.ok(report.includes("1 Sticker"));
+  assert.ok(report.includes("1 Ảnh nghiệm thu"));
+  assert.ok(report.includes("Thành viên Một (2 lượt)"));
+  assert.ok(report.includes("Thành viên Hai (1 lượt)"));
 });
 
 runTest("Test lệnh /toptt alias hôm nay", () => {
@@ -1910,69 +1910,57 @@ runTest("Test báo cáo nhóm không có dữ liệu", () => {
   console.log("EMPTY REPORT OUTPUT:\n", report);
   
   assert.ok(report.includes("📊 TƯƠNG TÁC HÔM NAY"));
-  assert.ok(report.includes("- Tin nhắn: 0"));
-  assert.ok(report.includes("Thành viên hoạt động: 0/0")); // fallback to 0/0
-  assert.ok(report.includes("Tổng điểm tương tác: 0.0"));
+  assert.ok(report.includes("Hoạt động: 0/0 TV")); // fallback to 0/0
+  assert.ok(report.includes("Tổng tương tác: 0 lượt"));
   assert.ok(report.includes("(Không có dữ liệu)"));
-  assert.ok(report.includes("Nhận xét tự động:\n- Cần nhắc nhóm tương tác/cập nhật tiến độ."));
+  assert.ok(report.includes("Nhận xét: Cần nhắc nhóm tương tác/cập nhật tiến độ."));
 });
 
-runTest("Test giới hạn Top 10 và Bottom 10 thành viên", () => {
+runTest("Test giới hạn Top 5 thành viên tích cực", () => {
   const todayDateStr = new Date().toISOString().substring(0, 10);
   
-  // Tạo 12 thành viên tương tác khác nhau
+  // Tạo 8 thành viên tương tác khác nhau
   allSheetsData["Interaction_Logs"] = [
     ["Thời gian", "Ngày", "Giờ", "Group ID", "Group Name", "User ID", "Tên Line", "Loại tương tác", "Nội dung rút gọn", "Task ID", "Điểm tương tác", "Nguồn", "Ghi chú"]
   ];
   
-  for (let idx = 1; idx <= 12; idx++) {
+  for (let idx = 1; idx <= 8; idx++) {
     allSheetsData["Interaction_Logs"].push([
       new Date().toISOString(),
       todayDateStr,
       "12:00:00",
-      "G_LIMIT_10",
+      "G_LIMIT_5",
       "Group Giới Hạn",
       "U_M_" + idx,
       "Thành viên " + idx,
       "text",
       "Tin nhắn " + idx,
       "",
-      idx * 1.0, // Điểm số khác nhau
+      1.0,
       "Webhook",
       ""
     ]);
   }
   
-  const report = mockSandbox.buildInteractionReport("G_LIMIT_10", 1);
+  const report = mockSandbox.buildInteractionReport("G_LIMIT_5", 1);
   
-  // Đếm số dòng hiển thị trong TOP tương tác và Ít tương tác
+  // Đếm số dòng hiển thị trong Thành viên tích cực
   const lines = report.split("\n");
   let topCount = 0;
-  let bottomCount = 0;
-  
   let inTopSection = false;
-  let inBottomSection = false;
   
   lines.forEach(line => {
-    if (line.startsWith("🔥 TOP tương tác:")) {
+    if (line.startsWith("🔥 Thành viên tích cực:")) {
       inTopSection = true;
-      inBottomSection = false;
-    } else if (line.startsWith("⚠️ Ít tương tác:")) {
+    } else if (line.startsWith("📌 Nhận xét:")) {
       inTopSection = false;
-      inBottomSection = true;
-    } else if (line.startsWith("📌 Nhận xét tự động:")) {
-      inTopSection = false;
-      inBottomSection = false;
     } else if (inTopSection && /^\d+\./.test(line.trim())) {
       topCount++;
-    } else if (inBottomSection && /^\d+\./.test(line.trim())) {
-      bottomCount++;
     }
   });
   
-  console.log("Top display count:", topCount, "Bottom display count:", bottomCount);
-  assert.strictEqual(topCount, 10, "Should display exactly 10 members in TOP list");
-  assert.strictEqual(bottomCount, 10, "Should display exactly 10 members in BOTTOM list");
+  console.log("Top display count:", topCount);
+  assert.strictEqual(topCount, 5, "Should display exactly 5 members in TOP list");
 });
 
 runTest("Test phát hiện thành viên im lặng trong nhóm", () => {
