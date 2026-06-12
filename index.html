@@ -1149,7 +1149,36 @@
           cbFc.name = 'idFollowerCheckbox';
           cbFc.value = m.id;
           labelFc.appendChild(cbFc);
-          labelFc.appendChild(document.createText    let selectedImages = []; // Danh sách ảnh đã chọn và nén
+          labelFc.appendChild(document.createTextNode(' ' + m.name));
+          followerContainer.appendChild(labelFc);
+        });
+      } else {
+        logMsg("Không tìm thấy thành viên.");
+        memberContainer.textContent = "Không tìm thấy nhân viên nào.";
+        followerContainer.textContent = "Không tìm thấy nhân viên nào.";
+      }
+
+      // Enable nút bấm
+      document.getElementById('btnSubmit').disabled = false;
+      logMsg("Cập nhật giao diện thành công.");
+    }
+    
+    function onListsFailed(err) {
+      logMsg("onListsFailed() chạy. Lỗi: " + err.toString());
+      document.getElementById('loadingGroups').textContent = "(Lỗi tải!)";
+      document.getElementById('loadingGroups').style.color = "var(--danger)";
+      document.getElementById('loadingMembers').textContent = "(Lỗi tải!)";
+      document.getElementById('loadingMembers').style.color = "var(--danger)";
+      document.getElementById('loadingFollowers').textContent = "(Lỗi tải!)";
+      document.getElementById('loadingFollowers').style.color = "var(--danger)";
+      const loadingAssigner = document.getElementById('loadingAssigner');
+      if (loadingAssigner) {
+        loadingAssigner.textContent = "(Lỗi tải!)";
+        loadingAssigner.style.color = "var(--danger)";
+      }
+    }
+
+    let selectedImages = []; // Danh sách ảnh đã chọn và nén
 
     // Nén ảnh bằng Canvas
     function compressAndResizeImage(file) {
@@ -1353,12 +1382,6 @@
       } catch (err) {
         onFormFailure(err);
       }
-    }mentById('loaiCV').value,
-          idGroup: document.getElementById('idGroup').value,
-          idMember: selectedMembers.join(','),
-          idAssigner: document.getElementById('idAssigner').value || window.currentLiffUserId || '',
-          idFollower: selectedFollowers.join(','),
-          linkAnh: document.getElementById('linkAnh').value,
           imageFile: imageFile,
           hinhThucXN: document.getElementById('hinhThucXN').value,
           doUuTien: document.getElementById('doUuTien').value,
