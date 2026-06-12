@@ -1077,7 +1077,7 @@ function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, ext
     type: "box",
     layout: "baseline",
     contents: [
-      { type: "text", text: "Phụ trách", size: "xs", color: "#888888", flex: 3 },
+      { type: "text", text: "Thực hiện", size: "xs", color: "#888888", flex: 3 },
       { type: "text", text: assignees, size: "xs", color: "#333333", flex: 7, wrap: true, weight: "bold" }
     ]
   });
@@ -2443,11 +2443,11 @@ function buildHdFlexMessage() {
           spacing: "xs",
           contents: [
             { type: "text", text: "1. Giao việc nhanh", weight: "bold", size: "xs", color: "#1DB446" },
-            { type: "text", text: "Dùng nút 'Giao Việc' hoặc gửi /gv để mở form điền thông tin người phụ trách, hạn hoàn thành (Deadline) và hình thức xác nhận.", size: "xs", color: "#555555", wrap: true },
+            { type: "text", text: "Dùng nút 'Giao Việc' hoặc gửi /gv để mở form điền thông tin người thực hiện, hạn hoàn thành (Deadline) và hình thức xác nhận.", size: "xs", color: "#555555", wrap: true },
             { type: "text", text: "2. Nhắc việc & Leo thang", weight: "bold", size: "xs", color: "#1DB446", margin: "sm" },
-            { type: "text", text: "Bot tự động nhắc nhở người phụ trách theo tần suất cấu hình. Nếu nhắc >= 3 lần mà chưa xong, bot sẽ tag thêm cả người theo dõi để theo dõi sát sao.", size: "xs", color: "#555555", wrap: true },
+            { type: "text", text: "Bot tự động nhắc nhở người thực hiện theo tần suất cấu hình. Nếu nhắc >= 3 lần mà chưa xong, bot sẽ tag thêm cả người theo dõi để theo dõi sát sao.", size: "xs", color: "#555555", wrap: true },
             { type: "text", text: "3. Nghiệm thu & Tương tác", weight: "bold", size: "xs", color: "#1DB446", margin: "sm" },
-            { type: "text", text: "Người phụ trách bấm Hoàn tất hoặc tải ảnh nghiệm thu lên để hoàn tất. Bot tự động lưu giữ lịch sử thực hiện của bạn.", size: "xs", color: "#555555", wrap: true }
+            { type: "text", text: "Người thực hiện bấm Hoàn tất hoặc tải ảnh nghiệm thu lên để hoàn tất. Bot tự động lưu giữ lịch sử thực hiện của bạn.", size: "xs", color: "#555555", wrap: true }
           ]
         }
       ]
