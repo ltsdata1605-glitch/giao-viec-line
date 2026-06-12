@@ -938,6 +938,11 @@
       spinner.style.display = 'none';
       btnText.textContent = "Tạo Công Việc";
       
+      // Clear image previews
+      selectedImages = [];
+      const previewContainer = document.getElementById('imagePreviewContainer');
+      if (previewContainer) previewContainer.innerHTML = '';
+      
       toggleNghieMthuInfo();
     }
 
@@ -961,6 +966,12 @@
         // Render chips & presets
         renderTemplateChips();
         setupTimePresets();
+        
+        // Bind file upload listener
+        const fileInput = document.getElementById('imageFiles');
+        if (fileInput) {
+          fileInput.addEventListener('change', handleFileSelect);
+        }
         
         // Toggle debug logs if query param is set
         const params = new URLSearchParams(window.location.search);
