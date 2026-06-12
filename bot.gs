@@ -5487,6 +5487,30 @@ function ROLLBACK_CAU_HINH_MENU() {
 // THỐNG KÊ TƯƠNG TÁC NHÓM (INTERACTION LOGS)
 // ==========================================
 
+function shortenEmployeeName(name) {
+  if (!name) return "";
+  var idMatch = name.match(/\d{4,6}/);
+  if (!idMatch) {
+    var cleaned = name;
+    cleaned = cleaned.replace(/^(STR_BOSS|STR|ĐMST|DMX|910)[\s_\-]+/gi, "");
+    cleaned = cleaned.replace(/[\s_\-]+(AIO|TC|TV|TN)$/gi, "");
+    cleaned = cleaned.replace(/[\d\s_\-]+/g, " ").trim();
+    return cleaned || name;
+  }
+  var id = idMatch[0];
+  var temp = name.replace(id, "");
+  temp = temp.replace(/^(STR_BOSS|STR|ĐMST|DMX|910)[\s_\-]+/gi, "");
+  temp = temp.replace(/[\s_\-]+(AIO|TC|TV|TN)$/gi, "");
+  temp = temp.replace(/[\d\s_\-]+/g, " ").trim();
+  if (temp) {
+    temp = temp.split(/\s+/).map(function(word) {
+      if (!word) return "";
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }).join(" ");
+  }
+  return id + " - " + (temp || "Nhân viên");
+}
+
 function ensureInteractionLogsSheet() {
   var ss = getSpreadsheet();
   var sheetName = "Interaction_Logs";
@@ -5946,7 +5970,8 @@ function buildInteractionReport(groupId, days) {
   
   rep += "🔥 Thành viên tích cực:\n";
   showTop.forEach(function(m, idx) {
-    rep += (idx + 1) + ". " + m.name + " (" + m.total + " lượt)\n";
+    var shortName = shortenEmployeeName(m.name);
+    rep += (idx + 1) + ". " + shortName + ": " + m.total + "\n";
   });
   
   rep += "\n📌 Nhận xét: " + insight;
@@ -6203,7 +6228,8 @@ function buildSilentMembersReport(groupId, days) {
     rep += "🎉 Tuyệt vời! Tất cả thành viên đều đã tương tác.";
   } else {
     silent.forEach(function(m, idx) {
-      rep += (idx + 1) + ". " + m.name + "\n";
+      var shortName = shortenEmployeeName(m.name);
+      rep += (idx + 1) + ". " + shortName + "\n";
     });
   }
   
@@ -6576,7 +6602,8 @@ function buildTaskPerformanceReport(groupId, days) {
       rep += "(Chưa có việc hoàn thành)\n";
     } else {
       showTop.forEach(function(u, idx) {
-        rep += (idx + 1) + ". " + u.name + " - " + u.completed + "/" + u.total + " việc - " + Math.round(u.completionRate) + "%\n";
+        var shortName = shortenEmployeeName(u.name);
+        rep += (idx + 1) + ". " + shortName + " - " + u.completed + "/" + u.total + " việc - " + Math.round(u.completionRate) + "%\n";
       });
     }
   }
@@ -6608,7 +6635,8 @@ function buildTaskPerformanceReport(groupId, days) {
     followUpList.sort(function(a, b) { return b.sortVal - a.sortVal; });
     var showFollow = followUpList.slice(0, 5);
     showFollow.forEach(function(item, idx) {
-      rep += (idx + 1) + ". " + item.name + " - " + item.text + "\n";
+      var shortName = shortenEmployeeName(item.name);
+      rep += (idx + 1) + ". " + shortName + " - " + item.text + "\n";
     });
   }
   

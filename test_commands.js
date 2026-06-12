@@ -1865,8 +1865,8 @@ runTest("Test báo cáo tương tác nhóm (/tthomnay) có dữ liệu", () => {
   assert.ok(report.includes("1 Tin nhắn"));
   assert.ok(report.includes("1 Sticker"));
   assert.ok(report.includes("1 Ảnh nghiệm thu"));
-  assert.ok(report.includes("Thành viên Một (2 lượt)"));
-  assert.ok(report.includes("Thành viên Hai (1 lượt)"));
+  assert.ok(report.includes("Thành viên Một: 2"));
+  assert.ok(report.includes("Thành viên Hai: 1"));
 });
 
 runTest("Test lệnh /toptt alias hôm nay", () => {
@@ -1961,6 +1961,19 @@ runTest("Test giới hạn Top 5 thành viên tích cực", () => {
   
   console.log("Top display count:", topCount);
   assert.strictEqual(topCount, 5, "Should display exactly 5 members in TOP list");
+});
+
+runTest("Test rút gọn tên nhân viên", () => {
+  const shorten = mockSandbox.shortenEmployeeName;
+  
+  assert.strictEqual(shorten("STR_BOSS SƠN_21707"), "21707 - Sơn");
+  assert.strictEqual(shorten("ĐMST- Phụng15887-AIO"), "15887 - Phụng");
+  assert.strictEqual(shorten("STR_Trường_21453-TC"), "21453 - Trường");
+  assert.strictEqual(shorten("ĐMST-Tuý-7587- TN"), "7587 - Tuý");
+  assert.strictEqual(shorten("910_PHÚC_58614_AIO"), "58614 - Phúc");
+  assert.strictEqual(shorten("ĐMST_THẢO_58619_TV"), "58619 - Thảo");
+  assert.strictEqual(shorten("DMX-HƯƠNG-17952-AIO"), "17952 - Hương");
+  assert.strictEqual(shorten("Nhân viên"), "Nhân viên");
 });
 
 runTest("Test phát hiện thành viên im lặng trong nhóm", () => {
@@ -2100,11 +2113,11 @@ runTest("Test thống kê hiệu suất công việc trong nhóm có dữ liệu
   assert.ok(report.includes("Tỷ lệ hoàn thành: 25%"));
   
   // Top completed list
-  assert.ok(report.includes("U_PERF_A - 1/2 việc - 50%"));
+  assert.ok(report.includes("U PERF A - 1/2 việc - 50%"));
   
   // Cần theo dõi
-  assert.ok(report.includes("U_PERF_B - 1 việc quá hạn"));
-  assert.ok(report.includes("U_PERF_A - phản hồi chậm trung bình 3 giờ"));
+  assert.ok(report.includes("U PERF B - 1 việc quá hạn"));
+  assert.ok(report.includes("U PERF A - phản hồi chậm trung bình 3 giờ"));
 });
 
 runTest("Test thống kê hiệu suất nhóm không có dữ liệu", () => {
