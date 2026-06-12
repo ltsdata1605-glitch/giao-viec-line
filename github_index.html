@@ -409,6 +409,44 @@
     #debugLog {
       display: none;
     }
+    /* Preview styles */
+    .preview-card {
+      position: relative;
+      width: 72px;
+      height: 72px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      animation: bounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .preview-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .preview-card .delete-btn {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: rgba(239, 68, 68, 0.85);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      font-size: 10px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      transition: background 0.2s;
+    }
+    .preview-card .delete-btn:hover {
+      background: rgba(239, 68, 68, 1);
+    }
   </style>
 </head>
 <body>
@@ -578,12 +616,15 @@
         <div class="section-title">5. Ảnh đính kèm gợi ý</div>
         
         <div class="form-group">
-          <label for="imageFile">Ảnh đính kèm gợi ý</label>
-          <input type="file" id="imageFile" accept="image/*">
+          <label for="imageFiles">Ảnh đính kèm gợi ý (Tối đa 5 ảnh)</label>
+          <input type="file" id="imageFiles" accept="image/*" multiple>
           <small style="display:block;margin-top:6px;color:var(--text-secondary);font-size:12px;">
-            Có thể chọn ảnh trực tiếp. Nếu không chọn, có thể dán link bên dưới.
+            Chọn từ thư viện hoặc chụp ảnh mới. Tự động nén chất lượng cao.
           </small>
         </div>
+
+        <!-- Preview Container -->
+        <div id="imagePreviewContainer" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; margin-bottom: 10px;"></div>
 
         <div class="form-group">
           <label for="linkAnh">Hoặc dán link ảnh</label>
@@ -897,6 +938,11 @@
       spinner.style.display = 'none';
       btnText.textContent = "Tạo Công Việc";
       
+      // Clear image previews
+      selectedImages = [];
+      const previewContainer = document.getElementById('imagePreviewContainer');
+      if (previewContainer) previewContainer.innerHTML = '';
+      
       toggleNghieMthuInfo();
     }
 
@@ -920,6 +966,12 @@
         // Render chips & presets
         renderTemplateChips();
         setupTimePresets();
+        
+        // Bind file upload listener
+        const fileInput = document.getElementById('imageFiles');
+        if (fileInput) {
+          fileInput.addEventListener('change', handleFileSelect);
+        }
         
         // Toggle debug logs if query param is set
         const params = new URLSearchParams(window.location.search);
@@ -1110,6 +1162,7 @@
       document.getElementById('btnSubmit').disabled = false;
       logMsg("Cập nhật giao diện thành công.");
     }
+    
     function onListsFailed(err) {
       logMsg("onListsFailed() chạy. Lỗi: " + err.toString());
       document.getElementById('loadingGroups').textContent = "(Lỗi tải!)";
@@ -1124,37 +1177,136 @@
         loadingAssigner.style.color = "var(--danger)";
       }
     }
-    function readImageFileAsBase64() {
+
+    let selectedImages = []; // Danh sách ảnh đã chọn và nén
+
+    // Nén ảnh bằng Canvas
+    function compressAndResizeImage(file) {
       return new Promise((resolve, reject) => {
-        const input = document.getElementById('imageFile');
-        const file = input && input.files && input.files[0];
-
-        if (!file) {
-          resolve(null);
-          return;
-        }
-
         if (!file.type.startsWith('image/')) {
-          reject(new Error('File đã chọn không phải ảnh.'));
-          return;
-        }
-
-        if (file.size > 5 * 1024 * 1024) {
-          reject(new Error('Ảnh quá lớn. Vui lòng chọn ảnh dưới 5MB.'));
+          reject(new Error('File không phải là ảnh.'));
           return;
         }
 
         const reader = new FileReader();
-        reader.onload = () => {
-          resolve({
-            name: file.name,
-            type: file.type,
-            dataUrl: reader.result
-          });
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            const maxSide = 1600;
+
+            if (width > maxSide || height > maxSide) {
+              if (width > height) {
+                height = Math.round((height * maxSide) / width);
+                width = maxSide;
+              } else {
+                width = Math.round((width * maxSide) / height);
+                height = maxSide;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const quality = 0.8;
+            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            
+            const base64Str = dataUrl.split(',')[1];
+            const sizeInBytes = Math.round((base64Str.length * 3) / 4);
+
+            resolve({
+              name: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
+              type: 'image/jpeg',
+              dataUrl: dataUrl,
+              size: sizeInBytes
+            });
+          };
+          img.onerror = function() {
+            reject(new Error('Không thể tải ảnh để nén.'));
+          };
+          img.src = e.target.result;
         };
-        reader.onerror = () => reject(new Error('Không đọc được file ảnh.'));
+        reader.onerror = function() {
+          reject(new Error('Không thể đọc file.'));
+        };
         reader.readAsDataURL(file);
       });
+    }
+
+    async function handleFileSelect(event) {
+      const files = Array.from(event.target.files);
+      if (!files.length) return;
+
+      const maxImages = 5;
+      if (selectedImages.length + files.length > maxImages) {
+        alert(`❌ Chỉ được chọn tối đa ${maxImages} ảnh. Bạn đã có ${selectedImages.length} ảnh và chọn thêm ${files.length} ảnh.`);
+        event.target.value = '';
+        return;
+      }
+
+      const submitBtn = document.getElementById('btnSubmit');
+      const btnText = document.getElementById('btnText');
+      const originalText = btnText ? btnText.textContent : "Tạo Công Việc";
+      
+      submitBtn.disabled = true;
+      if (btnText) btnText.textContent = "Đang nén ảnh...";
+
+      for (let i = 0; i < files.length; i++) {
+        try {
+          logMsg(`Đang nén ảnh: ${files[i].name}`);
+          const compressed = await compressAndResizeImage(files[i]);
+          
+          if (compressed.size > 1.5 * 1024 * 1024) {
+            alert(`⚠️ Cảnh báo: Ảnh "${files[i].name}" sau khi nén vẫn có dung lượng khá lớn (${(compressed.size / (1024 * 1024)).toFixed(2)} MB).`);
+          }
+          
+          selectedImages.push(compressed);
+        } catch (err) {
+          logMsg(`Lỗi nén ảnh ${files[i].name}: ${err.toString()}`);
+          alert(`❌ Lỗi nén ảnh ${files[i].name}: ${err.message}`);
+        }
+      }
+
+      event.target.value = '';
+      submitBtn.disabled = false;
+      if (btnText) btnText.textContent = originalText;
+
+      renderPreviews();
+    }
+
+    function renderPreviews() {
+      const container = document.getElementById('imagePreviewContainer');
+      container.innerHTML = '';
+
+      selectedImages.forEach((img, index) => {
+        const card = document.createElement('div');
+        card.className = 'preview-card';
+
+        const imgEl = document.createElement('img');
+        imgEl.src = img.dataUrl;
+        card.appendChild(imgEl);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.onclick = (e) => {
+          e.stopPropagation();
+          deleteImage(index);
+        };
+        card.appendChild(deleteBtn);
+
+        container.appendChild(card);
+      });
+    }
+
+    function deleteImage(index) {
+      selectedImages.splice(index, 1);
+      renderPreviews();
     }
 
     // Submit form qua POST fetch (gọi từ Modal xác nhận)
@@ -1172,8 +1324,6 @@
       if (btnText) btnText.textContent = "Đang tạo công việc...";
 
       try {
-        const imageFile = await readImageFileAsBase64();
-
         const selectedMembers = [];
         document.querySelectorAll('input[name="idMemberCheckbox"]:checked').forEach(cb => {
           selectedMembers.push(cb.value);
@@ -1196,7 +1346,11 @@
           idAssigner: document.getElementById('idAssigner').value || window.currentLiffUserId || '',
           idFollower: selectedFollowers.join(','),
           linkAnh: document.getElementById('linkAnh').value,
-          imageFile: imageFile,
+          imageFiles: selectedImages.map(img => ({
+            name: img.name,
+            type: img.type,
+            dataUrl: img.dataUrl
+          })),
           hinhThucXN: document.getElementById('hinhThucXN').value,
           doUuTien: document.getElementById('doUuTien').value,
           tanSuat: document.getElementById('tanSuat').value,
