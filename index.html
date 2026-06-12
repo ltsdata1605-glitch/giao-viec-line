@@ -1379,6 +1379,9 @@
         .then(res => onFormSuccess(res))
         .catch(err => onFormFailure(err));
 
+      } catch (err) {
+        onFormFailure(err);
+      }
     }
 
     function onFormSuccess(res) {
