@@ -29,9 +29,10 @@ function getLiffUrl() {
 // 0. MENU TRÊN GOOGLE SHEET
 // ==========================================
 function onOpen() {
-  // Tự động cấu hình LIFF ID của bạn vào hệ thống nếu chưa có
+  // Tự động cấu hình LIFF ID của bạn vào hệ thống nếu chưa có hoặc đang dùng ID cũ
   var props = PropertiesService.getScriptProperties();
-  if (!props.getProperty('LIFF_ID')) {
+  var currentLiff = props.getProperty('LIFF_ID');
+  if (!currentLiff || currentLiff === '2010231412-AYj2xgdU') {
     props.setProperty('LIFF_ID', '2010371497-R9x4l665');
   }
   
