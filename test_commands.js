@@ -2916,5 +2916,53 @@ runTest("Test lệnh tương tác bot LINE (/batthuong, /canhbao, /nhanxet)", ()
   assert.ok(replies[0].text.includes("Thành viên Hai nhận việc nhưng không có tương tác phản hồi"));
 });
 
+// --- PHẦN O: LẶP LẠI THEO THỨ TRONG TUẦN (WEEKLY DAYS RECURRENCE) ---
+console.log("\n--- PHẦN O: LẶP LẠI THEO THỨ TRONG TUẦN ---");
+
+runTest("Test hàm getDayIndices phân tích thứ từ chuỗi lặp lại", () => {
+  const getDayIndices = mockSandbox.getDayIndices;
+  assert.strictEqual(getDayIndices("Hàng tuần: T2, T4, T6").join(','), "1,3,5");
+  assert.strictEqual(getDayIndices("Hàng tuần: Thứ 3, Thứ 5, CN").join(','), "2,4,0");
+  assert.strictEqual(getDayIndices("Hàng tuần: Chủ Nhật, T7").join(','), "6,0");
+  assert.strictEqual(getDayIndices("Không").length, 0);
+  assert.strictEqual(getDayIndices("Hàng ngày").length, 0);
+});
+
+runTest("Test taoDongTiepTheo tính toán ngày gửi tiếp theo theo thứ trong tuần", () => {
+  // Chuẩn bị sheet giả lập Sự kiện
+  const sheetMock = {
+    getLastColumn: () => 24,
+    getRange: (row, col, numRows, numCols) => {
+      return {
+        getValues: () => [
+          ["TASK-ORIGINAL", "Việc Lặp Theo Thứ", "Nội dung", new Date("2026-06-10T10:00:00"), "", "Hàng tuần: T2, T4, T6", "G123", "U222", 15, "Bấm nút", "Bình thường", "", "Chờ xác nhận", "", 0, "", new Date("2026-06-10T12:00:00"), "Khác", "U111", "", "", "", "", ""]
+        ],
+        setValue: (val) => {},
+        clearContent: () => {},
+        setValues: (vals) => {
+          // Vals là mảng 2 chiều chứa dòng mới
+          const newRow = vals[0];
+          assert.strictEqual(newRow[5], "Hàng tuần: T2, T4, T6");
+          // Ngày gốc là thứ 4 (2026-06-10)
+          // Ngày tiếp theo trong [1, 3, 5] (Thứ 2, Thứ 4, Thứ 6) phải là thứ 6 (2026-06-12)
+          const nextDate = newRow[3];
+          assert.strictEqual(nextDate.getDay(), 5); // Friday
+          assert.strictEqual(nextDate.getFullYear(), 2026);
+          assert.strictEqual(nextDate.getMonth(), 5); // June is 5 (0-indexed)
+          assert.strictEqual(nextDate.getDate(), 12);
+          
+          // Kiểm tra deadline cũng được tịnh tiến tương ứng (+ 2 ngày)
+          const nextDeadline = newRow[16];
+          assert.strictEqual(nextDeadline.getDate(), 12);
+          assert.strictEqual(nextDeadline.getHours(), 12);
+        }
+      };
+    }
+  };
+  
+  // Chạy taoDongTiepTheo cho dòng 2 (rowIndex = 2)
+  mockSandbox.taoDongTiepTheo(sheetMock, 2);
+});
+
 console.log("\n🎉 TẤT CẢ CÁC TEST CASES ĐÃ THÀNH CÔNG RỰC RỠ!");
 

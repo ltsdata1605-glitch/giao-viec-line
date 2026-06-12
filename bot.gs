@@ -319,6 +319,19 @@ function checkAndSendLineMessage() {
   }
 }
 
+function getDayIndices(lapLaiVal) {
+  var days = [];
+  var lower = String(lapLaiVal || "").toLowerCase();
+  if (lower.includes("thứ 2") || lower.includes("t2")) days.push(1);
+  if (lower.includes("thứ 3") || lower.includes("t3")) days.push(2);
+  if (lower.includes("thứ 4") || lower.includes("t4")) days.push(3);
+  if (lower.includes("thứ 5") || lower.includes("t5")) days.push(4);
+  if (lower.includes("thứ 6") || lower.includes("t6")) days.push(5);
+  if (lower.includes("thứ 7") || lower.includes("t7")) days.push(6);
+  if (lower.includes("chủ nhật") || lower.includes("cn")) days.push(0);
+  return days;
+}
+
 function taoDongTiepTheo(sheet, rowIndex) {
   var lastCol = sheet.getLastColumn();
   var r = sheet.getRange(rowIndex, 1, 1, lastCol).getValues()[0];
@@ -337,11 +350,25 @@ function taoDongTiepTheo(sheet, rowIndex) {
     return;
   }
   
-  var lapLaiVal = getVal("Lặp lại");
+  var lapLaiVal = String(getVal("Lặp lại") || "Không").trim();
   var originalD = new Date(d.getTime());
-  if (lapLaiVal === "Hàng giờ") d.setHours(d.getHours() + 1);
-  else if (lapLaiVal === "Hàng ngày") d.setDate(d.getDate() + 1);
-  else if (lapLaiVal === "Hàng tuần") d.setDate(d.getDate() + 7);
+  var days = getDayIndices(lapLaiVal);
+  if (days.length > 0) {
+    var found = false;
+    for (var step = 1; step <= 7; step++) {
+      var nextD = new Date(originalD.getTime());
+      nextD.setDate(nextD.getDate() + step);
+      if (days.indexOf(nextD.getDay()) !== -1) {
+        d = nextD;
+        found = true;
+        break;
+      }
+    }
+  } else {
+    if (lapLaiVal === "Hàng giờ") d.setHours(d.getHours() + 1);
+    else if (lapLaiVal === "Hàng ngày") d.setDate(d.getDate() + 1);
+    else if (lapLaiVal === "Hàng tuần") d.setDate(d.getDate() + 7);
+  }
   var timeDiff = d.getTime() - originalD.getTime();
   
   var newTaskId = generateTaskId(d);
