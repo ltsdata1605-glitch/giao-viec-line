@@ -152,7 +152,7 @@ const allSheetsData = {
 const mockScriptProperties = {
   'SPREADSHEET_ID': 'MOCK_SS_123',
   'RICH_MENU_ID': 'richmenu-mock-id-999',
-  'LIFF_ID': '2010371497-R9x4l665',
+  'LIFF_ID': '2010231412-AYj2xgdU',
   'LINE_CHANNEL_ACCESS_TOKEN': 'mock-channel-access-token-xyz'
 };
 

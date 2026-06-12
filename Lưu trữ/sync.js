@@ -2,7 +2,7 @@ const fs = require('fs');
 const { execSync } = require('child_process');
 
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwt7wU2EeCGWsGCPhJhFTehtqA3vqzgBoy9dHv11RRZU0KbX3X7KW1-LuivVmpr31lG/exec";
-const LIFF_ID = "2010231412-AYj2xgdU";
+const LIFF_ID = "2010371497-R9x4l665";
 
 // 1. Biên dịch liff.html thành index.html
 function buildIndexHtml() {
