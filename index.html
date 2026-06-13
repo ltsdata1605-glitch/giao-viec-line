@@ -1460,6 +1460,11 @@
           lapLaiVal = 'Cuối tháng - ' + days + ' ngày';
         }
 
+        const selectedGroups = [];
+        document.querySelectorAll('input[name="idGroupCheckbox"]:checked').forEach(cb => {
+          selectedGroups.push(cb.value);
+        });
+
         const formData = {
           ten: document.getElementById('ten').value,
           noiDung: document.getElementById('noiDung').value,
@@ -1467,7 +1472,7 @@
           lapLai: lapLaiVal,
           deadline: document.getElementById('deadline').value,
           loaiCV: document.getElementById('loaiCV').value,
-          idGroup: document.getElementById('idGroup').value,
+          idGroup: selectedGroups.join(','),
           idMember: selectedMembers.join(','),
           idAssigner: document.getElementById('idAssigner').value || window.currentLiffUserId || '',
           idFollower: selectedFollowers.join(','),
