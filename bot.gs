@@ -110,7 +110,7 @@ function checkAndSendLineMessage() {
     var lastCol = sheet.getLastColumn();
     var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
     
-    var expectedHeaders = ["Tên sự kiện", "Nội dung", "Ngày giờ gửi", "Link ảnh đính kèm", "Lặp lại", "Nhóm nhận", "Người phụ trách", "Tần suất (phút)", "Hình thức xác nhận", "Độ ưu tiên", "Người xác nhận", "Trạng thái", "Lần nhắc cuối", "Số lần nhắc", "Link Ảnh Nghiệm Thu", "Deadline", "Loại công việc", "Người giao việc", "Người theo dõi", "Ghi chú", "Trạng thái xử lý chi tiết", "Lịch sử cập nhật", "Đã nhắc trước deadline"];
+    var expectedHeaders = ["Tên sự kiện", "Nội dung", "Ngày giờ gửi", "Link ảnh đính kèm", "Lặp lại", "Nhóm nhận", "Người phụ trách", "Tần suất (phút)", "Hình thức xác nhận", "Độ ưu tiên", "Người xác nhận", "Trạng thái", "Lần nhắc cuối", "Số lần nhắc", "Link Ảnh Nghiệm Thu", "Deadline", "Loại công việc", "Người giao việc", "Người theo dõi", "Ghi chú", "Trạng thái xử lý chi tiết", "Lịch sử cập nhật", "Đã nhắc trước deadline", "Quote Token"];
     var actualHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) { return String(h).trim(); });
     
     var colTaskId = getColumnIndexByHeader(sheet, "Task ID");
@@ -119,6 +119,7 @@ function checkAndSendLineMessage() {
     var colDaNhacPre = getColumnIndexByHeader(sheet, "Đã nhắc trước deadline");
     var colLanNhacCuoi = getColumnIndexByHeader(sheet, "Lần nhắc cuối");
     var colSoLanNhac = getColumnIndexByHeader(sheet, "Số lần nhắc");
+    var colQuoteToken = getColumnIndexByHeader(sheet, "Quote Token");
     
     // Map to expected 23 columns
     var data = [];
@@ -181,7 +182,8 @@ function checkAndSendLineMessage() {
         trangThaiChiTiet: status,
         lichSu: row[21],
         idNV: idNV,
-        daNhacPreDeadline: row[22] // Cột 23 / Cột W
+        daNhacPreDeadline: row[22], // Cột 23 / Cột W
+        quoteToken: row[23] // Cột 24 / Cột X
       };
       
       // 1. Kiểm tra QUÁ HẠN (Deadline)
@@ -267,7 +269,13 @@ function checkAndSendLineMessage() {
             soLan += 1;
             writeLog("Gửi tin nhắn nhắc việc: '" + tenSuKien + "' lần thứ " + soLan + " (Dòng " + rowIndex + ") | Nhóm: '" + groupName + "' | Phụ trách: '" + memberName + "'", "INFO");
             try {
-              sendLinePush(idG, tenSuKien, row[1], hinhAnh, hinhThucXN, rowIndex, idNV, soLan, uuTien, extraData);
+              var quoteToken = sendLinePush(idG, tenSuKien, row[1], hinhAnh, hinhThucXN, rowIndex, idNV, soLan, uuTien, extraData);
+              if (quoteToken && colQuoteToken !== -1) {
+                var currentQuoteTokenVal = sheet.getRange(rowIndex, colQuoteToken).getValue();
+                if (!currentQuoteTokenVal) {
+                  sheet.getRange(rowIndex, colQuoteToken).setValue(quoteToken);
+                }
+              }
               var curStatus = colStatus !== -1 ? sheet.getRange(rowIndex, colStatus).getValue() : "";
               if (curStatus !== "Chờ gửi ảnh" && 
                   curStatus !== "Chờ gửi ảnh + ghi chú" && 
@@ -290,7 +298,13 @@ function checkAndSendLineMessage() {
         } else if (hinhThucXN === "Không") {
           writeLog("Gửi tin nhắn thông báo (Không xác nhận): '" + tenSuKien + "' (Dòng " + rowIndex + ") | Nhóm: '" + groupName + "' | Phụ trách: '" + memberName + "'", "INFO");
           try {
-            sendLinePush(idG, tenSuKien, row[1], hinhAnh, "Không", rowIndex, idNV, soLan, uuTien, extraData);
+            var quoteToken = sendLinePush(idG, tenSuKien, row[1], hinhAnh, "Không", rowIndex, idNV, soLan, uuTien, extraData);
+            if (quoteToken && colQuoteToken !== -1) {
+              var currentQuoteTokenVal = sheet.getRange(rowIndex, colQuoteToken).getValue();
+              if (!currentQuoteTokenVal) {
+                sheet.getRange(rowIndex, colQuoteToken).setValue(quoteToken);
+              }
+            }
             if (colStatus !== -1) sheet.getRange(rowIndex, colStatus).setValue("Đã gửi");
             appendTaskLog(taskId, "Đổi trạng thái", status, "Đã gửi", "Gửi thông báo hoàn tất (không yêu cầu xác nhận)");
             processedCount++;
@@ -983,13 +997,10 @@ function sendBotReply(token, txt, imgUrl) {
 function sendLinePush(to, ten, noiDung, img, hinhThucXN, rIdx, tagId, soLan, uuTien, extraData) {
   var msgs = [];
   
-  // 1. Xử lý Ảnh
-  var cleanImg = String(img).trim();
-  if (cleanImg !== "" && cleanImg.startsWith("http")) {
-    msgs.push({"type": "image", "originalContentUrl": cleanImg, "previewImageUrl": cleanImg});
-  }
+  // 1. Kiểm tra mã trích dẫn (Quote Token) từ công việc đã gửi trước đó
+  var quoteToken = (extraData && extraData.quoteToken) ? String(extraData.quoteToken).trim() : "";
   
-  // 2. Xử lý Tag đích danh (Sử dụng tin nhắn textV2 với substitution hỗ trợ đa thành viên)
+  // 2. Thiết lập nội dung text cảnh báo/nhắc nhở
   var alertTxt = "";
   if (noiDung.indexOf("SẮP ĐẾN HẠN") !== -1) {
     alertTxt = "⏰ Sắp đến hạn: " + ten;
@@ -1015,34 +1026,75 @@ function sendLinePush(to, ten, noiDung, img, hinhThucXN, rIdx, tagId, soLan, uuT
     return /^U[a-fA-F0-9]{32}$/.test(id);
   });
 
-  if (cleanTagIds.length > 0) {
-    var textParts = [];
-    var substitution = {};
-    cleanTagIds.forEach(function(id, idx) {
-      var key = "m_" + (idx + 1);
-      textParts.push("{" + key + "}");
-      substitution[key] = {
-        "type": "mention",
-        "mentionee": {
-          "type": "user",
-          "userId": id
-        }
+  if (quoteToken) {
+    // Chế độ Trả lời trích dẫn (Quote Reply) - chỉ gửi 1 tin nhắn text trích dẫn, tránh spam
+    var msgObj;
+    if (cleanTagIds.length > 0) {
+      var textParts = [];
+      var substitution = {};
+      cleanTagIds.forEach(function(id, idx) {
+        var key = "m_" + (idx + 1);
+        textParts.push("{" + key + "}");
+        substitution[key] = {
+          "type": "mention",
+          "mentionee": {
+            "type": "user",
+            "userId": id
+          }
+        };
+      });
+      msgObj = {
+        "type": "textV2",
+        "text": textParts.join(" ") + " " + alertTxt,
+        "substitution": substitution,
+        "quoteToken": quoteToken
       };
-    });
-    msgs.push({
-      "type": "textV2",
-      "text": textParts.join(" ") + " " + alertTxt,
-      "substitution": substitution
-    });
+    } else {
+      msgObj = {
+        "type": "text",
+        "text": alertTxt,
+        "quoteToken": quoteToken
+      };
+    }
+    msgs.push(msgObj);
   } else {
-    msgs.push({ "type": "text", "text": alertTxt });
-  }
+    // Chế độ Bình thường (Gửi lần đầu, hoặc khi chưa có Quote Token)
+    // 1. Xử lý Ảnh
+    var cleanImg = String(img).trim();
+    if (cleanImg !== "" && cleanImg.startsWith("http")) {
+      msgs.push({"type": "image", "originalContentUrl": cleanImg, "previewImageUrl": cleanImg});
+    }
+    
+    // 2. Xử lý Tag đích danh (Sử dụng tin nhắn textV2 với substitution hỗ trợ đa thành viên)
+    if (cleanTagIds.length > 0) {
+      var textParts = [];
+      var substitution = {};
+      cleanTagIds.forEach(function(id, idx) {
+        var key = "m_" + (idx + 1);
+        textParts.push("{" + key + "}");
+        substitution[key] = {
+          "type": "mention",
+          "mentionee": {
+            "type": "user",
+            "userId": id
+          }
+        };
+      });
+      msgs.push({
+        "type": "textV2",
+        "text": textParts.join(" ") + " " + alertTxt,
+        "substitution": substitution
+      });
+    } else {
+      msgs.push({ "type": "text", "text": alertTxt });
+    }
 
-  // 3. Xử lý Thẻ Công việc (Flex Message nâng cấp)
-  msgs.push(buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, extraData));
+    // 3. Xử lý Thẻ Công việc (Flex Message nâng cấp)
+    msgs.push(buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, extraData));
+  }
   
   var payload = { "to": to, "messages": msgs };
-  callLineApi("message/push", {
+  var res = callLineApi("message/push", {
     method: "post",
     headers: {
       "Content-Type": "application/json"
@@ -1050,6 +1102,22 @@ function sendLinePush(to, ten, noiDung, img, hinhThucXN, rIdx, tagId, soLan, uuT
     payload: JSON.stringify(payload),
     muteHttpExceptions: true
   }, "Gửi tin nhắn việc mới (Push)");
+  
+  if (res) {
+    try {
+      var body = JSON.parse(res.getContentText());
+      if (body && body.sentMessages && body.sentMessages.length > 0) {
+        for (var i = body.sentMessages.length - 1; i >= 0; i--) {
+          if (body.sentMessages[i].quoteToken) {
+            return body.sentMessages[i].quoteToken;
+          }
+        }
+      }
+    } catch (e) {
+      writeLog("Lỗi parse quoteToken từ LINE response: " + e.toString(), "WARN");
+    }
+  }
+  return "";
 }
 
 function buildTaskFlexMessage(ten, noiDung, hinhThucXN, rIdx, soLan, uuTien, extraData) {
@@ -3375,7 +3443,7 @@ function ensureSheetAndHeaders() {
   
   // Define expected sheets and headers
   var sheetsDef = {
-    "Sự kiện": ["Task ID", "Tên sự kiện", "Nội dung", "Ngày giờ gửi", "Link ảnh đính kèm", "Lặp lại", "Nhóm nhận", "Người phụ trách", "Tần suất (phút)", "Hình thức xác nhận", "Độ ưu tiên", "Người xác nhận", "Trạng thái", "Lần nhắc cuối", "Số lần nhắc", "Link Ảnh Nghiệm Thu", "Deadline", "Loại công việc", "Người giao việc", "Người theo dõi", "Ghi chú", "Trạng thái xử lý chi tiết", "Lịch sử cập nhật", "Đã nhắc trước deadline"],
+    "Sự kiện": ["Task ID", "Tên sự kiện", "Nội dung", "Ngày giờ gửi", "Link ảnh đính kèm", "Lặp lại", "Nhóm nhận", "Người phụ trách", "Tần suất (phút)", "Hình thức xác nhận", "Độ ưu tiên", "Người xác nhận", "Trạng thái", "Lần nhắc cuối", "Số lần nhắc", "Link Ảnh Nghiệm Thu", "Deadline", "Loại công việc", "Người giao việc", "Người theo dõi", "Ghi chú", "Trạng thái xử lý chi tiết", "Lịch sử cập nhật", "Đã nhắc trước deadline", "Quote Token"],
     "ID_Group": ["Tên Group", "ID Group"],
     "ID_Member": ["Tên Line", "ID Line"],
     "Tương Tác": ["Thời gian", "User ID", "Tên Line", "Nhóm", "Hành động", "Nội dung"],

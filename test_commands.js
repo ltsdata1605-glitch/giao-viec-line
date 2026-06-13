@@ -27,7 +27,7 @@ const mockEventsData = [
     "Người phụ trách", "Tần suất (phút)", "Hình thức xác nhận", "Độ ưu tiên", "Người xác nhận", 
     "Trạng thái", "Lần nhắc cuối", "Số lần nhắc", "Link Ảnh Nghiệm Thu", "Deadline", 
     "Loại công việc", "Người giao việc", "Người theo dõi", "Ghi chú", "Trạng thái xử lý chi tiết", 
-    "Lịch sử cập nhật", "Đã nhắc trước deadline"
+    "Lịch sử cập nhật", "Đã nhắc trước deadline", "Quote Token"
   ],
   // Việc 1: Chưa hoàn thành, nhóm G123, người giao U111, người nhận U222
   [
@@ -35,7 +35,7 @@ const mockEventsData = [
     "U222", "0", "Nút bấm", "Bình thường", "", 
     "Đang làm", "", "0", "", new Date("2026-06-12T12:00:00"), 
     "Kiểm tra", "U111", "", "", "Đang làm", 
-    "", ""
+    "", "", ""
   ],
   // Việc 2: Quá hạn, nhóm G123, người giao U111, người nhận U222
   [
@@ -43,7 +43,7 @@ const mockEventsData = [
     "U222", "0", "Nút bấm", "GẤP", "", 
     "Quá hạn", "", "1", "", new Date("2026-06-10T12:00:00"), 
     "Kiểm tra", "U111", "", "", "Quá hạn", 
-    "", ""
+    "", "", ""
   ],
   // Việc 3: Đã hoàn tất (Đã gửi), nhóm G123, người nhận U222
   [
@@ -51,7 +51,7 @@ const mockEventsData = [
     "U222", "0", "Nút bấm", "Bình thường", "U222", 
     "Đã gửi", "", "0", "", new Date("2026-06-11T12:00:00"), 
     "Kiểm tra", "U111", "", "", "Đã hoàn thành", 
-    "", ""
+    "", "", ""
   ],
   // Việc 4: Việc ở nhóm khác (G456), người nhận U222
   [
@@ -59,7 +59,7 @@ const mockEventsData = [
     "U222", "0", "Nút bấm", "Bình thường", "", 
     "Đang làm", "", "0", "", new Date("2026-06-12T12:00:00"), 
     "Kiểm tra", "U111", "", "", "Đang làm", 
-    "", ""
+    "", "", ""
   ]
 ];
 
@@ -252,11 +252,19 @@ const mockSandbox = {
           });
         } else {
           const text = msgs.map(m => m.text || `[${m.type}]`).join(" ");
-          replies.push({ replyToken: token, text });
+          const quoted = msgs.find(m => m.quoteToken) ? msgs.find(m => m.quoteToken).quoteToken : null;
+          replies.push({ replyToken: token, text, quoted });
         }
         return {
           getResponseCode: () => 200,
-          getContentText: () => "{}"
+          getContentText: () => JSON.stringify({
+            sentMessages: [
+              {
+                id: "msg-12345",
+                quoteToken: "mock-quote-token-xyz"
+              }
+            ]
+          })
         };
       }
       
@@ -3059,7 +3067,65 @@ runTest("Test taoDongTiepTheo tính toán ngày gửi tiếp theo theo các mố
       };
     }
   };
-  mockSandbox.taoDongTiepTheo(sheetMock5DaysBefore, 2);
+  });
+
+// --- PHẦN P: TRẢ LỜI TRÍCH DẪN NHẮC NHỞ (QUOTE REPLY REMINDER) ---
+console.log("\n--- PHẦN P: TRẢ LỜI TRÍCH DẪN NHẮC NHỞ ---");
+
+runTest("Test lưu quoteToken khi gửi lần đầu và quote reply khi nhắc nhở các lần sau", () => {
+  // Reset replies và flexMessages
+  replies.length = 0;
+  flexMessages.length = 0;
+  
+  const tStart = new Date();
+  tStart.setHours(tStart.getHours() - 1); // Đã đến giờ gửi
+  
+  // Set up sheet Sự kiện giả lập với 25 cột (cột cuối là Quote Token)
+  allSheetsData["Sự kiện"] = [
+    [
+      "Task ID", "Tên sự kiện", "Nội dung", "Ngày giờ gửi", "Link ảnh đính kèm", "Lặp lại", "Nhóm nhận", 
+      "Người phụ trách", "Tần suất (phút)", "Hình thức xác nhận", "Độ ưu tiên", "Người xác nhận", 
+      "Trạng thái", "Lần nhắc cuối", "Số lần nhắc", "Link Ảnh Nghiệm Thu", "Deadline", 
+      "Loại công việc", "Người giao việc", "Người theo dõi", "Ghi chú", "Trạng thái xử lý chi tiết", 
+      "Lịch sử cập nhật", "Đã nhắc trước deadline", "Quote Token"
+    ],
+    [
+      "TASK-QUOTE-TEST", "Việc trích dẫn", "Nội dung việc", tStart, "", "Không", "G123", 
+      "U222", 0, "Bấm nút", "Bình thường", "", 
+      "Đang làm", "", 0, "", new Date("2026-06-15T12:00:00"), 
+      "Kiểm tra", "U111", "", "", "Đang làm", 
+      "", "", ""
+    ]
+  ];
+  
+  // Chạy lần 1: Gửi tin nhắn đầu tiên (soLan = 0 -> soLan = 1)
+  // Gửi lần đầu tiên: Chưa có Quote Token. Bot sẽ gửi cả Flex Message.
+  mockSandbox.checkAndSendLineMessage();
+  
+  // Kiểm tra đã lưu quoteToken vào dòng 2, cột 25 (index 24) chưa
+  const quoteTokenSaved = allSheetsData["Sự kiện"][1][24];
+  assert.strictEqual(quoteTokenSaved, "mock-quote-token-xyz"); // mock return từ UrlFetchApp
+  assert.strictEqual(flexMessages.length, 1); // Gửi flex message lần đầu
+  
+  // Reset các mảng theo dõi tin nhắn gửi
+  replies.length = 0;
+  flexMessages.length = 0;
+  
+  // Đặt lại Lần nhắc cuối thành 1 giờ trước để kích hoạt nhắc nhở tiếp theo
+  const oneHourAgo = new Date();
+  oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+  allSheetsData["Sự kiện"][1][13] = oneHourAgo; // Lần nhắc cuối (cột 14 / index 13)
+  
+  // Chạy lần 2: Nhắc nhở lần thứ hai (soLan = 1 -> soLan = 2)
+  // Lần này đã có quoteTokenSaved. Bot chỉ gửi tin nhắn text V2 trích dẫn (quote reply), không có flex message.
+  mockSandbox.checkAndSendLineMessage();
+  
+  assert.strictEqual(flexMessages.length, 0); // Đảm bảo không gửi lại Flex Message cồng kềnh
+  assert.strictEqual(replies.length, 1); // Chỉ gửi 1 tin nhắn text nhắc nhở trích dẫn
+  assert.strictEqual(replies[0].quoted, "mock-quote-token-xyz"); // Đảm bảo có trích dẫn đúng quote token
+  assert.ok(replies[0].text.includes("Nhắc lại")); // Chứa chữ "Nhắc lại"
+  
+  console.log("Đã kiểm thử thành công: Lưu quoteToken và trả lời trích dẫn (Quote Reply) để tránh spam!");
 });
 
 console.log("\n🎉 TẤT CẢ CÁC TEST CASES ĐÃ THÀNH CÔNG RỰC RỠ!");
