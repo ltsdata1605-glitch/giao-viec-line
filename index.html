@@ -1451,6 +1451,9 @@
           if (activeDays.length > 0) {
             lapLaiVal = 'Hàng tuần: ' + activeDays.join(', ');
           }
+        } else if (lapLaiVal === 'Cuối tháng - X ngày') {
+          const days = document.getElementById('monthlyDaysInput').value || '2';
+          lapLaiVal = 'Cuối tháng - ' + days + ' ngày';
         }
 
         const formData = {
