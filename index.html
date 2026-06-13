@@ -916,15 +916,21 @@
       event.preventDefault();
       
       const ten = document.getElementById('ten').value.trim();
-      const idGroup = document.getElementById('idGroup').value;
       const ngayGio = document.getElementById('ngayGio').value;
+      
+      const selectedGroups = [];
+      const selectedGroupNames = [];
+      document.querySelectorAll('input[name="idGroupCheckbox"]:checked').forEach(cb => {
+        selectedGroups.push(cb.value);
+        selectedGroupNames.push(cb.parentElement.textContent.trim());
+      });
       
       if (!ten) {
         alert("❌ Tên sự kiện không được để trống!");
         return;
       }
-      if (!idGroup) {
-        alert("❌ Vui lòng chọn Nhóm nhận việc!");
+      if (selectedGroups.length === 0) {
+        alert("❌ Vui lòng chọn ít nhất một Nhóm nhận việc!");
         return;
       }
       if (!ngayGio) {
@@ -932,8 +938,7 @@
         return;
       }
       
-      const groupSelect = document.getElementById('idGroup');
-      const groupName = groupSelect.options[groupSelect.selectedIndex].text;
+      const groupName = selectedGroupNames.join(', ');
       
       const assignees = [];
       document.querySelectorAll('input[name="idMemberCheckbox"]:checked').forEach(cb => {
