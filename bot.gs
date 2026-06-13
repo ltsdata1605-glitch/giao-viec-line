@@ -365,9 +365,24 @@ function taoDongTiepTheo(sheet, rowIndex) {
       }
     }
   } else {
-    if (lapLaiVal === "Hàng giờ") d.setHours(d.getHours() + 1);
-    else if (lapLaiVal === "Hàng ngày") d.setDate(d.getDate() + 1);
-    else if (lapLaiVal === "Hàng tuần") d.setDate(d.getDate() + 7);
+    if (lapLaiVal === "Hàng giờ") {
+      d.setHours(d.getHours() + 1);
+    } else if (lapLaiVal === "Hàng ngày") {
+      d.setDate(d.getDate() + 1);
+    } else if (lapLaiVal === "Hàng tuần") {
+      d.setDate(d.getDate() + 7);
+    } else if (lapLaiVal.indexOf("Cuối tháng - 3 ngày") !== -1 || lapLaiVal.indexOf("trước 3 ngày cuối tháng") !== -1) {
+      d = new Date(originalD.getFullYear(), originalD.getMonth() + 2, 0);
+      d.setDate(d.getDate() - 2);
+      d.setHours(originalD.getHours(), originalD.getMinutes(), originalD.getSeconds(), originalD.getMilliseconds());
+    } else if (lapLaiVal.indexOf("Cuối tháng - 2 ngày") !== -1 || lapLaiVal.indexOf("2 ngày cuối tháng") !== -1) {
+      d = new Date(originalD.getFullYear(), originalD.getMonth() + 2, 0);
+      d.setDate(d.getDate() - 1);
+      d.setHours(originalD.getHours(), originalD.getMinutes(), originalD.getSeconds(), originalD.getMilliseconds());
+    } else if (lapLaiVal.indexOf("Cuối tháng") !== -1 || lapLaiVal.indexOf("ngày cuối cùng của tháng") !== -1) {
+      d = new Date(originalD.getFullYear(), originalD.getMonth() + 2, 0);
+      d.setHours(originalD.getHours(), originalD.getMinutes(), originalD.getSeconds(), originalD.getMilliseconds());
+    }
   }
   var timeDiff = d.getTime() - originalD.getTime();
   

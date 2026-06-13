@@ -2964,5 +2964,79 @@ runTest("Test taoDongTiepTheo tính toán ngày gửi tiếp theo theo thứ tro
   mockSandbox.taoDongTiepTheo(sheetMock, 2);
 });
 
+runTest("Test taoDongTiepTheo tính toán ngày gửi tiếp theo theo các mốc cuối tháng", () => {
+  // 1. Cuối tháng
+  const sheetMockLastDay = {
+    getLastColumn: () => 24,
+    getRange: (row, col, numRows, numCols) => {
+      return {
+        getValues: () => [
+          ["TASK-L1", "Việc Cuối Tháng", "Nội dung", new Date("2026-05-31T10:00:00"), "", "Cuối tháng", "G123", "U222", 15, "Bấm nút", "Bình thường", "", "Chờ xác nhận", "", 0, "", new Date("2026-05-31T12:00:00"), "Khác", "U111", "", "", "", "", ""]
+        ],
+        setValue: (val) => {},
+        clearContent: () => {},
+        setValues: (vals) => {
+          const newRow = vals[0];
+          assert.strictEqual(newRow[5], "Cuối tháng");
+          const nextDate = newRow[3];
+          // 5 is May. Next month is June. Last day of June is June 30.
+          assert.strictEqual(nextDate.getFullYear(), 2026);
+          assert.strictEqual(nextDate.getMonth(), 5); // June
+          assert.strictEqual(nextDate.getDate(), 30);
+        }
+      };
+    }
+  };
+  mockSandbox.taoDongTiepTheo(sheetMockLastDay, 2);
+
+  // 2. Cuối tháng - 2 ngày (2 ngày cuối tháng)
+  const sheetMock2DaysBefore = {
+    getLastColumn: () => 24,
+    getRange: (row, col, numRows, numCols) => {
+      return {
+        getValues: () => [
+          ["TASK-L2", "Việc 2 ngày cuối tháng", "Nội dung", new Date("2026-05-30T10:00:00"), "", "Cuối tháng - 2 ngày", "G123", "U222", 15, "Bấm nút", "Bình thường", "", "Chờ xác nhận", "", 0, "", new Date("2026-05-30T12:00:00"), "Khác", "U111", "", "", "", "", ""]
+        ],
+        setValue: (val) => {},
+        clearContent: () => {},
+        setValues: (vals) => {
+          const newRow = vals[0];
+          assert.strictEqual(newRow[5], "Cuối tháng - 2 ngày");
+          const nextDate = newRow[3];
+          // May has 31 days. Next month is June (30 days). 2nd to last day of June is June 29.
+          assert.strictEqual(nextDate.getFullYear(), 2026);
+          assert.strictEqual(nextDate.getMonth(), 5); // June
+          assert.strictEqual(nextDate.getDate(), 29);
+        }
+      };
+    }
+  };
+  mockSandbox.taoDongTiepTheo(sheetMock2DaysBefore, 2);
+
+  // 3. Cuối tháng - 3 ngày (trước 3 ngày cuối tháng)
+  const sheetMock3DaysBefore = {
+    getLastColumn: () => 24,
+    getRange: (row, col, numRows, numCols) => {
+      return {
+        getValues: () => [
+          ["TASK-L3", "Việc trước 3 ngày cuối tháng", "Nội dung", new Date("2026-05-29T10:00:00"), "", "trước 3 ngày cuối tháng", "G123", "U222", 15, "Bấm nút", "Bình thường", "", "Chờ xác nhận", "", 0, "", new Date("2026-05-29T12:00:00"), "Khác", "U111", "", "", "", "", ""]
+        ],
+        setValue: (val) => {},
+        clearContent: () => {},
+        setValues: (vals) => {
+          const newRow = vals[0];
+          assert.strictEqual(newRow[5], "trước 3 ngày cuối tháng");
+          const nextDate = newRow[3];
+          // May has 31 days. Next month is June (30 days). 3rd to last day of June is June 28.
+          assert.strictEqual(nextDate.getFullYear(), 2026);
+          assert.strictEqual(nextDate.getMonth(), 5); // June
+          assert.strictEqual(nextDate.getDate(), 28);
+        }
+      };
+    }
+  };
+  mockSandbox.taoDongTiepTheo(sheetMock3DaysBefore, 2);
+});
+
 console.log("\n🎉 TẤT CẢ CÁC TEST CASES ĐÃ THÀNH CÔNG RỰC RỠ!");
 

@@ -586,9 +586,15 @@
           <label>Chọn nhanh thời gian nhắc</label>
           <div class="chips-group" id="timePresets">
             <div class="chip active" data-preset="now">Gửi ngay</div>
-            <div class="chip" data-preset="15m">Sau 15 phút</div>
-            <div class="chip" data-preset="30m">Sau 30 phút</div>
-            <div class="chip" data-preset="17h">Hôm nay 17:00</div>
+            <div class="chip" data-preset="15m">Sau 15p</div>
+            <div class="chip" data-preset="30m">Sau 30p</div>
+            <div class="chip" data-preset="10h">10h00</div>
+            <div class="chip" data-preset="12h">12h00</div>
+            <div class="chip" data-preset="14h">14h00</div>
+            <div class="chip" data-preset="15h">15h00</div>
+            <div class="chip" data-preset="17h">17h00</div>
+            <div class="chip" data-preset="18h">18h00</div>
+            <div class="chip" data-preset="21h">21h00</div>
             <div class="chip" data-preset="8h">Ngày mai 08:00</div>
             <div class="chip" data-preset="custom">Tùy chọn</div>
           </div>
@@ -603,7 +609,12 @@
             </div>
           </div>
         </div>
+      </div>
 
+      <!-- Section 4: Hạn hoàn thành & Lặp lại -->
+      <div class="form-section">
+        <div class="section-title">4. Hạn hoàn thành & Lặp lại</div>
+        
         <div class="form-row">
           <div class="form-group">
             <label for="deadline">Hạn hoàn thành (Deadline)</label>
@@ -615,7 +626,10 @@
               <option value="Không">Không</option>
               <option value="Hàng giờ">Hàng giờ</option>
               <option value="Hàng ngày">Hàng ngày</option>
-              <option value="Hàng tuần">Hàng tuần</option>
+              <option value="Hàng tuần">Lặp lại theo thứ trong tuần</option>
+              <option value="Cuối tháng - 3 ngày">Lặp lại trước 3 ngày cuối tháng</option>
+              <option value="Cuối tháng - 2 ngày">Lặp lại trước 2 ngày cuối tháng</option>
+              <option value="Cuối tháng">Lặp lại ngày cuối cùng của tháng</option>
             </select>
             <div id="weeklyDaysContainer" class="day-chips-group" style="display: none;">
               <div class="day-chip" data-day="T2" onclick="toggleWeeklyDayChip(this)">T2</div>
@@ -840,15 +854,19 @@
               targetTime.setMinutes(now.getMinutes() + 15);
             } else if (preset === '30m') {
               targetTime.setMinutes(now.getMinutes() + 30);
-            } else if (preset === '17h') {
-              targetTime.setHours(17, 0, 0, 0);
-              if (targetTime < now) {
-                targetTime.setDate(now.getDate() + 1);
-              }
             } else if (preset === '8h') {
               targetTime.setDate(now.getDate() + 1);
               targetTime.setHours(8, 0, 0, 0);
-            } // preset 'now' keeps current time
+            } else {
+              const hourMatch = preset.match(/^(\d+)h$/);
+              if (hourMatch) {
+                const hr = parseInt(hourMatch[1], 10);
+                targetTime.setHours(hr, 0, 0, 0);
+                if (targetTime < now) {
+                  targetTime.setDate(now.getDate() + 1);
+                }
+              }
+            }
             
             const tzoffset = targetTime.getTimezoneOffset() * 60000;
             const localISOTime = (new Date(targetTime - tzoffset)).toISOString().slice(0, 16);
@@ -929,8 +947,16 @@
         const activeDays = Array.from(document.querySelectorAll('#weeklyDaysContainer .day-chip.active'))
           .map(c => c.textContent);
         if (activeDays.length > 0) {
-          lapLaiLabel = 'Hàng tuần: ' + activeDays.join(', ');
+          lapLaiLabel = 'Thứ trong tuần: ' + activeDays.join(', ');
+        } else {
+          lapLaiLabel = 'Lặp lại theo thứ trong tuần';
         }
+      } else if (lapLaiLabel === 'Cuối tháng - 3 ngày') {
+        lapLaiLabel = 'Trước 3 ngày cuối tháng';
+      } else if (lapLaiLabel === 'Cuối tháng - 2 ngày') {
+        lapLaiLabel = 'Trước 2 ngày cuối tháng';
+      } else if (lapLaiLabel === 'Cuối tháng') {
+        lapLaiLabel = 'Ngày cuối cùng của tháng';
       }
       
       const detailsHtml = `
