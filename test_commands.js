@@ -3036,6 +3036,30 @@ runTest("Test taoDongTiepTheo tính toán ngày gửi tiếp theo theo các mố
     }
   };
   mockSandbox.taoDongTiepTheo(sheetMock3DaysBefore, 2);
+
+  // 4. Cuối tháng - 5 ngày (nhập số 5 động từ LIFF)
+  const sheetMock5DaysBefore = {
+    getLastColumn: () => 24,
+    getRange: (row, col, numRows, numCols) => {
+      return {
+        getValues: () => [
+          ["TASK-L4", "Việc trước 5 ngày cuối tháng", "Nội dung", new Date("2026-05-27T10:00:00"), "", "Cuối tháng - 5 ngày", "G123", "U222", 15, "Bấm nút", "Bình thường", "", "Chờ xác nhận", "", 0, "", new Date("2026-05-27T12:00:00"), "Khác", "U111", "", "", "", "", ""]
+        ],
+        setValue: (val) => {},
+        clearContent: () => {},
+        setValues: (vals) => {
+          const newRow = vals[0];
+          assert.strictEqual(newRow[5], "Cuối tháng - 5 ngày");
+          const nextDate = newRow[3];
+          // May has 31 days. Next month is June (30 days). 5 days before the end of June is June 26.
+          assert.strictEqual(nextDate.getFullYear(), 2026);
+          assert.strictEqual(nextDate.getMonth(), 5); // June
+          assert.strictEqual(nextDate.getDate(), 26);
+        }
+      };
+    }
+  };
+  mockSandbox.taoDongTiepTheo(sheetMock5DaysBefore, 2);
 });
 
 console.log("\n🎉 TẤT CẢ CÁC TEST CASES ĐÃ THÀNH CÔNG RỰC RỠ!");
