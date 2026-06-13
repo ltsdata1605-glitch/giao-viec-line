@@ -550,10 +550,10 @@
         <div class="section-title">2. Phân công & Người nhận</div>
         
         <div class="form-group">
-          <label for="idGroup">Nhóm nhận <span style="color: var(--danger)">*</span> <span id="loadingGroups" class="loading-text">(Đang tải...)</span></label>
-          <select id="idGroup" required disabled>
-            <option value="" disabled selected>Chọn nhóm nhận việc...</option>
-          </select>
+          <label>Nhóm nhận <span style="color: var(--danger)">*</span> <span id="loadingGroups" class="loading-text">(Đang tải...)</span></label>
+          <div id="idGroupContainer" class="checkbox-list-container">
+            <!-- Dynamically populated checklist -->
+          </div>
         </div>
 
         <div class="form-group">
@@ -916,15 +916,21 @@
       event.preventDefault();
       
       const ten = document.getElementById('ten').value.trim();
-      const idGroup = document.getElementById('idGroup').value;
       const ngayGio = document.getElementById('ngayGio').value;
+      
+      const selectedGroups = [];
+      const selectedGroupNames = [];
+      document.querySelectorAll('input[name="idGroupCheckbox"]:checked').forEach(cb => {
+        selectedGroups.push(cb.value);
+        selectedGroupNames.push(cb.parentElement.textContent.trim());
+      });
       
       if (!ten) {
         alert("❌ Tên sự kiện không được để trống!");
         return;
       }
-      if (!idGroup) {
-        alert("❌ Vui lòng chọn Nhóm nhận việc!");
+      if (selectedGroups.length === 0) {
+        alert("❌ Vui lòng chọn ít nhất một Nhóm nhận việc!");
         return;
       }
       if (!ngayGio) {
@@ -932,8 +938,7 @@
         return;
       }
       
-      const groupSelect = document.getElementById('idGroup');
-      const groupName = groupSelect.options[groupSelect.selectedIndex].text;
+      const groupName = selectedGroupNames.join(', ');
       
       const assignees = [];
       document.querySelectorAll('input[name="idMemberCheckbox"]:checked').forEach(cb => {
@@ -1186,27 +1191,26 @@
     function onListsLoaded(data) {
       logMsg("onListsLoaded() chạy.");
       // 1. Nhóm nhận
-      const groupSelect = document.getElementById('idGroup');
+      const groupContainer = document.getElementById('idGroupContainer');
       document.getElementById('loadingGroups').style.display = 'none';
-      groupSelect.disabled = false;
-      
-      groupSelect.innerHTML = '<option value="" disabled selected>Chọn nhóm nhận việc...</option>';
+      groupContainer.innerHTML = '';
       
       if (data.groups && data.groups.length > 0) {
         logMsg("Số lượng nhóm: " + data.groups.length);
         data.groups.forEach(g => {
-          const opt = document.createElement('option');
-          opt.value = g.id;
-          opt.textContent = g.name;
-          groupSelect.appendChild(opt);
+          const labelGc = document.createElement('label');
+          labelGc.className = 'checkbox-item';
+          const cbGc = document.createElement('input');
+          cbGc.type = 'checkbox';
+          cbGc.name = 'idGroupCheckbox';
+          cbGc.value = g.id;
+          labelGc.appendChild(cbGc);
+          labelGc.appendChild(document.createTextNode(' ' + g.name));
+          groupContainer.appendChild(labelGc);
         });
       } else {
         logMsg("Không tìm thấy nhóm.");
-        const opt = document.createElement('option');
-        opt.value = "";
-        opt.disabled = true;
-        opt.textContent = "Không tìm thấy nhóm nào. Hãy cập nhật sheet ID_Group!";
-        groupSelect.appendChild(opt);
+        groupContainer.textContent = "Không tìm thấy nhóm nào. Hãy cập nhật sheet ID_Group!";
       }
 
       // 2. Người giao việc
@@ -1456,6 +1460,11 @@
           lapLaiVal = 'Cuối tháng - ' + days + ' ngày';
         }
 
+        const selectedGroups = [];
+        document.querySelectorAll('input[name="idGroupCheckbox"]:checked').forEach(cb => {
+          selectedGroups.push(cb.value);
+        });
+
         const formData = {
           ten: document.getElementById('ten').value,
           noiDung: document.getElementById('noiDung').value,
@@ -1463,7 +1472,7 @@
           lapLai: lapLaiVal,
           deadline: document.getElementById('deadline').value,
           loaiCV: document.getElementById('loaiCV').value,
-          idGroup: document.getElementById('idGroup').value,
+          idGroup: selectedGroups.join(','),
           idMember: selectedMembers.join(','),
           idAssigner: document.getElementById('idAssigner').value || window.currentLiffUserId || '',
           idFollower: selectedFollowers.join(','),

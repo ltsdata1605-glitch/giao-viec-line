@@ -1662,36 +1662,8 @@ function createTaskFromLIFF(data) {
     var nguoiTheoDoi = String(data.idFollower || "").trim();
     var ghiChu = String(data.ghiChu || "").trim();
 
-    var employeeName = "Unassigned";
-    if (idNV) {
-      var firstId = idNV.split(",")[0].trim();
-      employeeName = getUserName(firstId, idG) || "Staff";
-    } else if (nguoiGiao) {
-      employeeName = getUserName(nguoiGiao, idG) || "Staff";
-    }
-
-    if (data.imageFiles && data.imageFiles.length > 0) {
-      var links = [];
-      for (var i = 0; i < data.imageFiles.length; i++) {
-        var imgLink = saveLiffImageToDrive(data.imageFiles[i], ten, employeeName, i + 1);
-        if (imgLink) {
-          links.push(imgLink);
-        }
-      }
-      if (links.length > 0) {
-        la = links.join("\n");
-      }
-    } else if (data.imageFile && data.imageFile.dataUrl) {
-      la = saveLiffImageToDrive(data.imageFile, ten, employeeName, 1);
-    }
-    
-    if (nguoiGiao && !canCreateTask(nguoiGiao, idG)) {
-      writeLog("Lỗi phân quyền LIFF: User không có quyền giao việc", "ERROR", "createTaskFromLIFF", { action: "createTask", userId: nguoiGiao, groupId: idG });
-      return { success: false, message: "Bạn không có quyền giao việc trong nhóm này!" };
-    }
-    
     if (ten === "") {
-      writeLog("Lỗi xác thực LIFF: Tên sự kiện rỗng", "ERROR", "createTaskFromLIFF", { action: "createTask", missing: "ten", userId: nguoiGiao });
+      writeLog("Lỗi xác thực LIFF: Tên sự kiện rỗng", "ERROR", "createTaskFromLIFF", { action: "createTask", userId: nguoiGiao });
       return { success: false, message: "Tên sự kiện không được để trống!" };
     }
     if (idG === "") {
@@ -1711,49 +1683,97 @@ function createTaskFromLIFF(data) {
     
     var deadlineVal = deadlineStr ? convertToDate(deadlineStr) : dateVal;
     if (!deadlineVal) deadlineVal = dateVal;
+
+    // Parse list of groups
+    var groups = idG.split(",").map(function(s) { return s.trim(); }).filter(function(s) { return s !== ""; });
     
-    // Set performer global context
-    globalCurrentUserName = getUserName(nguoiGiao, idG);
+    // Validate permissions for all groups
+    if (nguoiGiao) {
+      for (var g = 0; g < groups.length; g++) {
+        if (!canCreateTask(nguoiGiao, groups[g])) {
+          writeLog("Lỗi phân quyền LIFF: User không có quyền giao việc", "ERROR", "createTaskFromLIFF", { action: "createTask", userId: nguoiGiao, groupId: groups[g] });
+          var gName = getGroupName(groups[g]) || groups[g];
+          return { success: false, message: "Bạn không có quyền giao việc trong nhóm '" + gName + "'!" };
+        }
+      }
+    }
+
+    // Determine reference employeeName for folder/image naming
+    var employeeName = "Unassigned";
+    var refGroup = groups[0] || "";
+    if (idNV) {
+      var firstId = idNV.split(",")[0].trim();
+      employeeName = getUserName(firstId, refGroup) || "Staff";
+    } else if (nguoiGiao) {
+      employeeName = getUserName(nguoiGiao, refGroup) || "Staff";
+    }
+
+    // Save images only once
+    if (data.imageFiles && data.imageFiles.length > 0) {
+      var links = [];
+      for (var i = 0; i < data.imageFiles.length; i++) {
+        var imgLink = saveLiffImageToDrive(data.imageFiles[i], ten, employeeName, i + 1);
+        if (imgLink) {
+          links.push(imgLink);
+        }
+      }
+      if (links.length > 0) {
+        la = links.join("\n");
+      }
+    } else if (data.imageFile && data.imageFile.dataUrl) {
+      la = saveLiffImageToDrive(data.imageFile, ten, employeeName, 1);
+    }
+
+    // Loop through each group to create its own task row
+    for (var gIndex = 0; gIndex < groups.length; gIndex++) {
+      var currentGroup = groups[gIndex];
+      globalCurrentUserName = getUserName(nguoiGiao, currentGroup);
+      
+      var newTaskId = generateTaskId(dateVal);
+      if (groups.length > 1) {
+        newTaskId = newTaskId + "-" + (gIndex + 1);
+      }
+      
+      var rowData = [
+        newTaskId,    // 1. Task ID
+        ten,          // 2. Tên sự kiện
+        nd,           // 3. Nội dung
+        dateVal,      // 4. Ngày giờ gửi
+        la,           // 5. Link ảnh đính kèm
+        ll,           // 6. Lặp lại
+        currentGroup, // 7. Nhóm nhận
+        idNV,         // 8. Người phụ trách
+        ts,           // 9. Tần suất (phút)
+        ht,           // 10. Hình thức xác nhận
+        ut,           // 11. Độ ưu tiên
+        "",           // 12. Người xác nhận
+        "",           // 13. Trạng thái
+        "",           // 14. Lần nhắc cuối
+        "",           // 15. Số lần nhắc
+        "",           // 16. Link Ảnh Nghiệm Thu
+        deadlineVal,  // 17. Deadline
+        loaiCV,       // 18. Loại công việc
+        nguoiGiao,    // 19. Người giao việc
+        nguoiTheoDoi, // 20. Người theo dõi
+        ghiChu,       // 21. Ghi chú
+        "",           // 22. Trạng thái xử lý chi tiết
+        "",           // 23. Lịch sử cập nhật
+        "",           // 24. Đã nhắc trước deadline
+        ""            // 25. Quote Token
+      ];
+      ghiDuLieuThongMinh(sheetEvent, rowData);
+      
+      appendTaskLog(newTaskId, "Tạo việc mới", "", "Chờ xác nhận", "Tạo từ LIFF Form bởi " + globalCurrentUserName);
+    }
     
-    // Generate Task ID
-    var newTaskId = generateTaskId(dateVal);
-    
-    // Ghi dữ liệu vào sheet Sự kiện (24 columns)
-    var rowData = [
-      newTaskId,    // 1. Task ID
-      ten,          // 2. Tên sự kiện
-      nd,           // 3. Nội dung
-      dateVal,      // 4. Ngày giờ gửi
-      la,           // 5. Link ảnh đính kèm
-      ll,           // 6. Lặp lại
-      idG,          // 7. Nhóm nhận
-      idNV,         // 8. Người phụ trách
-      ts,           // 9. Tần suất (phút)
-      ht,           // 10. Hình thức xác nhận
-      ut,           // 11. Độ ưu tiên
-      "",           // 12. Người xác nhận
-      "",           // 13. Trạng thái
-      "",           // 14. Lần nhắc cuối
-      "",           // 15. Số lần nhắc
-      "",           // 16. Link Ảnh Nghiệm Thu
-      deadlineVal,  // 17. Deadline
-      loaiCV,       // 18. Loại công việc
-      nguoiGiao,    // 19. Người giao việc
-      nguoiTheoDoi, // 20. Người theo dõi
-      ghiChu,       // 21. Ghi chú
-      "",           // 22. Trạng thái xử lý chi tiết
-      "",           // 23. Lịch sử cập nhật
-      ""            // 24. Đã nhắc trước deadline
-    ];
-    ghiDuLieuThongMinh(sheetEvent, rowData);
-    
-    // Log creation
-    appendTaskLog(newTaskId, "Tạo việc mới", "", "Chờ xác nhận", "Tạo từ LIFF Form bởi " + globalCurrentUserName);
-    
-    // Gửi ngay nếu công việc đã tới giờ, không cần chờ trigger 1 phút.
+    // Check and send Line messages immediately
     checkAndSendLineMessage();
     
-    return { success: true, message: "Đã tạo công việc và đã kiểm tra gửi LINE!" };
+    var successMsg = groups.length > 1 
+      ? "Đã tạo công việc cho " + groups.length + " nhóm và đã kiểm tra gửi LINE!" 
+      : "Đã tạo công việc và đã kiểm tra gửi LINE!";
+      
+    return { success: true, message: successMsg };
   } catch (e) {
     return { success: false, message: "Lỗi hệ thống: " + e.toString() };
   }

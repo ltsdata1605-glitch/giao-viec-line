@@ -3128,5 +3128,58 @@ runTest("Test lưu quoteToken khi gửi lần đầu và quote reply khi nhắc 
   console.log("Đã kiểm thử thành công: Lưu quoteToken và trả lời trích dẫn (Quote Reply) để tránh spam!");
 });
 
+// --- PHẦN Q: TẠO VIỆC NHIỀU NHÓM (MULTI-GROUP TASK CREATION) ---
+console.log("\n--- PHẦN Q: TẠO VIỆC NHIỀU NHÓM ---");
+
+runTest("Test tạo công việc cho nhiều nhóm đồng thời từ LIFF Form", () => {
+  // Set up mock sheet Sự kiện rỗng
+  allSheetsData["Sự kiện"] = [
+    [
+      "Task ID", "Tên sự kiện", "Nội dung", "Ngày giờ gửi", "Link ảnh đính kèm", "Lặp lại", "Nhóm nhận", 
+      "Người phụ trách", "Tần suất (phút)", "Hình thức xác nhận", "Độ ưu tiên", "Người xác nhận", 
+      "Trạng thái", "Lần nhắc cuối", "Số lần nhắc", "Link Ảnh Nghiệm Thu", "Deadline", 
+      "Loại công việc", "Người giao việc", "Người theo dõi", "Ghi chú", "Trạng thái xử lý chi tiết", 
+      "Lịch sử cập nhật", "Đã nhắc trước deadline", "Quote Token"
+    ]
+  ];
+  
+  const data = {
+    ten: "Việc đa nhóm",
+    noiDung: "Nội dung việc đa nhóm",
+    ngayGio: "2026-06-15T10:00",
+    lapLai: "Không",
+    deadline: "2026-06-15T18:00",
+    loaiCV: "Kiểm kê",
+    idGroup: "G123,G456", // 2 groups
+    idMember: "U222",
+    idAssigner: "U111",
+    idFollower: "",
+    ghiChu: "Test tạo đa nhóm",
+    imageFiles: []
+  };
+  
+  const res = mockSandbox.createTaskFromLIFF(data);
+  console.log("createTaskFromLIFF multi-group result:", res);
+  assert.strictEqual(res.success, true);
+  assert.ok(res.message.includes("2 nhóm"));
+  
+  // Kiểm tra đã thêm 2 dòng vào sheet Sự kiện
+  const rows = allSheetsData["Sự kiện"];
+  assert.strictEqual(rows.length, 3); // Tiêu đề + 2 dòng công việc
+  
+  const task1 = rows[1];
+  const task2 = rows[2];
+  
+  assert.strictEqual(task1[1], "Việc đa nhóm");
+  assert.strictEqual(task1[6], "G123");
+  assert.ok(task1[0].endsWith("-1")); // Task ID thứ nhất đuôi -1
+  
+  assert.strictEqual(task2[1], "Việc đa nhóm");
+  assert.strictEqual(task2[6], "G456");
+  assert.ok(task2[0].endsWith("-2")); // Task ID thứ hai đuôi -2
+  
+  console.log("Đã kiểm thử thành công: Tạo công việc cho nhiều nhóm đồng thời!");
+});
+
 console.log("\n🎉 TẤT CẢ CÁC TEST CASES ĐÃ THÀNH CÔNG RỰC RỠ!");
 
