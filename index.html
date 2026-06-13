@@ -891,12 +891,20 @@
 
     function toggleWeeklyDaysSelect() {
       const val = document.getElementById('lapLai').value;
-      const container = document.getElementById('weeklyDaysContainer');
+      const weeklyContainer = document.getElementById('weeklyDaysContainer');
+      const monthlyContainer = document.getElementById('monthlyDaysContainer');
+      
       if (val === 'Hàng tuần') {
-        container.style.display = 'flex';
+        weeklyContainer.style.display = 'flex';
       } else {
-        container.style.display = 'none';
-        container.querySelectorAll('.day-chip').forEach(c => c.classList.remove('active'));
+        weeklyContainer.style.display = 'none';
+        weeklyContainer.querySelectorAll('.day-chip').forEach(c => c.classList.remove('active'));
+      }
+
+      if (val === 'Cuối tháng - X ngày') {
+        monthlyContainer.style.display = 'block';
+      } else {
+        monthlyContainer.style.display = 'none';
       }
     }
 
