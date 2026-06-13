@@ -11,476 +11,254 @@
   
   <style>
     :root {
-      --primary: #1db446;
-      --primary-glow: rgba(29, 180, 70, 0.3);
-      --danger: #ff334b;
-      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #020617 100%);
-      --card-bg: rgba(30, 41, 59, 0.7);
-      --input-bg: rgba(15, 23, 42, 0.8);
-      --border-color: rgba(255, 255, 255, 0.08);
-      --border-focus: rgba(29, 180, 70, 0.6);
-      --text-main: #f8fafc;
-      --text-secondary: #94a3b8;
-      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --primary: #06c755;
+      --primary-dark: #04a947;
+      --primary-soft: #eafff2;
+      --danger: #e11d48;
+      --warning-soft: #fff7ed;
+      --bg-gradient: #f7f8fa;
+      --card-bg: #ffffff;
+      --input-bg: #ffffff;
+      --border-color: #e5e7eb;
+      --border-focus: #06c755;
+      --text-main: #111827;
+      --text-secondary: #6b7280;
+      --text-muted: #9ca3af;
+      --shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
+      --transition: all 0.18s ease;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Outfit', sans-serif;
+      font-family: 'Outfit', Arial, sans-serif;
       background: var(--bg-gradient);
       color: var(--text-main);
       min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: flex-start;
-      padding: 16px;
+      padding: 10px;
       overflow-x: hidden;
     }
 
     .container {
       width: 100%;
-      max-width: 500px;
+      max-width: 520px;
       background: var(--card-bg);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--border-color);
-      border-radius: 20px;
-      padding: 24px;
-      box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.7);
-      animation: fadeIn 0.6s ease-out;
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      animation: fadeIn 0.25s ease-out;
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(15px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* Header */
     .header {
-      text-align: center;
-      margin-bottom: 24px;
+      text-align: left;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
     }
 
     .header h1 {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
-      background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 6px;
+      color: var(--text-main);
+      margin-bottom: 3px;
       display: flex;
       align-items: center;
-      justify-content: center;
       gap: 8px;
     }
 
-    .header p {
-      font-size: 14px;
-      color: var(--text-secondary);
-    }
+    .header p { font-size: 13px; color: var(--text-secondary); }
 
-    /* Warning Config */
     .config-warning {
-      background: rgba(239, 68, 68, 0.15);
+      background: #fef2f2;
       border: 1px dashed #ef4444;
       border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 20px;
-      text-align: center;
-      font-size: 14px;
-      color: #fca5a5;
+      padding: 12px;
+      margin-bottom: 12px;
+      text-align: left;
+      font-size: 13px;
+      color: #b91c1c;
       display: none;
     }
 
-    /* Forms & Inputs */
-    .form-group {
-      margin-bottom: 18px;
-      position: relative;
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
+    .form-group { margin-bottom: 12px; position: relative; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
     label {
       display: block;
-      font-size: 13px;
-      font-weight: 500;
+      font-size: 12px;
+      font-weight: 700;
       color: var(--text-secondary);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+      text-transform: none;
+      letter-spacing: 0;
     }
 
     input, textarea, select {
       width: 100%;
       background: var(--input-bg);
       border: 1px solid var(--border-color);
-      border-radius: 10px;
+      border-radius: 12px;
       color: var(--text-main);
-      padding: 12px 14px;
+      padding: 11px 12px;
       font-size: 15px;
       font-family: inherit;
       outline: none;
       transition: var(--transition);
+      min-height: 44px;
     }
 
-    input:focus, textarea:focus, select:focus {
-      border-color: var(--border-focus);
-      box-shadow: 0 0 10px var(--primary-glow);
-    }
+    textarea { resize: vertical; min-height: 74px; line-height: 1.45; }
+    input::placeholder, textarea::placeholder { color: #a3aab5; }
+    input:focus, textarea:focus, select:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(6,199,85,.12); }
+    select option { background: #fff; color: var(--text-main); }
 
-    textarea {
-      resize: vertical;
-      min-height: 80px;
-    }
-
-    /* Select placeholder colors */
-    select option {
-      background: #1e293b;
-      color: var(--text-main);
-    }
-
-    /* Buttons */
-    .btn-submit {
-      width: 100%;
-      background: linear-gradient(135deg, #1db446 0%, #17983b 100%);
-      color: #ffffff;
-      border: none;
-      border-radius: 12px;
-      padding: 14px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 4px 15px var(--primary-glow);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      transition: var(--transition);
-      margin-top: 10px;
-    }
-
-    .btn-submit:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(29, 180, 70, 0.5);
-    }
-
-    .btn-submit:active:not(:disabled) {
-      transform: translateY(0);
-    }
-
-    .btn-submit:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    /* Dynamic Load State */
-    .loading-text {
-      font-size: 13px;
-      color: #38ef7d;
-      font-style: italic;
-    }
-
-    /* Spinner */
-    .spinner {
-      width: 20px;
-      height: 20px;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top-color: #fff;
-      animation: spin 0.8s linear infinite;
-      display: none;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    /* Overlay / Modals */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(2, 6, 23, 0.85);
-      backdrop-filter: blur(8px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.4s ease;
-    }
-
-    .modal-overlay.active {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .modal-card {
-      background: #1e293b;
-      border: 1px solid var(--border-color);
-      border-radius: 20px;
-      padding: 32px;
-      width: 90%;
-      max-width: 400px;
-      text-align: center;
-      transform: scale(0.9);
-      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-      box-shadow: 0 15px 50px rgba(0,0,0,0.5);
-    }
-
-    .modal-overlay.active .modal-card {
-      transform: scale(1);
-    }
-
-    .success-icon-wrap {
-      width: 72px;
-      height: 72px;
-      background: rgba(29, 180, 70, 0.15);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 20px;
-    }
-
-    .success-icon {
-      font-size: 36px;
-      color: var(--primary);
-      animation: bounce 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
-    }
-
-    @keyframes bounce {
-      0% { transform: scale(0); }
-      100% { transform: scale(1); }
-    }
-
-    .modal-title {
-      font-size: 20px;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-
-    .checkbox-list-container {
-      max-height: 150px;
-      overflow-y: auto;
-      background: var(--input-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      padding: 8px 12px;
-    }
-    .checkbox-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 0;
-      cursor: pointer;
-      font-size: 14px;
-      color: var(--text-main);
-    }
-    .checkbox-item input[type="checkbox"] {
-      width: auto;
-      cursor: pointer;
-    }
-    /* Form Sections */
     .form-section {
-      background: rgba(255, 255, 255, 0.02);
+      background: #ffffff;
       border: 1px solid var(--border-color);
       border-radius: 14px;
-      padding: 16px;
-      margin-bottom: 20px;
+      padding: 12px;
+      margin-bottom: 12px;
     }
+
     .section-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--primary);
-      margin-bottom: 14px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-left: 3px solid var(--primary);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 10px;
+      text-transform: none;
+      letter-spacing: 0;
+      border-left: 4px solid var(--primary);
       padding-left: 8px;
     }
 
-    /* Chips Group & Chip */
-    .chips-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
+    .chips-group { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 8px; }
     .chip {
-      background: var(--input-bg);
+      background: #f9fafb;
       border: 1px solid var(--border-color);
-      border-radius: 20px;
-      padding: 8px 14px;
+      border-radius: 999px;
+      padding: 8px 11px;
       font-size: 13px;
+      line-height: 1;
       cursor: pointer;
       transition: var(--transition);
-      color: var(--text-secondary);
+      color: #374151;
       user-select: none;
-    }
-    .chip:hover {
-      border-color: var(--primary-glow);
-    }
-    .chip.active {
-      background: var(--primary);
-      border-color: var(--primary);
-      color: #fff;
-      font-weight: 500;
-      box-shadow: 0 2px 8px var(--primary-glow);
-    }
-
-    /* Circular Day Chips */
-    .day-chips-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 8px;
-    }
-    .day-chip {
+      min-height: 34px;
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      border: 1px solid var(--border-color);
-      background: var(--input-bg);
-      color: var(--text-secondary);
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: var(--transition);
-      user-select: none;
     }
-    .day-chip:hover {
-      border-color: var(--primary-glow);
-    }
-    .day-chip.active {
-      background: var(--primary);
-      border-color: var(--primary);
-      color: #fff;
-      font-weight: bold;
-      box-shadow: 0 2px 8px var(--primary-glow);
-    }
+    .chip:hover { border-color: var(--primary); }
+    .chip.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; box-shadow: 0 4px 10px rgba(6,199,85,.18); }
 
-    /* Confirm Modal Details */
-    .confirm-details {
-      text-align: left;
-      margin: 16px 0 24px;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 12px;
-      padding: 14px;
-      border: 1px solid var(--border-color);
-    }
-    .confirm-row {
-      display: flex;
-      margin-bottom: 10px;
-      font-size: 14px;
-      line-height: 1.4;
-    }
-    .confirm-row:last-child {
-      margin-bottom: 0;
-    }
-    .confirm-label {
-      flex: 2;
-      color: var(--text-secondary);
-      font-weight: 500;
-    }
-    .confirm-val {
-      flex: 3;
-      color: var(--text-main);
-      font-weight: 600;
-      word-break: break-word;
-    }
-    .modal-btn-group {
-      display: flex;
-      gap: 12px;
-    }
-    .btn-secondary {
-      flex: 1;
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--text-main);
+    .checkbox-list-container {
+      max-height: 132px;
+      overflow-y: auto;
+      background: #fafafa;
       border: 1px solid var(--border-color);
       border-radius: 12px;
-      padding: 12px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: var(--transition);
+      padding: 6px 10px;
     }
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.15);
+    .checkbox-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; cursor: pointer; font-size: 14px; color: var(--text-main); }
+    .checkbox-item input[type="checkbox"] { width: 18px; height: 18px; min-height: 18px; accent-color: var(--primary); cursor: pointer; }
+
+    .loading-text { font-size: 12px; color: var(--primary-dark); font-style: normal; font-weight: 600; }
+
+    .day-chips-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .day-chip {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border-color);
+      background: #fff; color: #4b5563; font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); user-select: none;
     }
-    .btn-primary {
-      flex: 1;
-      background: linear-gradient(135deg, #1db446 0%, #17983b 100%);
-      color: #fff;
-      border: none;
-      border-radius: 12px;
-      padding: 12px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: var(--transition);
-      box-shadow: 0 4px 12px var(--primary-glow);
-    }
-    .btn-primary:hover {
-      box-shadow: 0 6px 16px rgba(29, 180, 70, 0.5);
-    }
-    
-    /* Default hide debug log */
-    #debugLog {
-      display: none;
-    }
-    /* Preview styles */
-    .preview-card {
-      position: relative;
-      width: 72px;
-      height: 72px;
-      border-radius: 10px;
+    .day-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+    .advanced-wrap {
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      margin: 8px 0 12px;
       overflow: hidden;
-      border: 1px solid var(--border-color);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      animation: bounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      background: #fff;
     }
-    .preview-card img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .preview-card .delete-btn {
-      position: absolute;
-      top: 2px;
-      right: 2px;
-      background: rgba(239, 68, 68, 0.85);
-      color: #fff;
-      border: none;
-      border-radius: 50%;
-      width: 18px;
-      height: 18px;
-      font-size: 10px;
-      font-weight: bold;
+    .advanced-wrap summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #374151;
+      background: #f9fafb;
       display: flex;
       align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-      transition: background 0.2s;
+      justify-content: space-between;
     }
-    .preview-card .delete-btn:hover {
-      background: rgba(239, 68, 68, 1);
+    .advanced-wrap summary::-webkit-details-marker { display: none; }
+    .advanced-wrap summary::after { content: 'Mở'; color: var(--primary-dark); font-size: 12px; }
+    .advanced-wrap[open] summary::after { content: 'Đóng'; }
+    .advanced-wrap .form-section { border: 0; border-top: 1px solid var(--border-color); border-radius: 0; margin: 0; }
+
+    .btn-submit {
+      width: 100%;
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(6,199,85,.22);
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: var(--transition);
+      margin-top: 10px;
+      min-height: 50px;
+      position: sticky;
+      bottom: 10px;
+      z-index: 10;
+    }
+    .btn-submit:hover:not(:disabled) { background: var(--primary-dark); transform: translateY(-1px); }
+    .btn-submit:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
+
+    .spinner { width: 18px; height: 18px; border: 3px solid rgba(255,255,255,.35); border-radius: 50%; border-top-color: #fff; animation: spin .8s linear infinite; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(17, 24, 39, .55); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity .2s ease; padding: 16px; }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    .modal-card { background: #fff; color: var(--text-main); border: 1px solid var(--border-color); border-radius: 18px; padding: 22px; width: 100%; max-width: 420px; text-align: center; transform: scale(.96); transition: transform .2s ease; box-shadow: var(--shadow); }
+    .modal-overlay.active .modal-card { transform: scale(1); }
+    .success-icon-wrap { width: 64px; height: 64px; background: var(--primary-soft); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+    .success-icon { font-size: 34px; color: var(--primary); }
+    .modal-title { font-size: 19px; font-weight: 700; margin-bottom: 8px; }
+    .confirm-details { text-align: left; margin: 14px 0 20px; background: #f9fafb; border-radius: 12px; padding: 12px; border: 1px solid var(--border-color); }
+    .confirm-row { display: flex; gap: 10px; margin-bottom: 9px; font-size: 14px; line-height: 1.35; }
+    .confirm-label { flex: 2; color: var(--text-secondary); font-weight: 600; }
+    .confirm-val { flex: 3; color: var(--text-main); font-weight: 700; word-break: break-word; }
+    .modal-btn-group { display: flex; gap: 10px; }
+    .btn-secondary, .btn-primary { flex: 1; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer; transition: var(--transition); }
+    .btn-secondary { background: #fff; color: #374151; border: 1px solid var(--border-color); }
+    .btn-primary { background: var(--primary); color: #fff; border: none; }
+
+    #nghieMthuInfo { color: #92400e !important; background: var(--warning-soft) !important; border-color: #fdba74 !important; }
+    #debugLog { display: none; }
+    small { color: var(--text-muted) !important; }
+
+    .preview-card { position: relative; width: 72px; height: 72px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-color); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+    .preview-card img { width: 100%; height: 100%; object-fit: cover; }
+    .preview-card .delete-btn { position: absolute; top: 2px; right: 2px; background: rgba(225,29,72,.92); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+    @media (max-width: 430px) {
+      body { padding: 0; background: #fff; }
+      .container { min-height: 100vh; border-radius: 0; border: 0; box-shadow: none; padding: 14px; }
+      .form-row { grid-template-columns: 1fr; gap: 0; }
+      .header h1 { font-size: 20px; }
+      .chip { font-size: 12px; padding: 8px 10px; }
+      .checkbox-list-container { max-height: 118px; }
+      .confirm-row { display: block; }
+      .confirm-label { margin-bottom: 2px; }
     }
   </style>
 </head>
@@ -488,8 +266,8 @@
 
   <div class="container">
     <div class="header">
-      <h1>📝 Giao Việc LINE</h1>
-      <p>Tạo sự kiện nhắc nhở & giao việc trực tiếp vào nhóm</p>
+      <h1>📝 Giao việc nhanh</h1>
+      <p>Tạo việc trong vài bước, giao thẳng vào nhóm LINE</p>
     </div>
 
     <!-- Cảnh báo thiếu cấu hình LIFF_ID -->
@@ -499,7 +277,7 @@
 
     <!-- Quick Templates Section -->
     <div class="form-group" style="margin-bottom: 24px;">
-      <label style="font-size: 14px; font-weight: 600; color: var(--primary);">Mẫu công việc nhanh (Click chọn)</label>
+      <label style="font-size: 14px; font-weight: 600; color: var(--primary);">Mẫu nhanh</label>
       <div class="chips-group" id="templateChips">
         <!-- Rendered dynamically -->
       </div>
@@ -509,16 +287,16 @@
       
       <!-- Section 1: Thông tin công việc -->
       <div class="form-section">
-        <div class="section-title">1. Thông tin công việc</div>
+        <div class="section-title">1. Việc cần giao</div>
         
         <div class="form-group">
-          <label for="ten">Tên sự kiện <span style="color: var(--danger)">*</span></label>
-          <input type="text" id="ten" required placeholder="Ví dụ: Họp tuần đột xuất, Nghiệm thu thiết kế...">
+          <label for="ten">Tên việc <span style="color: var(--danger)">*</span></label>
+          <input type="text" id="ten" required placeholder="Nhập việc cần giao...">
         </div>
 
         <div class="form-group">
-          <label for="noiDung">Nội dung chi tiết</label>
-          <textarea id="noiDung" placeholder="Nội dung, công việc cần triển khai..."></textarea>
+          <label for="noiDung">Nội dung</label>
+          <textarea id="noiDung" placeholder="Ghi ngắn gọn yêu cầu chính..."></textarea>
         </div>
 
         <div class="form-row">
@@ -547,7 +325,7 @@
 
       <!-- Section 2: Người nhận & Người giao -->
       <div class="form-section">
-        <div class="section-title">2. Phân công & Người nhận</div>
+        <div class="section-title">2. Giao cho ai</div>
         
         <div class="form-group">
           <label>Nhóm nhận <span style="color: var(--danger)">*</span> <span id="loadingGroups" class="loading-text">(Đang tải...)</span></label>
@@ -580,21 +358,17 @@
 
       <!-- Section 3: Thời gian -->
       <div class="form-section">
-        <div class="section-title">3. Thời gian nhắc việc</div>
+        <div class="section-title">3. Khi nào nhắc</div>
         
         <div class="form-group">
-          <label>Chọn nhanh thời gian nhắc</label>
+          <label>Chọn nhanh</label>
           <div class="chips-group" id="timePresets">
             <div class="chip active" data-preset="now">Gửi ngay</div>
             <div class="chip" data-preset="15m">Sau 15p</div>
             <div class="chip" data-preset="30m">Sau 30p</div>
             <div class="chip" data-preset="10h">10h00</div>
-            <div class="chip" data-preset="12h">12h00</div>
             <div class="chip" data-preset="14h">14h00</div>
-            <div class="chip" data-preset="15h">15h00</div>
-            <div class="chip" data-preset="17h">17h00</div>
             <div class="chip" data-preset="18h">18h00</div>
-            <div class="chip" data-preset="21h">21h00</div>
             <div class="chip" data-preset="8h">Ngày mai 08:00</div>
             <div class="chip" data-preset="custom">Tùy chọn</div>
           </div>
@@ -613,7 +387,7 @@
 
       <!-- Section 4: Hạn hoàn thành & Lặp lại -->
       <div class="form-section">
-        <div class="section-title">4. Hạn hoàn thành & Lặp lại</div>
+        <div class="section-title">Hạn hoàn thành & Lặp lại</div>
         
         <div class="form-row">
           <div class="form-group">
@@ -649,7 +423,7 @@
 
       <!-- Section 4: Nghiệm thu -->
       <div class="form-section">
-        <div class="section-title">4. Nghiệm thu & Nhắc nhở</div>
+        <div class="section-title">Nghiệm thu & Nhắc nhở</div>
         
         <div class="form-row">
           <div class="form-group">
@@ -672,10 +446,10 @@
 
       <!-- Section 5: Ảnh đính kèm -->
       <div class="form-section">
-        <div class="section-title">5. Ảnh đính kèm gợi ý</div>
+        <div class="section-title">Ảnh đính kèm</div>
         
         <div class="form-group">
-          <label for="imageFiles">Ảnh đính kèm gợi ý (Tối đa 5 ảnh)</label>
+          <label for="imageFiles">Ảnh đính kèm (tối đa 5 ảnh)</label>
           <input type="file" id="imageFiles" accept="image/*" multiple>
           <small style="display:block;margin-top:6px;color:var(--text-secondary);font-size:12px;">
             Chọn từ thư viện hoặc chụp ảnh mới. Tự động nén chất lượng cao.
@@ -693,7 +467,7 @@
 
       <!-- Section 6: Ghi chú -->
       <div class="form-section">
-        <div class="section-title">6. Ghi chú thêm</div>
+        <div class="section-title">Ghi chú thêm</div>
         
         <div class="form-group">
           <label for="ghiChu">Ghi chú thêm</label>
@@ -707,7 +481,7 @@
       </button>
 
     </form>
-    <p style="text-align: center; font-size: 11px; color: var(--text-secondary); margin-top: 15px; opacity: 0.6;">Phiên bản: API Fetch v2</p>
+    <p style="text-align: center; font-size: 11px; color: var(--text-secondary); margin-top: 15px; opacity: 0.6;">Giao việc LINE · giao diện tối giản</p>
     <div id="debugLog" style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 8px; font-family: monospace; font-size: 10px; color: #38ef7d; max-height: 120px; overflow-y: auto; text-align: left; border: 1px solid rgba(255,255,255,0.05); line-height: 1.4; word-break: break-all;">
       [LOG] Bắt đầu khởi tạo...
     </div>
@@ -834,6 +608,39 @@
         });
         container.appendChild(chip);
       });
+    }
+
+    function setupAdvancedUI() {
+      const form = document.getElementById('liffForm');
+      const submitBtn = document.getElementById('btnSubmit');
+      if (!form || !submitBtn || document.querySelector('.advanced-wrap')) return;
+
+      const sections = Array.from(form.querySelectorAll('.form-section'));
+      const advancedSections = sections.filter(sec => {
+        const title = sec.querySelector('.section-title');
+        if (!title) return false;
+        const text = title.textContent.trim();
+        return text.includes('Hạn hoàn thành') || text.includes('Nghiệm thu') || text.includes('Ảnh đính kèm') || text.includes('Ghi chú thêm');
+      });
+
+      const details = document.createElement('details');
+      details.className = 'advanced-wrap';
+      details.innerHTML = '<summary>Tuỳ chọn nâng cao: người theo dõi, deadline, ảnh, ghi chú</summary>';
+      form.insertBefore(details, submitBtn);
+
+      const followerContainer = document.getElementById('idFollowerContainer');
+      if (followerContainer) {
+        const followerGroup = followerContainer.closest('.form-group');
+        if (followerGroup) {
+          const followerSection = document.createElement('div');
+          followerSection.className = 'form-section';
+          followerSection.innerHTML = '<div class="section-title">Người theo dõi</div>';
+          followerSection.appendChild(followerGroup);
+          details.appendChild(followerSection);
+        }
+      }
+
+      advancedSections.forEach(sec => details.appendChild(sec));
     }
 
     function setupTimePresets() {
@@ -1078,9 +885,10 @@
         document.getElementById('ngayGio').value = localISOTime;
         logMsg("Set local date success.");
         
-        // Render chips & presets
+        // Render chips, presets & compact advanced options
         renderTemplateChips();
         setupTimePresets();
+        setupAdvancedUI();
         
         // Bind file upload listener
         const fileInput = document.getElementById('imageFiles');
