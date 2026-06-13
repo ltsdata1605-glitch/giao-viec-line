@@ -11,28 +11,33 @@
   
   <style>
     :root {
-      --primary: #06c755;
-      --primary-dark: #04a947;
-      --primary-soft: #eafff2;
+      --primary: #1db446;
+      --primary-soft: #e9f8ee;
+      --primary-glow: rgba(29, 180, 70, 0.14);
       --danger: #e11d48;
-      --warning-soft: #fff7ed;
-      --bg-gradient: #f7f8fa;
+      --page-bg: #ffffff;
       --card-bg: #ffffff;
+      --section-bg: #ffffff;
       --input-bg: #ffffff;
       --border-color: #e5e7eb;
-      --border-focus: #06c755;
+      --border-strong: #d1d5db;
+      --border-focus: #1db446;
       --text-main: #111827;
       --text-secondary: #6b7280;
-      --text-muted: #9ca3af;
-      --shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
+      --muted: #9ca3af;
+      --shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.08);
       --transition: all 0.18s ease;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
-      font-family: 'Outfit', Arial, sans-serif;
-      background: var(--bg-gradient);
+      font-family: 'Outfit', sans-serif;
+      background: var(--page-bg);
       color: var(--text-main);
       min-height: 100vh;
       display: flex;
@@ -44,21 +49,25 @@
 
     .container {
       width: 100%;
-      max-width: 520px;
+      max-width: 500px;
       background: var(--card-bg);
       border: 1px solid var(--border-color);
-      border-radius: 18px;
-      padding: 16px;
-      box-shadow: var(--shadow);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: var(--shadow-soft);
       animation: fadeIn 0.25s ease-out;
     }
 
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
+    /* Header */
     .header {
       text-align: left;
       margin-bottom: 14px;
-      padding-bottom: 12px;
+      padding-bottom: 10px;
       border-bottom: 1px solid var(--border-color);
     }
 
@@ -66,199 +75,444 @@
       font-size: 22px;
       font-weight: 700;
       color: var(--text-main);
-      margin-bottom: 3px;
+      margin-bottom: 2px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: flex-start;
+      gap: 6px;
     }
 
-    .header p { font-size: 13px; color: var(--text-secondary); }
-
-    .config-warning {
-      background: #fef2f2;
-      border: 1px dashed #ef4444;
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 12px;
-      text-align: left;
+    .header p {
       font-size: 13px;
-      color: #b91c1c;
+      color: var(--text-secondary);
+    }
+
+    /* Warning Config */
+    .config-warning {
+      background: #fff1f2;
+      border: 1px dashed #fb7185;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 12px;
+      text-align: center;
+      font-size: 13px;
+      color: #be123c;
       display: none;
     }
 
-    .form-group { margin-bottom: 12px; position: relative; }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    /* Forms & Inputs */
+    .form-group {
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
 
     label {
       display: block;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 600;
       color: var(--text-secondary);
       margin-bottom: 5px;
-      text-transform: none;
-      letter-spacing: 0;
+      letter-spacing: 0.2px;
     }
 
     input, textarea, select {
       width: 100%;
       background: var(--input-bg);
       border: 1px solid var(--border-color);
-      border-radius: 12px;
+      border-radius: 9px;
       color: var(--text-main);
-      padding: 11px 12px;
-      font-size: 15px;
+      padding: 10px 12px;
+      font-size: 14px;
       font-family: inherit;
       outline: none;
       transition: var(--transition);
-      min-height: 44px;
     }
 
-    textarea { resize: vertical; min-height: 74px; line-height: 1.45; }
-    input::placeholder, textarea::placeholder { color: #a3aab5; }
-    input:focus, textarea:focus, select:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(6,199,85,.12); }
-    select option { background: #fff; color: var(--text-main); }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
 
-    .form-section {
+    textarea {
+      resize: vertical;
+      min-height: 68px;
+    }
+
+    select option {
       background: #ffffff;
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-
-    .section-title {
-      font-size: 13px;
-      font-weight: 700;
       color: var(--text-main);
-      margin-bottom: 10px;
-      text-transform: none;
-      letter-spacing: 0;
-      border-left: 4px solid var(--primary);
-      padding-left: 8px;
     }
 
-    .chips-group { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 8px; }
-    .chip {
-      background: #f9fafb;
-      border: 1px solid var(--border-color);
-      border-radius: 999px;
-      padding: 8px 11px;
-      font-size: 13px;
-      line-height: 1;
-      cursor: pointer;
-      transition: var(--transition);
-      color: #374151;
-      user-select: none;
-      min-height: 34px;
-      display: inline-flex;
-      align-items: center;
-    }
-    .chip:hover { border-color: var(--primary); }
-    .chip.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; box-shadow: 0 4px 10px rgba(6,199,85,.18); }
-
-    .checkbox-list-container {
-      max-height: 132px;
-      overflow-y: auto;
-      background: #fafafa;
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 6px 10px;
-    }
-    .checkbox-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; cursor: pointer; font-size: 14px; color: var(--text-main); }
-    .checkbox-item input[type="checkbox"] { width: 18px; height: 18px; min-height: 18px; accent-color: var(--primary); cursor: pointer; }
-
-    .loading-text { font-size: 12px; color: var(--primary-dark); font-style: normal; font-weight: 600; }
-
-    .day-chips-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-    .day-chip {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border-color);
-      background: #fff; color: #4b5563; font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); user-select: none;
-    }
-    .day-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
-
-    .advanced-wrap {
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
-      margin: 8px 0 12px;
-      overflow: hidden;
-      background: #fff;
-    }
-    .advanced-wrap summary {
-      list-style: none;
-      cursor: pointer;
-      padding: 12px 14px;
-      font-size: 14px;
-      font-weight: 700;
-      color: #374151;
-      background: #f9fafb;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .advanced-wrap summary::-webkit-details-marker { display: none; }
-    .advanced-wrap summary::after { content: 'Mở'; color: var(--primary-dark); font-size: 12px; }
-    .advanced-wrap[open] summary::after { content: 'Đóng'; }
-    .advanced-wrap .form-section { border: 0; border-top: 1px solid var(--border-color); border-radius: 0; margin: 0; }
-
+    /* Buttons */
     .btn-submit {
       width: 100%;
       background: var(--primary);
       color: #ffffff;
       border: none;
-      border-radius: 14px;
-      padding: 14px;
-      font-size: 16px;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 15px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 8px 18px rgba(6,199,85,.22);
-      display: flex; align-items: center; justify-content: center; gap: 10px;
+      box-shadow: 0 8px 18px rgba(29, 180, 70, 0.22);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
       transition: var(--transition);
-      margin-top: 10px;
-      min-height: 50px;
-      position: sticky;
-      bottom: 10px;
-      z-index: 10;
+      margin-top: 6px;
     }
-    .btn-submit:hover:not(:disabled) { background: var(--primary-dark); transform: translateY(-1px); }
-    .btn-submit:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
 
-    .spinner { width: 18px; height: 18px; border: 3px solid rgba(255,255,255,.35); border-radius: 50%; border-top-color: #fff; animation: spin .8s linear infinite; display: none; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-submit:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(29, 180, 70, 0.28);
+    }
 
-    .modal-overlay { position: fixed; inset: 0; background: rgba(17, 24, 39, .55); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity .2s ease; padding: 16px; }
-    .modal-overlay.active { opacity: 1; pointer-events: auto; }
-    .modal-card { background: #fff; color: var(--text-main); border: 1px solid var(--border-color); border-radius: 18px; padding: 22px; width: 100%; max-width: 420px; text-align: center; transform: scale(.96); transition: transform .2s ease; box-shadow: var(--shadow); }
-    .modal-overlay.active .modal-card { transform: scale(1); }
-    .success-icon-wrap { width: 64px; height: 64px; background: var(--primary-soft); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
-    .success-icon { font-size: 34px; color: var(--primary); }
-    .modal-title { font-size: 19px; font-weight: 700; margin-bottom: 8px; }
-    .confirm-details { text-align: left; margin: 14px 0 20px; background: #f9fafb; border-radius: 12px; padding: 12px; border: 1px solid var(--border-color); }
-    .confirm-row { display: flex; gap: 10px; margin-bottom: 9px; font-size: 14px; line-height: 1.35; }
-    .confirm-label { flex: 2; color: var(--text-secondary); font-weight: 600; }
-    .confirm-val { flex: 3; color: var(--text-main); font-weight: 700; word-break: break-word; }
-    .modal-btn-group { display: flex; gap: 10px; }
-    .btn-secondary, .btn-primary { flex: 1; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer; transition: var(--transition); }
-    .btn-secondary { background: #fff; color: #374151; border: 1px solid var(--border-color); }
-    .btn-primary { background: var(--primary); color: #fff; border: none; }
+    .btn-submit:active:not(:disabled) {
+      transform: translateY(0);
+    }
 
-    #nghieMthuInfo { color: #92400e !important; background: var(--warning-soft) !important; border-color: #fdba74 !important; }
-    #debugLog { display: none; }
-    small { color: var(--text-muted) !important; }
+    .btn-submit:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
 
-    .preview-card { position: relative; width: 72px; height: 72px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-color); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
-    .preview-card img { width: 100%; height: 100%; object-fit: cover; }
-    .preview-card .delete-btn { position: absolute; top: 2px; right: 2px; background: rgba(225,29,72,.92); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    /* Dynamic Load State */
+    .loading-text {
+      font-size: 12px;
+      color: var(--primary);
+      font-style: italic;
+    }
 
-    @media (max-width: 430px) {
-      body { padding: 0; background: #fff; }
-      .container { min-height: 100vh; border-radius: 0; border: 0; box-shadow: none; padding: 14px; }
+    /* Spinner */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 3px solid rgba(255, 255, 255, 0.35);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Overlay / Modals */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(17, 24, 39, 0.38);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      padding: 12px;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 20px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      transform: scale(0.96);
+      transition: transform 0.25s ease;
+      box-shadow: var(--shadow-soft);
+      color: var(--text-main);
+    }
+
+    .modal-overlay.active .modal-card {
+      transform: scale(1);
+    }
+
+    .success-icon-wrap {
+      width: 60px;
+      height: 60px;
+      background: var(--primary-soft);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 14px;
+    }
+
+    .success-icon {
+      font-size: 32px;
+      color: var(--primary);
+      animation: bounce 0.45s ease both;
+    }
+
+    @keyframes bounce {
+      0% { transform: scale(0); }
+      100% { transform: scale(1); }
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text-main);
+    }
+
+    .modal-desc {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .checkbox-list-container {
+      max-height: 128px;
+      overflow-y: auto;
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: 9px;
+      padding: 6px 10px;
+    }
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-main);
+    }
+    .checkbox-item input[type="checkbox"] {
+      width: auto;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+    /* Form Sections */
+    .form-section {
+      background: var(--section-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 10px;
+      border-left: 3px solid var(--primary);
+      padding-left: 8px;
+    }
+
+    /* Chips Group & Chip */
+    .chips-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .chip {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: 999px;
+      padding: 7px 11px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: var(--transition);
+      color: var(--text-secondary);
+      user-select: none;
+    }
+    .chip:hover {
+      border-color: var(--border-strong);
+      background: #f9fafb;
+    }
+    .chip.active {
+      background: var(--primary-soft);
+      border-color: var(--primary);
+      color: #0f7a31;
+      font-weight: 700;
+      box-shadow: none;
+    }
+
+    /* Circular Day Chips */
+    .day-chips-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .day-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1px solid var(--border-color);
+      background: #ffffff;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      user-select: none;
+    }
+    .day-chip:hover {
+      border-color: var(--border-strong);
+    }
+    .day-chip.active {
+      background: var(--primary-soft);
+      border-color: var(--primary);
+      color: #0f7a31;
+      font-weight: 700;
+      box-shadow: none;
+    }
+
+    /* Confirm Modal Details */
+    .confirm-details {
+      text-align: left;
+      margin: 14px 0 18px;
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+    }
+    .confirm-row {
+      display: flex;
+      margin-bottom: 8px;
+      font-size: 13px;
+      line-height: 1.4;
+      gap: 10px;
+    }
+    .confirm-row:last-child {
+      margin-bottom: 0;
+    }
+    .confirm-label {
+      flex: 2;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+    .confirm-val {
+      flex: 3;
+      color: var(--text-main);
+      font-weight: 700;
+      word-break: break-word;
+    }
+    .modal-btn-group {
+      display: flex;
+      gap: 10px;
+    }
+    .btn-secondary {
+      flex: 1;
+      background: #ffffff;
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 11px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .btn-secondary:hover {
+      background: #f9fafb;
+    }
+    .btn-primary {
+      flex: 1;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 11px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition);
+      box-shadow: 0 8px 18px rgba(29, 180, 70, 0.18);
+    }
+    .btn-primary:hover {
+      box-shadow: 0 10px 22px rgba(29, 180, 70, 0.25);
+    }
+    
+    /* Default hide debug log */
+    #debugLog {
+      display: none;
+    }
+    /* Preview styles */
+    .preview-card {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      border-radius: 9px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+      animation: bounce 0.25s ease;
+    }
+    .preview-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .preview-card .delete-btn {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: rgba(225, 29, 72, 0.9);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      font-size: 10px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.16);
+      transition: background 0.2s;
+    }
+    .preview-card .delete-btn:hover {
+      background: rgba(225, 29, 72, 1);
+    }
+
+    #nghieMthuInfo {
+      background: #fffbeb !important;
+      border-color: #f59e0b !important;
+      color: #92400e !important;
+    }
+
+    #debugLog {
+      background: #f9fafb !important;
+      color: #166534 !important;
+      border-color: var(--border-color) !important;
+    }
+
+    @media (max-width: 420px) {
+      body { padding: 6px; }
+      .container { border-radius: 12px; padding: 10px; box-shadow: none; }
+      .form-section { padding: 10px; margin-bottom: 10px; }
       .form-row { grid-template-columns: 1fr; gap: 0; }
-      .header h1 { font-size: 20px; }
-      .chip { font-size: 12px; padding: 8px 10px; }
-      .checkbox-list-container { max-height: 118px; }
-      .confirm-row { display: block; }
-      .confirm-label { margin-bottom: 2px; }
+      .form-group[style*="grid-column"] { grid-column: auto !important; }
+      .chip { padding: 7px 10px; }
+      .header h1 { font-size: 21px; }
     }
   </style>
 </head>
@@ -267,7 +521,7 @@
   <div class="container">
     <div class="header">
       <h1>📝 Giao việc nhanh</h1>
-      <p>Tạo việc trong vài bước, giao thẳng vào nhóm LINE</p>
+      <p>Nhập nhanh nội dung, chọn nhóm nhận và gửi nhắc việc.</p>
     </div>
 
     <!-- Cảnh báo thiếu cấu hình LIFF_ID -->
@@ -276,8 +530,8 @@
     </div>
 
     <!-- Quick Templates Section -->
-    <div class="form-group" style="margin-bottom: 24px;">
-      <label style="font-size: 14px; font-weight: 600; color: var(--primary);">Mẫu nhanh</label>
+    <div class="form-group" style="margin-bottom: 12px;">
+      <label style="font-size: 13px; font-weight: 700; color: var(--text-main);">Mẫu nhanh</label>
       <div class="chips-group" id="templateChips">
         <!-- Rendered dynamically -->
       </div>
@@ -287,16 +541,16 @@
       
       <!-- Section 1: Thông tin công việc -->
       <div class="form-section">
-        <div class="section-title">1. Việc cần giao</div>
+        <div class="section-title">Thông tin công việc</div>
         
         <div class="form-group">
-          <label for="ten">Tên việc <span style="color: var(--danger)">*</span></label>
-          <input type="text" id="ten" required placeholder="Nhập việc cần giao...">
+          <label for="ten">Tên sự kiện <span style="color: var(--danger)">*</span></label>
+          <input type="text" id="ten" required placeholder="Nhập tên việc cần giao...">
         </div>
 
         <div class="form-group">
-          <label for="noiDung">Nội dung</label>
-          <textarea id="noiDung" placeholder="Ghi ngắn gọn yêu cầu chính..."></textarea>
+          <label for="noiDung">Nội dung chi tiết</label>
+          <textarea id="noiDung" placeholder="Nội dung cần triển khai..."></textarea>
         </div>
 
         <div class="form-row">
@@ -325,7 +579,7 @@
 
       <!-- Section 2: Người nhận & Người giao -->
       <div class="form-section">
-        <div class="section-title">2. Giao cho ai</div>
+        <div class="section-title">Người nhận</div>
         
         <div class="form-group">
           <label>Nhóm nhận <span style="color: var(--danger)">*</span> <span id="loadingGroups" class="loading-text">(Đang tải...)</span></label>
@@ -358,18 +612,18 @@
 
       <!-- Section 3: Thời gian -->
       <div class="form-section">
-        <div class="section-title">3. Khi nào nhắc</div>
+        <div class="section-title">Thời gian nhắc</div>
         
         <div class="form-group">
-          <label>Chọn nhanh</label>
+          <label>Chọn nhanh thời gian nhắc</label>
           <div class="chips-group" id="timePresets">
             <div class="chip active" data-preset="now">Gửi ngay</div>
-            <div class="chip" data-preset="15m">Sau 15p</div>
-            <div class="chip" data-preset="30m">Sau 30p</div>
-            <div class="chip" data-preset="10h">10h00</div>
-            <div class="chip" data-preset="14h">14h00</div>
-            <div class="chip" data-preset="18h">18h00</div>
-            <div class="chip" data-preset="8h">Ngày mai 08:00</div>
+            <div class="chip" data-preset="15m">15p</div>
+            <div class="chip" data-preset="30m">30p</div>
+            <div class="chip" data-preset="10h">10h</div>
+            <div class="chip" data-preset="14h">14h</div>
+            <div class="chip" data-preset="18h">18h</div>
+            <div class="chip" data-preset="8h">Mai 08:00</div>
             <div class="chip" data-preset="custom">Tùy chọn</div>
           </div>
         </div>
@@ -387,7 +641,7 @@
 
       <!-- Section 4: Hạn hoàn thành & Lặp lại -->
       <div class="form-section">
-        <div class="section-title">Hạn hoàn thành & Lặp lại</div>
+        <div class="section-title">Hạn hoàn thành & lặp lại</div>
         
         <div class="form-row">
           <div class="form-group">
@@ -423,7 +677,7 @@
 
       <!-- Section 4: Nghiệm thu -->
       <div class="form-section">
-        <div class="section-title">Nghiệm thu & Nhắc nhở</div>
+        <div class="section-title">Nghiệm thu & nhắc lại</div>
         
         <div class="form-row">
           <div class="form-group">
@@ -435,7 +689,7 @@
           </div>
           <div class="form-group">
             <label for="tanSuat">Tần suất nhắc (phút)</label>
-            <input type="number" id="tanSuat" min="5" value="15">
+            <input type="number" id="tanSuat" min="5" value="15" inputmode="numeric">
           </div>
         </div>
         
@@ -449,7 +703,7 @@
         <div class="section-title">Ảnh đính kèm</div>
         
         <div class="form-group">
-          <label for="imageFiles">Ảnh đính kèm (tối đa 5 ảnh)</label>
+          <label for="imageFiles">Ảnh đính kèm gợi ý (Tối đa 5 ảnh)</label>
           <input type="file" id="imageFiles" accept="image/*" multiple>
           <small style="display:block;margin-top:6px;color:var(--text-secondary);font-size:12px;">
             Chọn từ thư viện hoặc chụp ảnh mới. Tự động nén chất lượng cao.
@@ -467,7 +721,7 @@
 
       <!-- Section 6: Ghi chú -->
       <div class="form-section">
-        <div class="section-title">Ghi chú thêm</div>
+        <div class="section-title">Ghi chú</div>
         
         <div class="form-group">
           <label for="ghiChu">Ghi chú thêm</label>
@@ -477,11 +731,11 @@
 
       <button type="submit" id="btnSubmit" class="btn-submit" disabled>
         <span class="spinner" id="btnSpinner"></span>
-        <span id="btnText">Tạo Công Việc</span>
+        <span id="btnText">Tạo công việc</span>
       </button>
 
     </form>
-    <p style="text-align: center; font-size: 11px; color: var(--text-secondary); margin-top: 15px; opacity: 0.6;">Giao việc LINE · giao diện tối giản</p>
+    <p style="text-align: center; font-size: 11px; color: var(--text-secondary); margin-top: 10px; opacity: 0.7;">Phiên bản: API Fetch v2</p>
     <div id="debugLog" style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 8px; font-family: monospace; font-size: 10px; color: #38ef7d; max-height: 120px; overflow-y: auto; text-align: left; border: 1px solid rgba(255,255,255,0.05); line-height: 1.4; word-break: break-all;">
       [LOG] Bắt đầu khởi tạo...
     </div>
@@ -490,7 +744,7 @@
   <!-- Modal Confirmation -->
   <div class="modal-overlay" id="confirmModal">
     <div class="modal-card" style="max-width: 450px;">
-      <h2 class="modal-title">Xác Nhận Công Việc</h2>
+      <h2 class="modal-title">Xác nhận công việc</h2>
       <p class="modal-desc" style="margin-bottom: 12px;">Vui lòng kiểm tra lại thông tin trước khi tạo:</p>
       
       <div class="confirm-details" id="confirmDetails">
@@ -510,7 +764,7 @@
       <div class="success-icon-wrap">
         <span class="success-icon">✓</span>
       </div>
-      <h2 class="modal-title" style="color: #38ef7d;">Tạo Thành Công!</h2>
+      <h2 class="modal-title" style="color: var(--primary);">Tạo thành công!</h2>
       <p class="modal-desc" style="margin-bottom: 24px;">Công việc mới đã được ghi nhận vào hệ thống.</p>
       <div class="modal-btn-group" style="flex-direction: column; gap: 10px;">
         <button type="button" class="btn-primary" style="width: 100%;" onclick="createNewTaskPreset()">Tạo tiếp việc mới</button>
@@ -608,39 +862,6 @@
         });
         container.appendChild(chip);
       });
-    }
-
-    function setupAdvancedUI() {
-      const form = document.getElementById('liffForm');
-      const submitBtn = document.getElementById('btnSubmit');
-      if (!form || !submitBtn || document.querySelector('.advanced-wrap')) return;
-
-      const sections = Array.from(form.querySelectorAll('.form-section'));
-      const advancedSections = sections.filter(sec => {
-        const title = sec.querySelector('.section-title');
-        if (!title) return false;
-        const text = title.textContent.trim();
-        return text.includes('Hạn hoàn thành') || text.includes('Nghiệm thu') || text.includes('Ảnh đính kèm') || text.includes('Ghi chú thêm');
-      });
-
-      const details = document.createElement('details');
-      details.className = 'advanced-wrap';
-      details.innerHTML = '<summary>Tuỳ chọn nâng cao: người theo dõi, deadline, ảnh, ghi chú</summary>';
-      form.insertBefore(details, submitBtn);
-
-      const followerContainer = document.getElementById('idFollowerContainer');
-      if (followerContainer) {
-        const followerGroup = followerContainer.closest('.form-group');
-        if (followerGroup) {
-          const followerSection = document.createElement('div');
-          followerSection.className = 'form-section';
-          followerSection.innerHTML = '<div class="section-title">Người theo dõi</div>';
-          followerSection.appendChild(followerGroup);
-          details.appendChild(followerSection);
-        }
-      }
-
-      advancedSections.forEach(sec => details.appendChild(sec));
     }
 
     function setupTimePresets() {
@@ -855,7 +1076,7 @@
       const btnText = document.getElementById('btnText');
       btn.disabled = false;
       spinner.style.display = 'none';
-      btnText.textContent = "Tạo Công Việc";
+      btnText.textContent = "Tạo công việc";
       
       // Clear image previews
       selectedImages = [];
@@ -885,10 +1106,9 @@
         document.getElementById('ngayGio').value = localISOTime;
         logMsg("Set local date success.");
         
-        // Render chips, presets & compact advanced options
+        // Render chips & presets
         renderTemplateChips();
         setupTimePresets();
-        setupAdvancedUI();
         
         // Bind file upload listener
         const fileInput = document.getElementById('imageFiles');
@@ -1335,7 +1555,7 @@
         alert("❌ Lỗi: " + res.message);
         btn.disabled = false;
         if (spinner) spinner.style.display = 'none';
-        if (btnText) btnText.textContent = "Tạo Công Việc";
+        if (btnText) btnText.textContent = "Tạo công việc";
       }
     }
 
@@ -1348,7 +1568,7 @@
       const btnText = document.getElementById('btnText');
       btn.disabled = false;
       if (spinner) spinner.style.display = 'none';
-      if (btnText) btnText.textContent = "Tạo Công Việc";
+      if (btnText) btnText.textContent = "Tạo công việc";
     }
   </script>
 </body>
