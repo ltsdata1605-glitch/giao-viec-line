@@ -505,6 +505,14 @@
       border-color: var(--border-color) !important;
     }
 
+    .fast-hint {
+      margin-top: 8px;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
     @media (max-width: 420px) {
       body { padding: 6px; }
       .container { border-radius: 12px; padding: 10px; box-shadow: none; }
@@ -731,8 +739,9 @@
 
       <button type="submit" id="btnSubmit" class="btn-submit" disabled>
         <span class="spinner" id="btnSpinner"></span>
-        <span id="btnText">Tạo công việc</span>
+        <span id="btnText">Tạo nhanh</span>
       </button>
+      <div class="fast-hint" id="fastHint">Chế độ nhanh: lưu việc trước, bot gửi LINE ngay sau đó.</div>
 
     </form>
     <p style="text-align: center; font-size: 11px; color: var(--text-secondary); margin-top: 10px; opacity: 0.7;">Phiên bản: API Fetch v2</p>
@@ -1186,19 +1195,51 @@
       }
     }
 
-    // Tải danh sách nhóm & thành viên từ Apps Script qua API Fetch (tránh lỗi Sandbox iframe của google.script.run)
-    function loadDropdownLists() {
-      logMsg("loadDropdownLists() được gọi.");
+    // Tải danh sách nhóm & thành viên từ Apps Script qua API Fetch.
+    // Tối ưu tốc độ: ưu tiên cache trên máy người dùng để mở form nhanh hơn, sau đó tự làm mới nền.
+    const LIST_CACHE_KEY = "LINE_TASK_LIST_CACHE_V2";
+    const LIST_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 giờ
+
+    function getApiUrl() {
       let apiUrl = WEB_APP_URL;
-      logMsg("Web App URL từ Template: " + apiUrl);
-      
       if (!apiUrl) {
         apiUrl = window.location.href.split('?')[0].split('#')[0];
-        logMsg("Web App URL rỗng, dùng URL hiện tại: " + apiUrl);
       }
-      
-      const finalUrl = apiUrl + "?action=getLists";
-      logMsg("Bắt đầu fetch: " + finalUrl);
+      return apiUrl;
+    }
+
+    function getCachedLists() {
+      try {
+        const raw = localStorage.getItem(LIST_CACHE_KEY);
+        if (!raw) return null;
+        const cached = JSON.parse(raw);
+        if (!cached || !cached.time || !cached.data) return null;
+        if (Date.now() - cached.time > LIST_CACHE_TTL) return null;
+        return cached.data;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function setCachedLists(data) {
+      try {
+        localStorage.setItem(LIST_CACHE_KEY, JSON.stringify({ time: Date.now(), data }));
+      } catch (e) {
+        // Bỏ qua nếu trình duyệt/LIFF không cho lưu cache.
+      }
+    }
+
+    function loadDropdownLists() {
+      logMsg("loadDropdownLists() được gọi.");
+
+      const cached = getCachedLists();
+      if (cached) {
+        logMsg("Dùng cache danh sách để form sẵn sàng nhanh.");
+        onListsLoaded(cached);
+      }
+
+      const finalUrl = getApiUrl() + "?action=getLists&ts=" + Date.now();
+      logMsg("Bắt đầu fetch danh sách mới.");
       
       fetch(finalUrl)
         .then(response => {
@@ -1207,12 +1248,13 @@
           return response.json();
         })
         .then(data => {
-          logMsg("Đã lấy được dữ liệu JSON.");
+          logMsg("Đã lấy được dữ liệu JSON mới.");
+          setCachedLists(data);
           onListsLoaded(data);
         })
         .catch((err) => {
           logMsg("Lỗi fetch danh sách: " + err.toString());
-          onListsFailed(err);
+          if (!cached) onListsFailed(err);
         });
     }
 
@@ -1392,7 +1434,7 @@
 
       const submitBtn = document.getElementById('btnSubmit');
       const btnText = document.getElementById('btnText');
-      const originalText = btnText ? btnText.textContent : "Tạo Công Việc";
+      const originalText = btnText ? btnText.textContent : "Tạo nhanh";
       
       submitBtn.disabled = true;
       if (btnText) btnText.textContent = "Đang nén ảnh...";
@@ -1463,7 +1505,7 @@
       // Lock nút và chạy spinner
       btn.disabled = true;
       if (spinner) spinner.style.display = 'inline-block';
-      if (btnText) btnText.textContent = "Đang tạo công việc...";
+      if (btnText) btnText.textContent = "Đang lưu nhanh...";
 
       try {
         const selectedMembers = [];
@@ -1513,7 +1555,8 @@
           hinhThucXN: document.getElementById('hinhThucXN').value,
           doUuTien: document.getElementById('doUuTien').value,
           tanSuat: document.getElementById('tanSuat').value,
-          ghiChu: document.getElementById('ghiChu').value
+          ghiChu: document.getElementById('ghiChu').value,
+          fastMode: true
         };
 
         const payload = {
@@ -1521,10 +1564,7 @@
           data: formData
         };
 
-        let apiUrl = WEB_APP_URL;
-        if (!apiUrl) {
-          apiUrl = window.location.href.split('?')[0].split('#')[0];
-        }
+        let apiUrl = getApiUrl();
 
         logMsg("Bắt đầu gửi request tạo công việc...");
         fetch(apiUrl, {
@@ -1549,13 +1589,15 @@
       const btnText = document.getElementById('btnText');
 
       if (res.success) {
+        if (spinner) spinner.style.display = 'none';
+        if (btnText) btnText.textContent = "Tạo nhanh";
         document.getElementById('successModal').classList.add('active');
-        logMsg("Tạo công việc thành công.");
+        logMsg(res.message || "Tạo công việc thành công.");
       } else {
         alert("❌ Lỗi: " + res.message);
         btn.disabled = false;
         if (spinner) spinner.style.display = 'none';
-        if (btnText) btnText.textContent = "Tạo công việc";
+        if (btnText) btnText.textContent = "Tạo nhanh";
       }
     }
 
@@ -1568,7 +1610,7 @@
       const btnText = document.getElementById('btnText');
       btn.disabled = false;
       if (spinner) spinner.style.display = 'none';
-      if (btnText) btnText.textContent = "Tạo công việc";
+      if (btnText) btnText.textContent = "Tạo nhanh";
     }
   </script>
 </body>

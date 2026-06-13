@@ -1766,16 +1766,62 @@ function createTaskFromLIFF(data) {
       appendTaskLog(newTaskId, "Tạo việc mới", "", "Chờ xác nhận", "Tạo từ LIFF Form bởi " + globalCurrentUserName);
     }
     
-    // Check and send Line messages immediately
-    checkAndSendLineMessage();
+    // Chế độ nhanh từ LIFF: trả kết quả ngay sau khi lưu việc, không bắt người dùng chờ quét/gửi LINE.
+    if (data.fastMode === true || String(data.fastMode || "").toLowerCase() === "true") {
+      scheduleFastTaskScanFromLIFF_();
+    } else {
+      checkAndSendLineMessage();
+    }
     
     var successMsg = groups.length > 1 
-      ? "Đã tạo công việc cho " + groups.length + " nhóm và đã kiểm tra gửi LINE!" 
-      : "Đã tạo công việc và đã kiểm tra gửi LINE!";
+      ? "Đã lưu nhanh công việc cho " + groups.length + " nhóm. Bot sẽ gửi LINE ngay sau đó." 
+      : "Đã lưu nhanh công việc. Bot sẽ gửi LINE ngay sau đó.";
       
     return { success: true, message: successMsg };
   } catch (e) {
     return { success: false, message: "Lỗi hệ thống: " + e.toString() };
+  }
+}
+
+
+/**
+ * Chạy quét gửi LINE sau khi LIFF đã trả kết quả cho người dùng.
+ * Mục tiêu: bấm Tạo xong nhanh hơn, không bắt người dùng chờ bot quét/gửi LINE trong cùng request.
+ */
+function scheduleFastTaskScanFromLIFF_() {
+  try {
+    var cache = CacheService.getScriptCache();
+    var pendingKey = "LIFF_FAST_TASK_SCAN_PENDING";
+    if (cache.get(pendingKey)) {
+      writeLog("Đã có lịch quét nhanh đang chờ, bỏ qua tạo trigger mới.", "INFO", "scheduleFastTaskScanFromLIFF_");
+      return;
+    }
+
+    cache.put(pendingKey, "1", 30);
+    ScriptApp.newTrigger("RUN_FAST_TASK_SCAN_FROM_LIFF")
+      .timeBased()
+      .after(1)
+      .create();
+
+    writeLog("Đã lên lịch quét gửi LINE nhanh sau khi tạo việc từ LIFF.", "INFO", "scheduleFastTaskScanFromLIFF_");
+  } catch (e) {
+    writeLog("Không thể lên lịch quét nhanh, trigger mỗi phút vẫn sẽ xử lý: " + e.toString(), "ERROR", "scheduleFastTaskScanFromLIFF_");
+  }
+}
+
+function RUN_FAST_TASK_SCAN_FROM_LIFF() {
+  try {
+    var triggers = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < triggers.length; i++) {
+      if (triggers[i].getHandlerFunction() === "RUN_FAST_TASK_SCAN_FROM_LIFF") {
+        ScriptApp.deleteTrigger(triggers[i]);
+      }
+    }
+
+    CacheService.getScriptCache().remove("LIFF_FAST_TASK_SCAN_PENDING");
+    checkAndSendLineMessage();
+  } catch (e) {
+    writeLog("Lỗi RUN_FAST_TASK_SCAN_FROM_LIFF: " + e.toString(), "ERROR", "RUN_FAST_TASK_SCAN_FROM_LIFF");
   }
 }
 
