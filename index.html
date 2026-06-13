@@ -962,10 +962,9 @@
         } else {
           lapLaiLabel = 'Lặp lại theo thứ trong tuần';
         }
-      } else if (lapLaiLabel === 'Cuối tháng - 3 ngày') {
-        lapLaiLabel = 'Trước 3 ngày cuối tháng';
-      } else if (lapLaiLabel === 'Cuối tháng - 2 ngày') {
-        lapLaiLabel = 'Trước 2 ngày cuối tháng';
+      } else if (lapLaiLabel === 'Cuối tháng - X ngày') {
+        const days = document.getElementById('monthlyDaysInput').value || '2';
+        lapLaiLabel = 'Trước ngày cuối tháng: ' + days + ' ngày';
       } else if (lapLaiLabel === 'Cuối tháng') {
         lapLaiLabel = 'Ngày cuối cùng của tháng';
       }
