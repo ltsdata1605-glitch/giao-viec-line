@@ -210,6 +210,14 @@ const mockSandbox = {
       return "Asia/Ho_Chi_Minh";
     }
   },
+  LockService: {
+    getScriptLock: function() {
+      return {
+        waitLock: function(ms) {},
+        releaseLock: function() {}
+      };
+    }
+  },
   PropertiesService: {
     getScriptProperties: function() {
       return {

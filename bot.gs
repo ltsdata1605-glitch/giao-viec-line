@@ -94,8 +94,16 @@ function SETUP_KHOI_TAO_HETHONG() {
 // CÁC HÀM CŨ (NHẮC VIỆC, WEBHOOK, LƯU DỮ LIỆU...)
 // ==========================================
 function checkAndSendLineMessage() {
-  writeLog("Bắt đầu quét sự kiện nhắc việc...", "INFO");
+  var lock = LockService.getScriptLock();
   try {
+    lock.waitLock(30000); // Chờ tối đa 30 giây để lấy lock tránh chạy song song gây trùng lặp tin nhắn
+  } catch (e) {
+    writeLog("⚠️ Không thể lấy lock để quét sự kiện: " + e.toString(), "WARN");
+    return;
+  }
+
+  try {
+    writeLog("Bắt đầu quét sự kiện nhắc việc...", "INFO");
     var sheet = getSpreadsheet().getSheetByName("Sự kiện");
     if (!sheet) {
       writeLog("Không tìm thấy sheet 'Sự kiện'", "WARN");
@@ -108,20 +116,35 @@ function checkAndSendLineMessage() {
     }
     
     var lastCol = sheet.getLastColumn();
-    var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
-    
-    var expectedHeaders = ["Tên sự kiện", "Nội dung", "Ngày giờ gửi", "Link ảnh đính kèm", "Lặp lại", "Nhóm nhận", "Người phụ trách", "Tần suất (phút)", "Hình thức xác nhận", "Độ ưu tiên", "Người xác nhận", "Trạng thái", "Lần nhắc cuối", "Số lần nhắc", "Link Ảnh Nghiệm Thu", "Deadline", "Loại công việc", "Người giao việc", "Người theo dõi", "Ghi chú", "Trạng thái xử lý chi tiết", "Lịch sử cập nhật", "Đã nhắc trước deadline", "Quote Token"];
     var actualHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) { return String(h).trim(); });
     
-    var colTaskId = getColumnIndexByHeader(sheet, "Task ID");
-    var colStatus = getColumnIndexByHeader(sheet, "Trạng thái");
-    var colLichSu = getColumnIndexByHeader(sheet, "Lịch sử cập nhật");
-    var colDaNhacPre = getColumnIndexByHeader(sheet, "Đã nhắc trước deadline");
-    var colLanNhacCuoi = getColumnIndexByHeader(sheet, "Lần nhắc cuối");
-    var colSoLanNhac = getColumnIndexByHeader(sheet, "Số lần nhắc");
-    var colQuoteToken = getColumnIndexByHeader(sheet, "Quote Token");
+    var colTaskId = actualHeaders.indexOf("Task ID") + 1;
+    var colStatus = actualHeaders.indexOf("Trạng thái") + 1;
+    var colLichSu = actualHeaders.indexOf("Lịch sử cập nhật") + 1;
+    var colDaNhacPre = actualHeaders.indexOf("Đã nhắc trước deadline") + 1;
+    var colLanNhacCuoi = actualHeaders.indexOf("Lần nhắc cuối") + 1;
+    var colSoLanNhac = actualHeaders.indexOf("Số lần nhắc") + 1;
+    var colQuoteToken = actualHeaders.indexOf("Quote Token") + 1;
+
+    // Tự động di trú nếu thiếu bất cứ cột cột bắt buộc nào (tránh lỗi quên ấn nút cập nhật hệ thống)
+    if (colTaskId === 0 || colStatus === 0 || colLichSu === 0 || colDaNhacPre === 0 || colLanNhacCuoi === 0 || colSoLanNhac === 0 || colQuoteToken === 0) {
+      ensureSheetAndHeaders();
+      sheet = getSpreadsheet().getSheetByName("Sự kiện");
+      lastCol = sheet.getLastColumn();
+      actualHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) { return String(h).trim(); });
+      colTaskId = actualHeaders.indexOf("Task ID") + 1;
+      colStatus = actualHeaders.indexOf("Trạng thái") + 1;
+      colLichSu = actualHeaders.indexOf("Lịch sử cập nhật") + 1;
+      colDaNhacPre = actualHeaders.indexOf("Đã nhắc trước deadline") + 1;
+      colLanNhacCuoi = actualHeaders.indexOf("Lần nhắc cuối") + 1;
+      colSoLanNhac = actualHeaders.indexOf("Số lần nhắc") + 1;
+      colQuoteToken = actualHeaders.indexOf("Quote Token") + 1;
+    }
     
-    // Map to expected 23 columns
+    var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var expectedHeaders = ["Tên sự kiện", "Nội dung", "Ngày giờ gửi", "Link ảnh đính kèm", "Lặp lại", "Nhóm nhận", "Người phụ trách", "Tần suất (phút)", "Hình thức xác nhận", "Độ ưu tiên", "Người xác nhận", "Trạng thái", "Lần nhắc cuối", "Số lần nhắc", "Link Ảnh Nghiệm Thu", "Deadline", "Loại công việc", "Người giao việc", "Người theo dõi", "Ghi chú", "Trạng thái xử lý chi tiết", "Lịch sử cập nhật", "Đã nhắc trước deadline", "Quote Token"];
+    
+    // Ánh xạ dữ liệu khớp theo expectedHeaders
     var data = [];
     for (var i = 0; i < values.length; i++) {
       var row = values[i];
@@ -145,13 +168,13 @@ function checkAndSendLineMessage() {
       var row = data[i], rowIndex = i + 2; 
       
       var tenSuKien = row[0];
-      // Bỏ qua dòng trống
       if (String(tenSuKien).trim() === "") continue;
       
-      var status = String(row[11] || "").trim();
+      // Đọc trạng thái tươi nhất (fresh) từ ô để loại bỏ triệt để trùng lặp khi chạy đa luồng
+      var status = colStatus !== 0 ? String(sheet.getRange(rowIndex, colStatus).getValue() || "").trim() : "";
       if (status === "Đã gửi" || status === "Đã hủy") continue;
       
-      var taskId = colTaskId !== -1 ? values[i][colTaskId - 1] : "";
+      var taskId = colTaskId !== 0 ? String(sheet.getRange(rowIndex, colTaskId).getValue() || "").trim() : "";
       var idG = row[5];
       var idNV = row[6];
       var tanSuat = parseInt(row[7]) || 15;
@@ -160,7 +183,6 @@ function checkAndSendLineMessage() {
       
       writeLog("Đang xử lý sự kiện: '" + tenSuKien + "' (Dòng " + rowIndex + ")", "INFO");
       
-      // Parse ngày giờ gửi
       var tgGui = convertToDate(row[2]);
       if (!tgGui) {
         writeLog("❌ Lỗi: Ngày giờ gửi không hợp lệ ở Dòng " + rowIndex + ": '" + row[2] + "'", "WARN");
@@ -172,7 +194,9 @@ function checkAndSendLineMessage() {
         continue;
       }
       
-      // Khởi tạo extraData từ các cột bổ sung
+      var freshDaNhacPre = colDaNhacPre !== 0 ? String(sheet.getRange(rowIndex, colDaNhacPre).getValue() || "").trim() : "";
+      var freshQuoteToken = colQuoteToken !== 0 ? String(sheet.getRange(rowIndex, colQuoteToken).getValue() || "").trim() : "";
+      
       var extraData = {
         deadline: row[15],
         loaiCV: row[16],
@@ -180,74 +204,91 @@ function checkAndSendLineMessage() {
         nguoiTheoDoi: row[18],
         ghiChu: row[19],
         trangThaiChiTiet: status,
-        lichSu: row[21],
+        lichSu: colLichSu !== 0 ? sheet.getRange(rowIndex, colLichSu).getValue() : "",
         idNV: idNV,
-        daNhacPreDeadline: row[22], // Cột 23 / Cột W
-        quoteToken: row[23] // Cột 24 / Cột X
+        daNhacPreDeadline: freshDaNhacPre,
+        quoteToken: freshQuoteToken
       };
       
-      // 1. Kiểm tra QUÁ HẠN (Deadline)
-      if (extraData.deadline) {
-        var deadlineVal = convertToDate(extraData.deadline);
-        if (deadlineVal && currentTime > deadlineVal && status !== "Quá hạn") {
-          if (colStatus !== -1) sheet.getRange(rowIndex, colStatus).setValue("Quá hạn");
-          
-          var oldStatus = status;
-          status = "Quá hạn";
-          extraData.trangThaiChiTiet = "Quá hạn";
-          
-          if (idNV) {
-            var nvIds = String(idNV).split(",").map(function(s) { return s.trim(); }).filter(Boolean);
-            nvIds.forEach(function(nvId) {
-              logInteraction({
-                groupId: idG,
-                userId: nvId,
-                type: "task_overdue",
-                content: "Quá hạn công việc: " + tenSuKien,
-                taskId: taskId,
-                source: "System",
-                note: "Hệ thống tự động ghi nhận quá hạn"
+      // CHỈ quét Sắp đến hạn và Quá hạn NẾU công việc đã từng được gửi đi (status khác rỗng)
+      if (status !== "") {
+        // 1. Kiểm tra QUÁ HẠN (Deadline)
+        if (extraData.deadline) {
+          var deadlineVal = convertToDate(extraData.deadline);
+          if (deadlineVal && currentTime > deadlineVal && status !== "Quá hạn") {
+            if (colStatus !== 0) sheet.getRange(rowIndex, colStatus).setValue("Quá hạn");
+            
+            var oldStatus = status;
+            status = "Quá hạn";
+            extraData.trangThaiChiTiet = "Quá hạn";
+            
+            if (idNV) {
+              var nvIds = String(idNV).split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+              nvIds.forEach(function(nvId) {
+                logInteraction({
+                  groupId: idG,
+                  userId: nvId,
+                  type: "task_overdue",
+                  content: "Quá hạn công việc: " + tenSuKien,
+                  taskId: taskId,
+                  source: "System",
+                  note: "Hệ thống tự động ghi nhận quá hạn"
+                });
               });
-            });
-          }
-          
-          var existingHistory = colLichSu !== -1 ? sheet.getRange(rowIndex, colLichSu).getValue() : "";
-          var newHistory = "Hệ thống: Quá hạn hoàn thành lúc " + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Asia/Ho_Chi_Minh", "dd-MM-yyyy HH:mm");
-          if (colLichSu !== -1) sheet.getRange(rowIndex, colLichSu).setValue(existingHistory ? existingHistory + "\n" + newHistory : newHistory);
-          
-          appendTaskLog(taskId, "Đổi trạng thái", oldStatus, "Quá hạn", "Hệ thống tự động đánh dấu quá hạn");
-          
-          var alertMsg = "⚠️ CẢNH BÁO QUÁ HẠN: Công việc '" + tenSuKien + "' đã quá hạn hoàn thành (Hạn: " + formatDateTimeDisplay(deadlineVal) + ")!";
-          try {
-            var tagStr = idNV;
-            if (extraData.nguoiTheoDoi) {
-              tagStr = tagStr ? tagStr + "," + extraData.nguoiTheoDoi : extraData.nguoiTheoDoi;
             }
-            sendLinePush(idG, tenSuKien, alertMsg, "", "Không", rowIndex, tagStr, 3, "GẤP", extraData);
-            writeLog("Gửi cảnh báo quá hạn công việc '" + tenSuKien + "' (Dòng " + rowIndex + ")", "INFO");
-          } catch (alertErr) {
-            writeLog("❌ Lỗi gửi cảnh báo quá hạn: " + alertErr.toString(), "ERROR");
+            
+            var existingHistory = colLichSu !== 0 ? sheet.getRange(rowIndex, colLichSu).getValue() : "";
+            var newHistory = "Hệ thống: Quá hạn hoàn thành lúc " + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Asia/Ho_Chi_Minh", "dd-MM-yyyy HH:mm");
+            if (colLichSu !== 0) sheet.getRange(rowIndex, colLichSu).setValue(existingHistory ? existingHistory + "\n" + newHistory : newHistory);
+            
+            appendTaskLog(taskId, "Đổi trạng thái", oldStatus, "Quá hạn", "Hệ thống tự động đánh dấu quá hạn");
+            SpreadsheetApp.flush();
+            
+            var alertMsg = "⚠️ CẢNH BÁO QUÁ HẠN: Công việc '" + tenSuKien + "' đã quá hạn hoàn thành (Hạn: " + formatDateTimeDisplay(deadlineVal) + ")!";
+            try {
+              var tagStr = idNV;
+              if (extraData.nguoiTheoDoi) {
+                tagStr = tagStr ? tagStr + "," + extraData.nguoiTheoDoi : extraData.nguoiTheoDoi;
+              }
+              var returnedQuoteToken = sendLinePush(idG, tenSuKien, alertMsg, "", "Không", rowIndex, tagStr, 3, "GẤP", extraData);
+              if (returnedQuoteToken && colQuoteToken !== 0) {
+                var currentQuoteTokenVal = sheet.getRange(rowIndex, colQuoteToken).getValue();
+                if (!currentQuoteTokenVal) {
+                  sheet.getRange(rowIndex, colQuoteToken).setValue(returnedQuoteToken);
+                  SpreadsheetApp.flush();
+                }
+              }
+              writeLog("Gửi cảnh báo quá hạn công việc '" + tenSuKien + "' (Dòng " + rowIndex + ")", "INFO");
+            } catch (alertErr) {
+              writeLog("❌ Lỗi gửi cảnh báo quá hạn: " + alertErr.toString(), "ERROR");
+            }
           }
         }
-      }
-      
-      // 2. Kiểm tra SẮP ĐẾN HẠN (Nhắc trước deadline 30 phút)
-      if (extraData.deadline && status !== "Đã gửi" && status !== "Đã hủy" && status !== "Quá hạn") {
-        var deadlineVal = convertToDate(extraData.deadline);
-        if (deadlineVal) {
-          var minsToDeadline = (deadlineVal.getTime() - currentTime.getTime()) / 60000;
-          var daNhacPre = String(row[22] || "").trim(); // Cột W
-          if (minsToDeadline > 0 && minsToDeadline <= 30 && daNhacPre !== "Có") {
-            if (colDaNhacPre !== -1) sheet.getRange(rowIndex, colDaNhacPre).setValue("Có");
-            row[22] = "Có";
-            extraData.daNhacPreDeadline = "Có";
-            
-            var warnMsg = "⏰ SẮP ĐẾN HẠN: Công việc '" + tenSuKien + "' sắp đến hạn hoàn thành vào lúc " + formatDateTimeDisplay(deadlineVal) + " (còn khoảng " + Math.round(minsToDeadline) + " phút)!";
-            try {
-              sendLinePush(idG, tenSuKien, warnMsg, "", "Không", rowIndex, idNV, 1, "Quan trọng", extraData);
-              writeLog("Gửi nhắc sắp đến hạn công việc '" + tenSuKien + "' (Dòng " + rowIndex + ")", "INFO");
-            } catch (warnErr) {
-              writeLog("❌ Lỗi gửi nhắc sắp đến hạn: " + warnErr.toString(), "ERROR");
+        
+        // 2. Kiểm tra SẮP ĐẾN HẠN (Nhắc trước deadline 30 phút)
+        if (extraData.deadline && status !== "Đã gửi" && status !== "Đã hủy" && status !== "Quá hạn") {
+          var deadlineVal = convertToDate(extraData.deadline);
+          if (deadlineVal) {
+            var minsToDeadline = (deadlineVal.getTime() - currentTime.getTime()) / 60000;
+            if (minsToDeadline > 0 && minsToDeadline <= 30 && freshDaNhacPre !== "Có") {
+              if (colDaNhacPre !== 0) sheet.getRange(rowIndex, colDaNhacPre).setValue("Có");
+              extraData.daNhacPreDeadline = "Có";
+              SpreadsheetApp.flush();
+              
+              var warnMsg = "⏰ SẮP ĐẾN HẠN: Công việc '" + tenSuKien + "' sắp đến hạn hoàn thành vào lúc " + formatDateTimeDisplay(deadlineVal) + " (còn khoảng " + Math.round(minsToDeadline) + " phút)!";
+              try {
+                var returnedQuoteToken = sendLinePush(idG, tenSuKien, warnMsg, "", "Không", rowIndex, idNV, 1, "Quan trọng", extraData);
+                if (returnedQuoteToken && colQuoteToken !== 0) {
+                  var currentQuoteTokenVal = sheet.getRange(rowIndex, colQuoteToken).getValue();
+                  if (!currentQuoteTokenVal) {
+                    sheet.getRange(rowIndex, colQuoteToken).setValue(returnedQuoteToken);
+                    SpreadsheetApp.flush();
+                  }
+                }
+                writeLog("Gửi nhắc sắp đến hạn công việc '" + tenSuKien + "' (Dòng " + rowIndex + ")", "INFO");
+              } catch (warnErr) {
+                writeLog("❌ Lỗi gửi nhắc sắp đến hạn: " + warnErr.toString(), "ERROR");
+              }
             }
           }
         }
@@ -256,10 +297,9 @@ function checkAndSendLineMessage() {
       // Kiểm tra đến giờ gửi chưa
       if (currentTime >= tgGui) {
         var hinhAnh = chuyenDoiLinkDrive(row[3]); 
-        var lanNhacCuoi = convertToDate(row[12]) || new Date(0);
-        var soLan = parseInt(row[13]) || 0;
+        var lanNhacCuoi = colLanNhacCuoi !== 0 ? convertToDate(sheet.getRange(rowIndex, colLanNhacCuoi).getValue()) || new Date(0) : new Date(0);
+        var soLan = colSoLanNhac !== 0 ? parseInt(sheet.getRange(rowIndex, colSoLanNhac).getValue()) || 0 : 0;
         
-        // Lấy thông tin Tên Nhóm và Tên Thành Viên để ghi log chi tiết
         var groupName = getGroupName(idG);
         var memberName = idNV ? resolveMemberNamesList(idNV, idG) : "Không có";
         
@@ -270,24 +310,25 @@ function checkAndSendLineMessage() {
             writeLog("Gửi tin nhắn nhắc việc: '" + tenSuKien + "' lần thứ " + soLan + " (Dòng " + rowIndex + ") | Nhóm: '" + groupName + "' | Phụ trách: '" + memberName + "'", "INFO");
             try {
               var quoteToken = sendLinePush(idG, tenSuKien, row[1], hinhAnh, hinhThucXN, rowIndex, idNV, soLan, uuTien, extraData);
-              if (quoteToken && colQuoteToken !== -1) {
+              if (quoteToken && colQuoteToken !== 0) {
                 var currentQuoteTokenVal = sheet.getRange(rowIndex, colQuoteToken).getValue();
                 if (!currentQuoteTokenVal) {
                   sheet.getRange(rowIndex, colQuoteToken).setValue(quoteToken);
                 }
               }
-              var curStatus = colStatus !== -1 ? sheet.getRange(rowIndex, colStatus).getValue() : "";
+              var curStatus = colStatus !== 0 ? sheet.getRange(rowIndex, colStatus).getValue() : "";
               if (curStatus !== "Chờ gửi ảnh" && 
                   curStatus !== "Chờ gửi ảnh + ghi chú" && 
                   curStatus !== "Chờ ghi chú nghiệm thu" && 
                   curStatus !== "Cần hỗ trợ" && 
                   curStatus !== "Đang làm" && 
                   curStatus !== "Quá hạn") {
-                if (colStatus !== -1) sheet.getRange(rowIndex, colStatus).setValue("Chờ xác nhận");
+                if (colStatus !== 0) sheet.getRange(rowIndex, colStatus).setValue("Chờ xác nhận");
                 appendTaskLog(taskId, "Đổi trạng thái", curStatus, "Chờ xác nhận", "Nhắc nhở công việc lần " + soLan);
               }
-              if (colLanNhacCuoi !== -1) sheet.getRange(rowIndex, colLanNhacCuoi).setValue(currentTime);
-              if (colSoLanNhac !== -1) sheet.getRange(rowIndex, colSoLanNhac).setValue(soLan);
+              if (colLanNhacCuoi !== 0) sheet.getRange(rowIndex, colLanNhacCuoi).setValue(currentTime);
+              if (colSoLanNhac !== 0) sheet.getRange(rowIndex, colSoLanNhac).setValue(soLan);
+              SpreadsheetApp.flush();
               processedCount++;
             } catch (err) {
               writeLog("❌ Lỗi gửi LINE API (Dòng " + rowIndex + "): " + err.toString(), "ERROR");
@@ -299,14 +340,15 @@ function checkAndSendLineMessage() {
           writeLog("Gửi tin nhắn thông báo (Không xác nhận): '" + tenSuKien + "' (Dòng " + rowIndex + ") | Nhóm: '" + groupName + "' | Phụ trách: '" + memberName + "'", "INFO");
           try {
             var quoteToken = sendLinePush(idG, tenSuKien, row[1], hinhAnh, "Không", rowIndex, idNV, soLan, uuTien, extraData);
-            if (quoteToken && colQuoteToken !== -1) {
+            if (quoteToken && colQuoteToken !== 0) {
               var currentQuoteTokenVal = sheet.getRange(rowIndex, colQuoteToken).getValue();
               if (!currentQuoteTokenVal) {
                 sheet.getRange(rowIndex, colQuoteToken).setValue(quoteToken);
               }
             }
-            if (colStatus !== -1) sheet.getRange(rowIndex, colStatus).setValue("Đã gửi");
+            if (colStatus !== 0) sheet.getRange(rowIndex, colStatus).setValue("Đã gửi");
             appendTaskLog(taskId, "Đổi trạng thái", status, "Đã gửi", "Gửi thông báo hoàn tất (không yêu cầu xác nhận)");
+            SpreadsheetApp.flush();
             processedCount++;
             
             // Xử lý lặp lại
@@ -330,6 +372,10 @@ function checkAndSendLineMessage() {
     writeLog("Hoàn thành quét sự kiện. Số lượng tin đã xử lý: " + processedCount, "INFO");
   } catch (e) {
     writeLog("❌ Lỗi hệ thống trong checkAndSendLineMessage: " + e.toString(), "ERROR");
+  } finally {
+    try {
+      lock.releaseLock();
+    } catch (lErr) {}
   }
 }
 
@@ -1000,11 +1046,12 @@ function sendLinePush(to, ten, noiDung, img, hinhThucXN, rIdx, tagId, soLan, uuT
   // 1. Kiểm tra mã trích dẫn (Quote Token) từ công việc đã gửi trước đó
   var quoteToken = (extraData && extraData.quoteToken) ? String(extraData.quoteToken).trim() : "";
   
-  // 2. Thiết lập nội dung text cảnh báo/nhắc nhở
+  // 2. Thiết lập nội dung text cảnh báo/nhắc nhở (sử dụng lowercase không dấu để so khớp chính xác)
   var alertTxt = "";
-  if (noiDung.indexOf("SẮP ĐẾN HẠN") !== -1) {
+  var lowerNoiDung = removeVietnameseTones(String(noiDung || "")).toLowerCase();
+  if (lowerNoiDung.indexOf("sap den han") !== -1) {
     alertTxt = "⏰ Sắp đến hạn: " + ten;
-  } else if (noiDung.indexOf("CẢNH BÁO QUÁ HẠN") !== -1) {
+  } else if (lowerNoiDung.indexOf("canh bao qua han") !== -1) {
     alertTxt = "🚨 QUÁ HẠN / CẦN QUẢN LÝ THEO DÕI: " + ten;
   } else if (soLan >= 3) {
     alertTxt = "🚨 QUÁ HẠN / CẦN QUẢN LÝ THEO DÕI: Công việc '" + ten + "' chưa hoàn thành!";
@@ -1102,6 +1149,23 @@ function sendLinePush(to, ten, noiDung, img, hinhThucXN, rIdx, tagId, soLan, uuT
     payload: JSON.stringify(payload),
     muteHttpExceptions: true
   }, "Gửi tin nhắn việc mới (Push)");
+  
+  // TỰ ĐỘNG KHÔI PHỤC (FALLBACK) nếu quoteToken bị lỗi hoặc hết hạn (LINE phản hồi HTTP 400)
+  if (res && res.getResponseCode() === 400 && quoteToken) {
+    writeLog("⚠️ Gửi trích dẫn thất bại (HTTP 400), có thể do Quote Token hết hạn hoặc gốc đã bị xoá. Thử gửi lại không kèm trích dẫn...", "WARN");
+    msgs.forEach(function(m) {
+      delete m.quoteToken;
+    });
+    payload.messages = msgs;
+    res = callLineApi("message/push", {
+      method: "post",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    }, "Gửi tin nhắn việc mới (Push Fallback)");
+  }
   
   if (res) {
     try {
