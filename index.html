@@ -947,8 +947,16 @@
         const activeDays = Array.from(document.querySelectorAll('#weeklyDaysContainer .day-chip.active'))
           .map(c => c.textContent);
         if (activeDays.length > 0) {
-          lapLaiLabel = 'Hàng tuần: ' + activeDays.join(', ');
+          lapLaiLabel = 'Thứ trong tuần: ' + activeDays.join(', ');
+        } else {
+          lapLaiLabel = 'Lặp lại theo thứ trong tuần';
         }
+      } else if (lapLaiLabel === 'Cuối tháng - 3 ngày') {
+        lapLaiLabel = 'Trước 3 ngày cuối tháng';
+      } else if (lapLaiLabel === 'Cuối tháng - 2 ngày') {
+        lapLaiLabel = 'Trước 2 ngày cuối tháng';
+      } else if (lapLaiLabel === 'Cuối tháng') {
+        lapLaiLabel = 'Ngày cuối cùng của tháng';
       }
       
       const detailsHtml = `
