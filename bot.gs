@@ -2091,26 +2091,6 @@ function buildGiaoFormFlexMessage() {
 
 function replyGiaoForm(token) {
   var flexMsg = buildGiaoFormFlexMessage();
-  flexMsg.quickReply = {
-    items: [
-      {
-        type: "action",
-        action: {
-          type: "uri",
-          label: "Mở form",
-          uri: getLiffUrl()
-        }
-      },
-      {
-        type: "action",
-        action: {
-          type: "message",
-          label: "Trợ giúp",
-          text: "/help"
-        }
-      }
-    ]
-  };
   replyMessages(token, [flexMsg], "LINE giao form flex reply");
 }
 
