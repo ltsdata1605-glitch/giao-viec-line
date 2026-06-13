@@ -1191,27 +1191,26 @@
     function onListsLoaded(data) {
       logMsg("onListsLoaded() chạy.");
       // 1. Nhóm nhận
-      const groupSelect = document.getElementById('idGroup');
+      const groupContainer = document.getElementById('idGroupContainer');
       document.getElementById('loadingGroups').style.display = 'none';
-      groupSelect.disabled = false;
-      
-      groupSelect.innerHTML = '<option value="" disabled selected>Chọn nhóm nhận việc...</option>';
+      groupContainer.innerHTML = '';
       
       if (data.groups && data.groups.length > 0) {
         logMsg("Số lượng nhóm: " + data.groups.length);
         data.groups.forEach(g => {
-          const opt = document.createElement('option');
-          opt.value = g.id;
-          opt.textContent = g.name;
-          groupSelect.appendChild(opt);
+          const labelGc = document.createElement('label');
+          labelGc.className = 'checkbox-item';
+          const cbGc = document.createElement('input');
+          cbGc.type = 'checkbox';
+          cbGc.name = 'idGroupCheckbox';
+          cbGc.value = g.id;
+          labelGc.appendChild(cbGc);
+          labelGc.appendChild(document.createTextNode(' ' + g.name));
+          groupContainer.appendChild(labelGc);
         });
       } else {
         logMsg("Không tìm thấy nhóm.");
-        const opt = document.createElement('option');
-        opt.value = "";
-        opt.disabled = true;
-        opt.textContent = "Không tìm thấy nhóm nào. Hãy cập nhật sheet ID_Group!";
-        groupSelect.appendChild(opt);
+        groupContainer.textContent = "Không tìm thấy nhóm nào. Hãy cập nhật sheet ID_Group!";
       }
 
       // 2. Người giao việc
