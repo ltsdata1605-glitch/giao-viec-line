@@ -621,16 +621,18 @@
             <input type="datetime-local" id="deadline">
           </div>
           <div class="form-group">
-            <label for="lapLai">Lặp lại</label>
             <select id="lapLai" onchange="toggleWeeklyDaysSelect()">
               <option value="Không">Không</option>
               <option value="Hàng giờ">Hàng giờ</option>
               <option value="Hàng ngày">Hàng ngày</option>
               <option value="Hàng tuần">Lặp lại theo thứ trong tuần</option>
-              <option value="Cuối tháng - 3 ngày">Lặp lại trước 3 ngày cuối tháng</option>
-              <option value="Cuối tháng - 2 ngày">Lặp lại trước 2 ngày cuối tháng</option>
+              <option value="Cuối tháng - X ngày">Lặp lại trước ngày cuối tháng</option>
               <option value="Cuối tháng">Lặp lại ngày cuối cùng của tháng</option>
             </select>
+            <div id="monthlyDaysContainer" style="display: none; margin-top: 8px;">
+              <label for="monthlyDaysInput" style="font-size: 11px; margin-bottom: 4px;">Số ngày trước cuối tháng (Mặc định là 2)</label>
+              <input type="number" id="monthlyDaysInput" min="1" max="28" value="2" style="padding: 8px 12px; font-size: 14px;">
+            </div>
             <div id="weeklyDaysContainer" class="day-chips-group" style="display: none;">
               <div class="day-chip" data-day="T2" onclick="toggleWeeklyDayChip(this)">T2</div>
               <div class="day-chip" data-day="T3" onclick="toggleWeeklyDayChip(this)">T3</div>
