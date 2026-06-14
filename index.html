@@ -696,8 +696,15 @@
             </select>
           </div>
           <div class="form-group">
-            <label for="tanSuat">Tần suất nhắc (phút)</label>
-            <input type="number" id="tanSuat" min="5" value="15" inputmode="numeric">
+            <label id="tanSuatLabel" for="tanSuatValue">Tần suất nhắc (Phút)</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="number" id="tanSuatValue" min="5" value="15" inputmode="numeric" style="flex: 2; margin: 0;">
+              <select id="tanSuatUnit" style="flex: 3; margin: 0;" onchange="handleTanSuatUnitChange()">
+                <option value="m" selected>Phút</option>
+                <option value="h">Tiếng / Giờ</option>
+                <option value="none">Không nhắc lại</option>
+              </select>
+            </div>
           </div>
         </div>
         
