@@ -933,6 +933,42 @@
       }
     }
 
+    function handleTanSuatUnitChange() {
+      const unit = document.getElementById('tanSuatUnit').value;
+      const valueInput = document.getElementById('tanSuatValue');
+      const label = document.getElementById('tanSuatLabel');
+      
+      if (unit === 'none') {
+        valueInput.style.display = 'none';
+        valueInput.required = false;
+        label.textContent = 'Tần suất nhắc (Không nhắc lại)';
+      } else {
+        valueInput.style.display = 'block';
+        valueInput.required = true;
+        if (unit === 'h') {
+          label.textContent = 'Tần suất nhắc (Giờ)';
+          valueInput.min = '1';
+          if (parseInt(valueInput.value, 10) < 1) {
+            valueInput.value = '1';
+          }
+        } else {
+          label.textContent = 'Tần suất nhắc (Phút)';
+          valueInput.min = '5';
+          if (parseInt(valueInput.value, 10) < 5) {
+            valueInput.value = '15';
+          }
+        }
+      }
+    }
+
+    function getTanSuatInMinutes() {
+      const unit = document.getElementById('tanSuatUnit').value;
+      if (unit === 'none') return 0;
+      const val = parseInt(document.getElementById('tanSuatValue').value, 10) || 15;
+      if (unit === 'h') return val * 60;
+      return val;
+    }
+
     function toggleWeeklyDaysSelect() {
       const val = document.getElementById('lapLai').value;
       const weeklyContainer = document.getElementById('weeklyDaysContainer');
