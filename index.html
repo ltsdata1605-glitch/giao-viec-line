@@ -1036,6 +1036,17 @@
       
       const xnSelect = document.getElementById('hinhThucXN');
       const xnLabel = xnSelect.options[xnSelect.selectedIndex].text;
+
+      const tsUnit = document.getElementById('tanSuatUnit').value;
+      const tsVal = document.getElementById('tanSuatValue').value;
+      let tsDisplay = '';
+      if (tsUnit === 'none') {
+        tsDisplay = 'Không nhắc lại';
+      } else if (tsUnit === 'h') {
+        tsDisplay = `Nhắc lại sau mỗi ${tsVal} giờ`;
+      } else {
+        tsDisplay = `Nhắc lại sau mỗi ${tsVal} phút`;
+      }
       
       const lapLaiSelect = document.getElementById('lapLai');
       let lapLaiLabel = lapLaiSelect.value;
