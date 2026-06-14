@@ -756,7 +756,7 @@ runTest("Lệnh /help trong chat riêng", () => {
   const handled = mockSandbox.handleTextCommand(event, "/help", "U222", null);
   assert.strictEqual(handled, true);
   assert.strictEqual(flexMessages.length, 1);
-  assert.strictEqual(flexMessages[0].altText, "Trợ giúp bot nhắc việc");
+  assert.strictEqual(flexMessages[0].altText, "Hướng dẫn sử dụng Bot Nhắc Việc");
 });
 
 runTest("Lệnh /hd (Hướng dẫn) trong chat riêng", () => {
@@ -764,7 +764,7 @@ runTest("Lệnh /hd (Hướng dẫn) trong chat riêng", () => {
   const handled = mockSandbox.handleTextCommand(event, "/hd", "U222", null);
   assert.strictEqual(handled, true);
   assert.strictEqual(flexMessages.length, 1);
-  assert.strictEqual(flexMessages[0].altText, "Hướng dẫn sử dụng bot");
+  assert.strictEqual(flexMessages[0].altText, "Hướng dẫn sử dụng Bot Nhắc Việc");
 });
 
 runTest("Lệnh /gv (Giao việc) trong chat riêng", () => {
@@ -866,7 +866,7 @@ runTest("Lệnh /help trong nhóm", () => {
   const handled = mockSandbox.handleTextCommand(event, "/help", "U222", "G123");
   assert.strictEqual(handled, true);
   assert.strictEqual(flexMessages.length, 1);
-  assert.strictEqual(flexMessages[0].altText, "Trợ giúp bot nhắc việc");
+  assert.strictEqual(flexMessages[0].altText, "Hướng dẫn sử dụng Bot Nhắc Việc");
 });
 
 runTest("Lệnh /id trong nhóm", () => {

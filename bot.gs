@@ -2459,7 +2459,13 @@ function getActiveTasksList() {
 }
 
 function buildHelpFlexMessage() {
-  var bubble = {
+  return buildHdFlexMessage();
+}
+
+function buildHdFlexMessage() {
+  var liffUrl = getLiffUrl();
+  
+  var bubble1 = {
     type: "bubble",
     size: "mega",
     header: {
@@ -2470,7 +2476,7 @@ function buildHelpFlexMessage() {
       contents: [
         {
           type: "text",
-          text: "🤖 TRỢ GIÚP TRA CỨU",
+          text: "📝 QUẢN LÝ CÔNG VIỆC",
           color: "#FFFFFF",
           weight: "bold",
           size: "sm"
@@ -2485,7 +2491,7 @@ function buildHelpFlexMessage() {
       contents: [
         {
           type: "text",
-          text: "Gửi các cú pháp sau vào khung chat để thực hiện:",
+          text: "Quản lý và giao nhiệm vụ trong nhóm LINE:",
           size: "xs",
           color: "#666666"
         },
@@ -2499,58 +2505,56 @@ function buildHelpFlexMessage() {
           contents: [
             {
               type: "box",
-              layout: "horizontal",
+              layout: "vertical",
+              spacing: "xxs",
               contents: [
-                { type: "text", text: "📝 /gv", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
-                { type: "text", text: "Mở form giao việc LIFF", size: "xs", color: "#333333", flex: 7 }
+                { type: "text", text: "📝 /gv", weight: "bold", size: "xs", color: "#1DB446" },
+                { type: "text", text: "Mở Form giao việc nhanh (giao diện LIFF)", size: "xs", color: "#555555", wrap: true }
               ]
             },
             {
               type: "box",
-              layout: "horizontal",
+              layout: "vertical",
+              spacing: "xxs",
               contents: [
-                { type: "text", text: "👤 /vieccuatoi", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
-                { type: "text", text: "Xem việc chưa xong của tôi", size: "xs", color: "#333333", flex: 7 }
+                { type: "text", text: "👤 /vieccuatoi", weight: "bold", size: "xs", color: "#1DB446" },
+                { type: "text", text: "Xem danh sách việc chưa hoàn thành của riêng bạn", size: "xs", color: "#555555", wrap: true }
               ]
             },
             {
               type: "box",
-              layout: "horizontal",
+              layout: "vertical",
+              spacing: "xxs",
               contents: [
-                { type: "text", text: "📂 /chuaxong", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
-                { type: "text", text: "Danh sách việc chưa hoàn thành", size: "xs", color: "#333333", flex: 7 }
+                { type: "text", text: "📂 /chuaxong", weight: "bold", size: "xs", color: "#1DB446" },
+                { type: "text", text: "Xem tất cả công việc chưa hoàn tất của nhóm", size: "xs", color: "#555555", wrap: true }
               ]
             },
             {
               type: "box",
-              layout: "horizontal",
+              layout: "vertical",
+              spacing: "xxs",
               contents: [
-                { type: "text", text: "⚠️ /trehan", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
-                { type: "text", text: "Danh sách việc quá hạn", size: "xs", color: "#333333", flex: 7 }
+                { type: "text", text: "⚠️ /trehan", weight: "bold", size: "xs", color: "#1DB446" },
+                { type: "text", text: "Xem danh sách công việc trễ hạn trong nhóm", size: "xs", color: "#555555", wrap: true }
               ]
             },
             {
               type: "box",
-              layout: "horizontal",
+              layout: "vertical",
+              spacing: "xxs",
               contents: [
-                { type: "text", text: "📊 /baocao", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
-                { type: "text", text: "Xem báo cáo tiến độ hôm nay", size: "xs", color: "#333333", flex: 7 }
+                { type: "text", text: "🔄 /giaolai [dòng] [id_LINE]", weight: "bold", size: "xs", color: "#1DB446" },
+                { type: "text", text: "Giao lại việc cho thành viên khác (Tổ trưởng/QL)", size: "xs", color: "#555555", wrap: true }
               ]
             },
             {
               type: "box",
-              layout: "horizontal",
+              layout: "vertical",
+              spacing: "xxs",
               contents: [
-                { type: "text", text: "📖 /hd", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
-                { type: "text", text: "Xem hướng dẫn chi tiết", size: "xs", color: "#333333", flex: 7 }
-              ]
-            },
-            {
-              type: "box",
-              layout: "horizontal",
-              contents: [
-                { type: "text", text: "🆔 /id", weight: "bold", size: "xs", color: "#1DB446", flex: 3 },
-                { type: "text", text: "Lấy Group ID / User ID", size: "xs", color: "#333333", flex: 7 }
+                { type: "text", text: "❌ /huy [dòng]", weight: "bold", size: "xs", color: "#1DB446" },
+                { type: "text", text: "Hủy công việc tại dòng tương ứng (Tổ trưởng/QL)", size: "xs", color: "#555555", wrap: true }
               ]
             }
           ]
@@ -2571,7 +2575,7 @@ function buildHelpFlexMessage() {
           action: {
             type: "uri",
             label: "Giao Việc",
-            uri: getLiffUrl()
+            uri: liffUrl
           }
         },
         {
@@ -2588,26 +2592,19 @@ function buildHelpFlexMessage() {
       ]
     }
   };
-  return {
-    type: "flex",
-    altText: "Trợ giúp bot nhắc việc",
-    contents: bubble
-  };
-}
 
-function buildHdFlexMessage() {
-  var bubble = {
+  var bubble2 = {
     type: "bubble",
     size: "mega",
     header: {
       type: "box",
       layout: "vertical",
-      backgroundColor: "#1DB446",
+      backgroundColor: "#3B82F6",
       paddingAll: "12px",
       contents: [
         {
           type: "text",
-          text: "📖 HƯỚNG DẪN SỬ DỤNG BOT NHẮC VIỆC",
+          text: "📊 THỐNG KÊ TƯƠNG TÁC",
           color: "#FFFFFF",
           weight: "bold",
           size: "sm"
@@ -2622,10 +2619,9 @@ function buildHdFlexMessage() {
       contents: [
         {
           type: "text",
-          text: "Bot giúp giao việc, nhắc việc và tự động báo cáo tiến độ qua LINE.",
+          text: "Tra cứu tương tác và tần suất hoạt động của nhóm:",
           size: "xs",
-          color: "#333333",
-          wrap: true
+          color: "#666666"
         },
         {
           type: "separator"
@@ -2633,23 +2629,316 @@ function buildHdFlexMessage() {
         {
           type: "box",
           layout: "vertical",
-          spacing: "xs",
+          spacing: "sm",
           contents: [
-            { type: "text", text: "1. Giao việc nhanh", weight: "bold", size: "xs", color: "#1DB446" },
-            { type: "text", text: "Dùng nút 'Giao Việc' hoặc gửi /gv để mở form điền thông tin người thực hiện, hạn hoàn thành (Deadline) và hình thức xác nhận.", size: "xs", color: "#555555", wrap: true },
-            { type: "text", text: "2. Nhắc việc & Leo thang", weight: "bold", size: "xs", color: "#1DB446", margin: "sm" },
-            { type: "text", text: "Bot tự động nhắc nhở người thực hiện theo tần suất cấu hình. Nếu nhắc >= 3 lần mà chưa xong, bot sẽ tag thêm cả người theo dõi để theo dõi sát sao.", size: "xs", color: "#555555", wrap: true },
-            { type: "text", text: "3. Nghiệm thu & Tương tác", weight: "bold", size: "xs", color: "#1DB446", margin: "sm" },
-            { type: "text", text: "Người thực hiện bấm Hoàn tất hoặc tải ảnh nghiệm thu lên để hoàn tất. Bot tự động lưu giữ lịch sử thực hiện của bạn.", size: "xs", color: "#555555", wrap: true }
+            {
+              type: "box",
+              layout: "vertical",
+              spacing: "xxs",
+              contents: [
+                { type: "text", text: "📊 /tthomnay (hoặc /toptt)", weight: "bold", size: "xs", color: "#3B82F6" },
+                { type: "text", text: "Xem bảng thống kê tương tác nhóm hôm nay", size: "xs", color: "#555555", wrap: true }
+              ]
+            },
+            {
+              type: "box",
+              layout: "vertical",
+              spacing: "xxs",
+              contents: [
+                { type: "text", text: "📅 /tt7ngay (hoặc /tt30ngay)", weight: "bold", size: "xs", color: "#3B82F6" },
+                { type: "text", text: "Xem tương tác nhóm trong 7 ngày hoặc 30 ngày qua", size: "xs", color: "#555555", wrap: true }
+              ]
+            },
+            {
+              type: "box",
+              layout: "vertical",
+              spacing: "xxs",
+              contents: [
+                { type: "text", text: "🕒 /khunggio", weight: "bold", size: "xs", color: "#3B82F6" },
+                { type: "text", text: "Xem khung giờ hoạt động tương tác mạnh nhất", size: "xs", color: "#555555", wrap: true }
+              ]
+            },
+            {
+              type: "box",
+              layout: "vertical",
+              spacing: "xxs",
+              contents: [
+                { type: "text", text: "🤫 /imlang", weight: "bold", size: "xs", color: "#3B82F6" },
+                { type: "text", text: "Xem danh sách thành viên chưa tương tác trong ngày", size: "xs", color: "#555555", wrap: true }
+              ]
+            },
+            {
+              type: "box",
+              layout: "vertical",
+              spacing: "xxs",
+              contents: [
+                { type: "text", text: "🔍 /nv [tên_thành_viên]", weight: "bold", size: "xs", color: "#3B82F6" },
+                { type: "text", text: "Tra cứu hiệu suất & tương tác của nhân sự cụ thể", size: "xs", color: "#555555", wrap: true }
+              ]
+            }
           ]
+        }
+      ]
+    },
+    footer: {
+      type: "box",
+      layout: "horizontal",
+      spacing: "sm",
+      paddingAll: "10px",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          color: "#3B82F6",
+          height: "sm",
+          action: {
+            type: "message",
+            label: "Tương Tác",
+            text: "/tthomnay"
+          }
+        },
+        {
+          type: "button",
+          style: "secondary",
+          color: "#4B5563",
+          height: "sm",
+          action: {
+            type: "message",
+            label: "Chưa Tương Tác",
+            text: "/imlang"
+          }
         }
       ]
     }
   };
+
+  var bubble3 = {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#7B61FF",
+      paddingAll: "12px",
+      contents: [
+        {
+          type: "text",
+          text: "📈 HIỆU SUẤT & SỨC KHỎE",
+          color: "#FFFFFF",
+          weight: "bold",
+          size: "sm"
+        }
+      ]
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "md",
+      paddingAll: "14px",
+      contents: [
+        {
+          type: "text",
+          text: "Đo lường hiệu suất làm việc và mức độ hoạt động:",
+          size: "xs",
+          color: "#666666"
+        },
+        {
+          type: "separator"
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            {
+              type: "box",
+              layout: "vertical",
+              spacing: "xxs",
+              contents: [
+                { type: "text", text: "🏆 /hieusuat", weight: "bold", size: "xs", color: "#7B61FF" },
+                { type: "text", text: "Xem thống kê tỷ lệ hoàn thành công việc hôm nay", size: "xs", color: "#555555", wrap: true }
+              ]
+            },
+            {
+              type: "box",
+              layout: "vertical",
+              spacing: "xxs",
+              contents: [
+                { type: "text", text: "🩺 /suckhoe", weight: "bold", size: "xs", color: "#7B61FF" },
+                { type: "text", text: "Chấm điểm sức khỏe vận hành và xếp hạng nhóm", size: "xs", color: "#555555", wrap: true }
+              ]
+            },
+            {
+              type: "box",
+              layout: "vertical",
+              spacing: "xxs",
+              contents: [
+                { type: "text", text: "🚨 /batthuong (hoặc /canhbao)", weight: "bold", size: "xs", color: "#7B61FF" },
+                { type: "text", text: "Xem báo cáo cảnh báo hoạt động bất thường của nhóm", size: "xs", color: "#555555", wrap: true }
+              ]
+            },
+            {
+              type: "box",
+              layout: "vertical",
+              spacing: "xxs",
+              contents: [
+                { type: "text", text: "🛡️ /role", weight: "bold", size: "xs", color: "#7B61FF" },
+                { type: "text", text: "Xem vai trò quản trị và các nhóm phụ trách của bạn", size: "xs", color: "#555555", wrap: true }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    footer: {
+      type: "box",
+      layout: "horizontal",
+      spacing: "sm",
+      paddingAll: "10px",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          color: "#7B61FF",
+          height: "sm",
+          action: {
+            type: "message",
+            label: "Xem Hiệu Suất",
+            text: "/hieusuat"
+          }
+        },
+        {
+          type: "button",
+          style: "secondary",
+          color: "#4B5563",
+          height: "sm",
+          action: {
+            type: "message",
+            label: "Sức Khỏe",
+            text: "/suckhoe"
+          }
+        }
+      ]
+    }
+  };
+
+  var bubble4 = {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: "#F59E0B",
+      paddingAll: "12px",
+      contents: [
+        {
+          type: "text",
+          text: "⚙️ CÀI ĐẶT & TỰ ĐỘNG HÓA",
+          color: "#FFFFFF",
+          weight: "bold",
+          size: "sm"
+        }
+      ]
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "md",
+      paddingAll: "14px",
+      contents: [
+        {
+          type: "text",
+          text: "Thiết lập cấu hình tự động gửi thông báo báo cáo:",
+          size: "xs",
+          color: "#666666"
+        },
+        {
+          type: "separator"
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            {
+              type: "box",
+              layout: "vertical",
+              spacing: "xxs",
+              contents: [
+                { type: "text", text: "📢 /baocaocuoingay [on/off/giờ]", weight: "bold", size: "xs", color: "#F59E0B" },
+                { type: "text", text: "Bật/Tắt/Cài giờ tự động gửi báo cáo nhóm cuối ngày", size: "xs", color: "#555555", wrap: true }
+              ]
+            },
+            {
+              type: "box",
+              layout: "vertical",
+              spacing: "xxs",
+              contents: [
+                { type: "text", text: "⏰ /canhbaoimlang [on/off/phút/bắt đầu/kết thúc]", weight: "bold", size: "xs", color: "#F59E0B" },
+                { type: "text", text: "Bật/Tắt/Cài đặt cảnh báo khi nhóm im lặng quá lâu", size: "xs", color: "#555555", wrap: true }
+              ]
+            },
+            {
+              type: "box",
+              layout: "vertical",
+              spacing: "xxs",
+              contents: [
+                { type: "text", text: "🔧 /setting [key] [value]", weight: "bold", size: "xs", color: "#F59E0B" },
+                { type: "text", text: "Xem và điều chỉnh các cấu hình chung của toàn hệ thống", size: "xs", color: "#555555", wrap: true }
+              ]
+            },
+            {
+              type: "box",
+              layout: "vertical",
+              spacing: "xxs",
+              contents: [
+                { type: "text", text: "🆔 /id", weight: "bold", size: "xs", color: "#F59E0B" },
+                { type: "text", text: "Lấy Group ID và User ID của bạn", size: "xs", color: "#555555", wrap: true }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    footer: {
+      type: "box",
+      layout: "horizontal",
+      spacing: "sm",
+      paddingAll: "10px",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          color: "#F59E0B",
+          height: "sm",
+          action: {
+            type: "message",
+            label: "Báo Cáo Tự Động",
+            text: "/baocaocuoingay"
+          }
+        },
+        {
+          type: "button",
+          style: "secondary",
+          color: "#4B5563",
+          height: "sm",
+          action: {
+            type: "message",
+            label: "Lấy ID",
+            text: "/id"
+          }
+        }
+      ]
+    }
+  };
+
   return {
     type: "flex",
-    altText: "Hướng dẫn sử dụng bot",
-    contents: bubble
+    altText: "Hướng dẫn sử dụng Bot Nhắc Việc",
+    contents: {
+      type: "carousel",
+      contents: [bubble1, bubble2, bubble3, bubble4]
+    }
   };
 }
 
