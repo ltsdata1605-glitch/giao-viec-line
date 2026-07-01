@@ -1,0 +1,171 @@
+import { adminDb } from '@/lib/firebase-admin';
+import * as line from '@line/bot-sdk';
+import { FieldValue } from 'firebase-admin/firestore';
+
+export interface Task {
+  id?: string;
+  name: string;
+  groupId: string;
+  assignees: string[]; // User IDs (or LINE user IDs/mentions)
+  creatorId: string;
+  status: 'Chưa làm' | 'Đang làm' | 'Hoàn thành' | 'Đã hủy';
+  priority: 'Bình thường' | 'Cao' | 'Gấp';
+  deadline: Date | null;
+  createdAt: any;
+  updatedAt: any;
+}
+
+/**
+ * Handle "/giao" command
+ * Syntax: /giao [Task Name] @[User] [Deadline]
+ */
+export async function handleGiaoCommand(
+  text: string,
+  event: line.webhook.MessageEvent,
+  client: line.messagingApi.MessagingApiClient
+) {
+  // Extract task details from text
+  const parts = text.split('\n');
+  const firstLine = parts[0];
+  let taskName = firstLine.replace('/giao', '').trim();
+  
+  if (!taskName) {
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{ type: 'text', text: '⚠️ Vui lòng nhập tên công việc. VD: /giao Làm báo cáo @Nam' }]
+    });
+    return;
+  }
+
+  // Detect assignees (In LINE, mentions are usually provided in event.message.mention)
+  const message = event.message as line.webhook.TextMessageContent;
+  let assignees: string[] = [];
+  let assigneeNames: string[] = [];
+
+  if (message.mention && message.mention.mentionees) {
+    message.mention.mentionees.forEach(m => {
+      if (m.userId) {
+        assignees.push(m.userId);
+        // We could fetch user profile if needed
+      }
+    });
+  }
+
+  if (assignees.length === 0) {
+    // If no mentions, try to parse from text (e.g. "@Name") - simpler fallback
+    const mentionMatch = text.match(/@(\S+)/g);
+    if (mentionMatch) {
+      assigneeNames = mentionMatch.map(m => m.substring(1));
+      // Without DB of names->LINE ID, we just store names as assignees for now
+      assignees = [...assigneeNames];
+    }
+  }
+
+  // Create Task in Firestore
+  if (adminDb) {
+    const newTask: Task = {
+      name: taskName,
+      groupId: event.source.type === 'group' ? event.source.groupId : 'personal',
+      assignees: assignees.length > 0 ? assignees : [event.source.userId || 'unknown'],
+      creatorId: event.source.userId || 'unknown',
+      status: 'Chưa làm',
+      priority: 'Bình thường',
+      deadline: null, // Parsing date logic can be added later
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    const docRef = await adminDb.collection('tasks').add(newTask);
+
+    // Send confirmation
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{ 
+        type: 'text', 
+        text: `✅ Đã giao việc thành công!\n📋 Công việc: ${taskName}\n👤 Người nhận: ${assignees.length > 0 ? assignees.join(', ') : 'Bạn'}\n🆔 ID Việc: ${docRef.id.slice(-5)}` 
+      }]
+    });
+  }
+}
+
+/**
+ * Handle "/vieccuatoi" command
+ */
+export async function handleViecCuaToiCommand(
+  event: line.webhook.MessageEvent,
+  client: line.messagingApi.MessagingApiClient
+) {
+  if (!adminDb) return;
+  const userId = event.source.userId;
+  if (!userId) return;
+
+  const snapshot = await adminDb.collection('tasks')
+    .where('assignees', 'array-contains', userId)
+    .where('status', 'in', ['Chưa làm', 'Đang làm'])
+    .get();
+
+  if (snapshot.empty) {
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{ type: 'text', text: '🎉 Chúc mừng! Hiện tại bạn không có công việc nào chưa hoàn thành.' }]
+    });
+    return;
+  }
+
+  // Build a simple text list for now (Flex message can be implemented later)
+  let text = '📋 DANH SÁCH VIỆC CỦA TÔI:\n';
+  snapshot.docs.forEach((doc, index) => {
+    const data = doc.data() as Task;
+    text += `\n${index + 1}. [${data.status}] ${data.name} (ID: ${doc.id.slice(-5)})`;
+  });
+
+  await client.replyMessage({
+    replyToken: event.replyToken as string,
+    messages: [{ type: 'text', text }]
+  });
+}
+
+/**
+ * Handle status update commands: /xong, /huy
+ */
+export async function handleTaskUpdateCommand(
+  text: string,
+  event: line.webhook.MessageEvent,
+  client: line.messagingApi.MessagingApiClient
+) {
+  if (!adminDb) return;
+  const parts = text.split(' ');
+  const command = parts[0].toLowerCase();
+  const taskIdRaw = parts[1]; // expecting short ID or full ID
+
+  if (!taskIdRaw) {
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{ type: 'text', text: `⚠️ Vui lòng nhập ID công việc. VD: ${command} a1b2c` }]
+    });
+    return;
+  }
+
+  // Find task by ID (using suffix match for simplicity as we showed 5 chars)
+  const snapshot = await adminDb.collection('tasks').get();
+  const doc = snapshot.docs.find(d => d.id.endsWith(taskIdRaw));
+
+  if (!doc) {
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{ type: 'text', text: '⚠️ Không tìm thấy công việc với ID này.' }]
+    });
+    return;
+  }
+
+  let newStatus = '';
+  if (command === '/xong') newStatus = 'Hoàn thành';
+  else if (command === '/huy') newStatus = 'Đã hủy';
+
+  await doc.ref.update({ status: newStatus, updatedAt: FieldValue.serverTimestamp() });
+  
+  await client.replyMessage({
+    replyToken: event.replyToken as string,
+    messages: [{ type: 'text', text: `✅ Đã chuyển trạng thái công việc [${doc.data().name}] thành: ${newStatus}` }]
+  });
+}

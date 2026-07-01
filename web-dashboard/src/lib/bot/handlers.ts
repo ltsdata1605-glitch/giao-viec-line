@@ -61,5 +61,30 @@ export async function handleLineEvent(event: line.webhook.Event) {
   }
 
   // 2. Handle Task Commands (Giao việc)
-  // TODO: Migrate task logic here
+  if (text.toLowerCase().startsWith('/giao ')) {
+    const { handleGiaoCommand } = await import('./tasks');
+    const client = getLineClient();
+    if (client) {
+      await handleGiaoCommand(text, messageEvent, client);
+    }
+    return;
+  }
+
+  if (['/vieccuatoi', 'việc của tôi', 'viec cua toi'].includes(text.toLowerCase())) {
+    const { handleViecCuaToiCommand } = await import('./tasks');
+    const client = getLineClient();
+    if (client) {
+      await handleViecCuaToiCommand(messageEvent, client);
+    }
+    return;
+  }
+
+  if (['/xong', '/huy'].some(cmd => text.toLowerCase().startsWith(cmd + ' '))) {
+    const { handleTaskUpdateCommand } = await import('./tasks');
+    const client = getLineClient();
+    if (client) {
+      await handleTaskUpdateCommand(text, messageEvent, client);
+    }
+    return;
+  }
 }
