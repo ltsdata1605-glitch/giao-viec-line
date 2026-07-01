@@ -128,16 +128,10 @@ const allSheetsData = {
   "ID_Group": mockIdGroupData,
   "ID_Member": mockIdMemberData,
   "User_Roles": mockUserRolesData,
-  "Tương Tác": [
-    ["Thời gian", "User ID", "Tên Line", "Nhóm", "Hành động", "Nội dung"],
-    ["2026-06-11 20:00:00", "U222", "Nhân Viên Nhận Việc", "G123", "Nhắn tin", "tt"]
-  ],
   "Link_img": [
     ["Tên Ảnh", "Link Ảnh"]
   ],
   "Task_Logs": [["Thời gian", "Task ID", "Hành động", "Người thực hiện", "Nội dung cũ", "Nội dung mới", "Ghi chú"]],
-  "Task_Comments": [["Thời gian", "Task ID", "User ID", "Tên Line", "Bình luận", "Link ảnh"]],
-  "Task_Templates": [["Tên mẫu", "Loại công việc", "Tiêu đề mẫu", "Nội dung mẫu", "Ưu tiên mặc định", "Hình thức xác nhận mặc định"]],
   "Interaction_Logs": [
     ["Thời gian", "Ngày", "Giờ", "Group ID", "Group Name", "User ID", "Tên Line", "Loại tương tác", "Nội dung rút gọn", "Task ID", "Điểm tương tác", "Nguồn", "Ghi chú"]
   ],
@@ -1245,8 +1239,6 @@ runTest("Khởi tạo bảng trên file mới / trống (gọi ensureSheetAndHea
   assert.strictEqual(allSheetsData["Settings"][0][0], "Key");
   assert.ok(allSheetsData["Task_Logs"]);
   assert.strictEqual(allSheetsData["Task_Logs"][0][1], "Task ID");
-  assert.ok(allSheetsData["Task_Comments"]);
-  assert.ok(allSheetsData["Task_Templates"]);
   assert.ok(allSheetsData["Daily_Report"]);
   
   // 5. Khôi phục lại dữ liệu registry
@@ -1613,10 +1605,6 @@ console.log("\n--- PHẦN I: THỐNG KÊ TƯƠNG TÁC NHÓM (INTERACTION LOGS) -
 
 runTest("Test gửi tin nhắn thường trong nhóm", () => {
   const originalInteractionLogsLength = allSheetsData["Interaction_Logs"].length;
-  const originalTuongTacLength = allSheetsData["Tương Tác"].length;
-  const today = new Date().toDateString();
-  const existingRow = allSheetsData["Tương Tác"].find(r => r[0] === today && r[1] === "G123" && r[2] === "U222");
-  const originalTotal = existingRow ? existingRow[7] : 0;
   
   const webhookEvent = {
     events: [{
@@ -1646,19 +1634,6 @@ runTest("Test gửi tin nhắn thường trong nhóm", () => {
   assert.strictEqual(lastLog[8], "Hello World", "Content should match original text");
   assert.strictEqual(lastLog[10], 1.0, "Score should be 1.0");
   assert.strictEqual(lastLog[11], "Webhook", "Source should be Webhook");
-
-  // Kiểm tra sheet Tương Tác vẫn cập nhật
-  const updatedRow = allSheetsData["Tương Tác"].find(r => r[0] === today && r[1] === "G123" && r[2] === "U222");
-  assert.ok(updatedRow, "Should have a row for today in legacy Tương Tác sheet");
-  const updatedTotal = updatedRow[7];
-  
-  if (existingRow) {
-    assert.strictEqual(allSheetsData["Tương Tác"].length, originalTuongTacLength, "Sheet length should remain same");
-    assert.strictEqual(updatedTotal, originalTotal + 1, "Total count should have incremented by 1");
-  } else {
-    assert.strictEqual(allSheetsData["Tương Tác"].length, originalTuongTacLength + 1, "Sheet length should have increased by 1");
-    assert.strictEqual(updatedTotal, 1, "Total count should be 1");
-  }
 });
 
 runTest("Test gửi sticker trong nhóm", () => {
@@ -1874,15 +1849,15 @@ runTest("Test báo cáo tương tác nhóm (/tthomnay) có dữ liệu", () => {
   const report = mockSandbox.buildInteractionReport("G_REP_1", 1);
   console.log("REPORT TODAY OUTPUT:\n", report);
   
-  assert.ok(report.includes("📊 TƯƠNG TÁC HÔM NAY"));
-  assert.ok(report.includes("Group: Group Báo Cáo"));
-  assert.ok(report.includes("Hoạt động: 2/12 TV")); // 12 from mock members count
-  assert.ok(report.includes("Tổng tương tác: 3 lượt"));
-  assert.ok(report.includes("1 Tin nhắn"));
-  assert.ok(report.includes("1 Sticker"));
-  assert.ok(report.includes("1 Ảnh nghiệm thu"));
-  assert.ok(report.includes("Thành viên Một: 2"));
-  assert.ok(report.includes("Thành viên Hai: 1"));
+  assert.ok(report.includes("📊 BÁO CÁO TƯƠNG TÁC HÔM NAY"));
+  assert.ok(report.includes("👥 Thành viên: 12")); // 12 from mock members count
+  assert.ok(report.includes("✅ Hoạt động: 1")); // image_proof is system event -> not counted
+  assert.ok(report.includes("❌ Chưa hoạt động: 11"));
+  assert.ok(report.includes("📈 Tỷ lệ hoạt động: 8%"));
+  assert.ok(report.includes("🥇 Thành viên Một - 1.5"));
+  assert.ok(report.includes("1. Thành viên Một - 1.5"));
+  assert.ok(report.includes("2. Thành viên Hai - 0"));
+  assert.ok(report.includes("• Thành viên Hai"));
 });
 
 runTest("Test lệnh /toptt alias hôm nay", () => {
@@ -1894,7 +1869,19 @@ runTest("Test lệnh /toptt alias hôm nay", () => {
   const handled = mockSandbox.handleTextCommand(event, "/toptt", "U_MEMBER_1", "G_REP_1");
   assert.strictEqual(handled, true);
   assert.ok(replies.length > 0);
-  assert.ok(replies[0].text.includes("📊 TƯƠNG TÁC HÔM NAY"));
+  assert.ok(replies[0].text.includes("📊 BÁO CÁO TƯƠNG TÁC HÔM NAY"));
+});
+
+runTest("Test lệnh /homnay primary hôm nay", () => {
+  replies.length = 0;
+  const event = {
+    replyToken: "token_homnay",
+    source: { groupId: "G_REP_1", userId: "U_MEMBER_1" }
+  };
+  const handled = mockSandbox.handleTextCommand(event, "/homnay", "U_MEMBER_1", "G_REP_1");
+  assert.strictEqual(handled, true);
+  assert.ok(replies.length > 0);
+  assert.ok(replies[0].text.includes("📊 BÁO CÁO TƯƠNG TÁC HÔM NAY"));
 });
 
 runTest("Test báo cáo tương tác nhóm 7 ngày (/tt7ngay)", () => {
@@ -1906,7 +1893,19 @@ runTest("Test báo cáo tương tác nhóm 7 ngày (/tt7ngay)", () => {
   const handled = mockSandbox.handleTextCommand(event, "/tt7ngay", "U_MEMBER_1", "G_REP_1");
   assert.strictEqual(handled, true);
   assert.ok(replies.length > 0);
-  assert.ok(replies[0].text.includes("📊 TƯƠNG TÁC 7 NGÀY QUA"));
+  assert.ok(replies[0].text.includes("📊 BÁO CÁO TƯƠNG TÁC 7 NGÀY QUA"));
+});
+
+runTest("Test lệnh /7ngay primary 7 ngày", () => {
+  replies.length = 0;
+  const event = {
+    replyToken: "token_7ngay",
+    source: { groupId: "G_REP_1", userId: "U_MEMBER_1" }
+  };
+  const handled = mockSandbox.handleTextCommand(event, "/7ngay", "U_MEMBER_1", "G_REP_1");
+  assert.strictEqual(handled, true);
+  assert.ok(replies.length > 0);
+  assert.ok(replies[0].text.includes("📊 BÁO CÁO TƯƠNG TÁC 7 NGÀY QUA"));
 });
 
 runTest("Test báo cáo tương tác nhóm 30 ngày (/tt30ngay)", () => {
@@ -1918,21 +1917,36 @@ runTest("Test báo cáo tương tác nhóm 30 ngày (/tt30ngay)", () => {
   const handled = mockSandbox.handleTextCommand(event, "/tt30ngay", "U_MEMBER_1", "G_REP_1");
   assert.strictEqual(handled, true);
   assert.ok(replies.length > 0);
-  assert.ok(replies[0].text.includes("📊 TƯƠNG TÁC 30 NGÀY QUA"));
+  assert.ok(replies[0].text.includes("📊 BÁO CÁO TƯƠNG TÁC 30 NGÀY QUA"));
+});
+
+runTest("Test lệnh /30ngay primary 30 ngày", () => {
+  replies.length = 0;
+  const event = {
+    replyToken: "token_30ngay",
+    source: { groupId: "G_REP_1", userId: "U_MEMBER_1" }
+  };
+  const handled = mockSandbox.handleTextCommand(event, "/30ngay", "U_MEMBER_1", "G_REP_1");
+  assert.strictEqual(handled, true);
+  assert.ok(replies.length > 0);
+  assert.ok(replies[0].text.includes("📊 BÁO CÁO TƯƠNG TÁC 30 NGÀY QUA"));
 });
 
 runTest("Test báo cáo nhóm không có dữ liệu", () => {
   const report = mockSandbox.buildInteractionReport("G_EMPTY", 1);
   console.log("EMPTY REPORT OUTPUT:\n", report);
   
-  assert.ok(report.includes("📊 TƯƠNG TÁC HÔM NAY"));
-  assert.ok(report.includes("Hoạt động: 0/0 TV")); // fallback to 0/0
-  assert.ok(report.includes("Tổng tương tác: 0 lượt"));
-  assert.ok(report.includes("(Không có dữ liệu)"));
-  assert.ok(report.includes("Nhận xét: Cần nhắc nhóm tương tác/cập nhật tiến độ."));
+  assert.ok(report.includes("📊 BÁO CÁO TƯƠNG TÁC HÔM NAY"));
+  assert.ok(report.includes("👥 Thành viên: 0"));
+  assert.ok(report.includes("✅ Hoạt động: 0"));
+  assert.ok(report.includes("❌ Chưa hoạt động: 0"));
+  assert.ok(report.includes("📈 Tỷ lệ hoạt động: 0%"));
+  assert.ok(report.includes("(Không có tương tác)"));
+  assert.ok(report.includes("(Không có thành viên)"));
+  assert.ok(report.includes("(Không có)"));
 });
 
-runTest("Test giới hạn Top 5 thành viên tích cực", () => {
+runTest("Test giới hạn TOP 3 thành viên tích cực", () => {
   const todayDateStr = new Date().toISOString().substring(0, 10);
   
   // Tạo 8 thành viên tương tác khác nhau
@@ -1960,23 +1974,23 @@ runTest("Test giới hạn Top 5 thành viên tích cực", () => {
   
   const report = mockSandbox.buildInteractionReport("G_LIMIT_5", 1);
   
-  // Đếm số dòng hiển thị trong Thành viên tích cực
+  // Đếm số dòng hiển thị trong TOP 3
   const lines = report.split("\n");
   let topCount = 0;
   let inTopSection = false;
   
   lines.forEach(line => {
-    if (line.startsWith("🔥 Thành viên tích cực:")) {
+    if (line.startsWith("🔥 TOP 3")) {
       inTopSection = true;
-    } else if (line.startsWith("📌 Nhận xét:")) {
+    } else if (line.startsWith("━━━━━━━━━━━━━━")) {
       inTopSection = false;
-    } else if (inTopSection && /^\d+\./.test(line.trim())) {
+    } else if (inTopSection && line.trim() !== "" && (line.includes("🥇") || line.includes("🥈") || line.includes("🥉"))) {
       topCount++;
     }
   });
   
   console.log("Top display count:", topCount);
-  assert.strictEqual(topCount, 5, "Should display exactly 5 members in TOP list");
+  assert.strictEqual(topCount, 3, "Should display exactly 3 members in TOP 3 list");
 });
 
 runTest("Test rút gọn tên nhân viên", () => {

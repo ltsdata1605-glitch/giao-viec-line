@@ -696,8 +696,15 @@
             </select>
           </div>
           <div class="form-group">
-            <label for="tanSuat">Tần suất nhắc (phút)</label>
-            <input type="number" id="tanSuat" min="5" value="15" inputmode="numeric">
+            <label id="tanSuatLabel" for="tanSuatValue">Tần suất nhắc (Phút)</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="number" id="tanSuatValue" min="5" value="15" inputmode="numeric" style="flex: 2; margin: 0;">
+              <select id="tanSuatUnit" style="flex: 3; margin: 0;" onchange="handleTanSuatUnitChange()">
+                <option value="m" selected>Phút</option>
+                <option value="h">Tiếng / Giờ</option>
+                <option value="none">Không nhắc lại</option>
+              </select>
+            </div>
           </div>
         </div>
         
@@ -926,6 +933,42 @@
       }
     }
 
+    function handleTanSuatUnitChange() {
+      const unit = document.getElementById('tanSuatUnit').value;
+      const valueInput = document.getElementById('tanSuatValue');
+      const label = document.getElementById('tanSuatLabel');
+      
+      if (unit === 'none') {
+        valueInput.style.display = 'none';
+        valueInput.required = false;
+        label.textContent = 'Tần suất nhắc (Không nhắc lại)';
+      } else {
+        valueInput.style.display = 'block';
+        valueInput.required = true;
+        if (unit === 'h') {
+          label.textContent = 'Tần suất nhắc (Giờ)';
+          valueInput.min = '1';
+          if (parseInt(valueInput.value, 10) < 1) {
+            valueInput.value = '1';
+          }
+        } else {
+          label.textContent = 'Tần suất nhắc (Phút)';
+          valueInput.min = '5';
+          if (parseInt(valueInput.value, 10) < 5) {
+            valueInput.value = '15';
+          }
+        }
+      }
+    }
+
+    function getTanSuatInMinutes() {
+      const unit = document.getElementById('tanSuatUnit').value;
+      if (unit === 'none') return 0;
+      const val = parseInt(document.getElementById('tanSuatValue').value, 10) || 15;
+      if (unit === 'h') return val * 60;
+      return val;
+    }
+
     function toggleWeeklyDaysSelect() {
       const val = document.getElementById('lapLai').value;
       const weeklyContainer = document.getElementById('weeklyDaysContainer');
@@ -993,6 +1036,17 @@
       
       const xnSelect = document.getElementById('hinhThucXN');
       const xnLabel = xnSelect.options[xnSelect.selectedIndex].text;
+
+      const tsUnit = document.getElementById('tanSuatUnit').value;
+      const tsVal = document.getElementById('tanSuatValue').value;
+      let tsDisplay = '';
+      if (tsUnit === 'none') {
+        tsDisplay = 'Không nhắc lại';
+      } else if (tsUnit === 'h') {
+        tsDisplay = `Nhắc lại sau mỗi ${tsVal} giờ`;
+      } else {
+        tsDisplay = `Nhắc lại sau mỗi ${tsVal} phút`;
+      }
       
       const lapLaiSelect = document.getElementById('lapLai');
       let lapLaiLabel = lapLaiSelect.value;
@@ -1039,6 +1093,10 @@
         <div class="confirm-row">
           <div class="confirm-label">Nghiệm thu</div>
           <div class="confirm-val">${xnLabel}</div>
+        </div>
+        <div class="confirm-row">
+          <div class="confirm-label">Tần suất nhắc</div>
+          <div class="confirm-val">${tsDisplay}</div>
         </div>
       `;
       
@@ -1096,6 +1154,7 @@
       document.querySelectorAll('#weeklyDaysContainer .day-chip').forEach(c => c.classList.remove('active'));
 
       toggleNghieMthuInfo();
+      handleTanSuatUnitChange();
     }
 
     function logMsg(msg) {
@@ -1118,6 +1177,7 @@
         // Render chips & presets
         renderTemplateChips();
         setupTimePresets();
+        handleTanSuatUnitChange();
         
         // Bind file upload listener
         const fileInput = document.getElementById('imageFiles');
@@ -1554,7 +1614,7 @@
           })),
           hinhThucXN: document.getElementById('hinhThucXN').value,
           doUuTien: document.getElementById('doUuTien').value,
-          tanSuat: document.getElementById('tanSuat').value,
+          tanSuat: getTanSuatInMinutes(),
           ghiChu: document.getElementById('ghiChu').value,
           fastMode: true
         };

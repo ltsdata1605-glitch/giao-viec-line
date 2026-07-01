@@ -26,6 +26,53 @@ function getLiffUrl() {
 }
 
 // ==========================================
+// TÍCH HỢP FIREBASE (TỪ KHÓA TỰ ĐỘNG)
+// ==========================================
+var FIREBASE_PROJECT_ID = "bot-l-e1587";
+var FIRESTORE_API_URL = "https://firestore.googleapis.com/v1/projects/" + FIREBASE_PROJECT_ID + "/databases/(default)/documents";
+
+function getReplyFromFirebase(keyword) {
+  try {
+    var url = FIRESTORE_API_URL + ":runQuery";
+    var payload = {
+      "structuredQuery": {
+        "from": [{"collectionId": "keywords"}],
+        "where": {
+          "fieldFilter": {
+            "field": {"fieldPath": "keyword"},
+            "op": "EQUAL",
+            "value": {"stringValue": keyword}
+          }
+        },
+        "limit": 1
+      }
+    };
+    
+    var options = {
+      'method': 'post',
+      'contentType': 'application/json',
+      'payload': JSON.stringify(payload),
+      'muteHttpExceptions': true
+    };
+    
+    var response = UrlFetchApp.fetch(url, options);
+    if (response.getResponseCode() === 200) {
+      var data = JSON.parse(response.getContentText());
+      if (data && data.length > 0 && data[0].document) {
+        var docFields = data[0].document.fields;
+        return {
+          reply_text: docFields.reply_text ? docFields.reply_text.stringValue : "",
+          image_url: docFields.image_url ? docFields.image_url.stringValue : ""
+        };
+      }
+    }
+  } catch (e) {
+    writeLog("Lỗi lấy dữ liệu từ Firebase: " + e.toString(), "ERROR");
+  }
+  return null;
+}
+
+// ==========================================
 // 0. MENU TRÊN GOOGLE SHEET
 // ==========================================
 function onOpen() {
@@ -62,7 +109,6 @@ function onOpen() {
       .addItem('🔍 4. Chạy Quét Việc Thủ Công & Xem Log', 'CHAY_QUET_VIEC_THU_CONG')
       .addSeparator()
       .addItem('🧹 Làm sạch Sự kiện', 'LAM_SACH_SU_KIEN')
-      .addItem('🧹 Làm sạch Tương tác', 'LAM_SACH_TUONG_TAC')
       .addSeparator()
       .addItem('🎛️ Tạo Rich Menu', 'SETUP_RICH_MENU')
       .addItem('🖼️ Upload ảnh Rich Menu', 'UPLOAD_RICH_MENU_IMAGE_FROM_DRIVE')
@@ -152,6 +198,9 @@ function checkAndSendLineMessage() {
       for (var j = 0; j < expectedHeaders.length; j++) {
         var hName = expectedHeaders[j];
         var idx = actualHeaders.indexOf(hName);
+        if (idx === -1 && hName === "Hình thức xác nhận") {
+          idx = actualHeaders.indexOf("Hình thức");
+        }
         if (idx !== -1 && idx < row.length) {
           newRow.push(row[idx]);
         } else {
@@ -400,6 +449,9 @@ function taoDongTiepTheo(sheet, rowIndex) {
   
   var getVal = function(hName) {
     var idx = actualHeaders.indexOf(hName);
+    if (idx === -1 && hName === "Hình thức xác nhận") {
+      idx = actualHeaders.indexOf("Hình thức");
+    }
     return (idx !== -1 && idx < r.length) ? r[idx] : "";
   };
   
@@ -536,8 +588,8 @@ function doPost(e) {
           
           globalCurrentUserName = name; // set performer!
           
-          // Ghi log tương tác tin nhắn văn bản / sticker
-          if (gId && (msgType === "text" || msgType === "sticker")) {
+          // Ghi log tương tác tin nhắn văn bản / sticker / video / file
+          if (gId && (msgType === "text" || msgType === "sticker" || msgType === "video" || msgType === "file")) {
             var interactionType = getInteractionTypeFromEvent(event);
             logInteraction({
               groupId: gId,
@@ -557,6 +609,32 @@ function doPost(e) {
             try {
               writeLog("Webhook text: " + text + " | userId=" + uId + " | groupId=" + gId, "INFO");
             } catch (err) {}
+            
+            // ==========================================
+            // KIỂM TRA TỪ KHÓA FIREBASE TRƯỚC
+            // ==========================================
+            var firebaseReply = getReplyFromFirebase(text); // text đã được trim() và toLowerCase()
+            if (firebaseReply) {
+              var messages = [];
+              if (firebaseReply.reply_text) {
+                messages.push({
+                  type: 'text',
+                  text: firebaseReply.reply_text
+                });
+              }
+              if (firebaseReply.image_url) {
+                messages.push({
+                  type: 'image',
+                  originalContentUrl: firebaseReply.image_url,
+                  previewImageUrl: firebaseReply.image_url // previewImageUrl dùng chung link gốc (nên tối ưu ảnh nhỏ trên Firebase)
+                });
+              }
+              
+              if (messages.length > 0) {
+                replyMessages(event.replyToken, messages, "Firebase Keyword Reply: " + text);
+                continue; // Bỏ qua các lệnh bên dưới nếu đã match keyword
+              }
+            }
             
             // Kiểm tra phản hồi ghi chú nghiệm thu
             if (gId) {
@@ -725,10 +803,7 @@ function doPost(e) {
             }
           }
           
-          // Cập nhật tương tác nhóm
-          if (gId) {
-            capNhatTuongTac(gId, uId, name, msgType);
-          }
+
         }
         
         if (event.type === "postback") {
@@ -1573,15 +1648,6 @@ function formatDateTimeDisplay(dateOrStr) {
   }
 }
 
-function capNhatTuongTac(gId, uId, name, type) {
-  var s = getSpreadsheet().getSheetByName("Tương Tác"), today = new Date().toDateString();
-  var d = s.getDataRange().getValues(), rIdx = -1;
-  for (var i = 1; i < d.length; i++) { if (d[i][0] === today && d[i][1] === gId && d[i][2] === uId) { rIdx = i + 1; break; } }
-  var v = (type === "text") ? 1 : 0, st = (type === "sticker") ? 1 : 0, im = (type === "image") ? 1 : 0;
-  if (rIdx === -1) s.appendRow([today, gId, uId, name, v, st, im, 1]);
-  else { var r = d[rIdx-1]; s.getRange(rIdx, 5, 1, 4).setValues([[r[4]+v, r[5]+st, r[6]+im, r[7]+1]]); }
-}
-
 function guiBaoCaoTuongTac(gId, token, days) {
   try {
     var rep = buildInteractionReport(gId, days);
@@ -1592,24 +1658,12 @@ function guiBaoCaoTuongTac(gId, token, days) {
   }
 }
 
-
-
-
-
 function LAM_SACH_SU_KIEN() { 
   var ss = getSpreadsheet();
   var s = ss.getSheetByName("Sự kiện"); 
   if (!s) { SpreadsheetApp.getUi().alert("❌ Không tìm thấy sheet 'Sự kiện'"); return; }
   if (s.getLastRow() > 1) s.getRange(2,1,s.getLastRow()-1,s.getLastColumn()).clearContent(); 
   SpreadsheetApp.getUi().alert("✅ Đã làm sạch toàn bộ dữ liệu trong sheet Sự kiện!");
-}
-
-function LAM_SACH_TUONG_TAC() { 
-  var ss = getSpreadsheet();
-  var s = ss.getSheetByName("Tương Tác") || ss.getSheetByName("Tương tác") || ss.getSheetByName("TuongTac"); 
-  if (!s) { SpreadsheetApp.getUi().alert("❌ Không tìm thấy sheet 'Tương Tác'!"); return; }
-  if (s.getLastRow() > 1) s.getRange(2,1,s.getLastRow()-1,s.getLastColumn()).clearContent(); 
-  SpreadsheetApp.getUi().alert("✅ Đã làm sạch toàn bộ dữ liệu trong sheet Tương tác!");
 }
 
 function XOA_DONG_RÁC() { 
@@ -2256,7 +2310,7 @@ function SETUP_RICH_MENU() {
         action: {
           type: "message",
           label: "Hôm nay",
-          text: "/tthomnay"
+          text: "/homnay"
         }
       },
       {
@@ -2264,7 +2318,7 @@ function SETUP_RICH_MENU() {
         action: {
           type: "message",
           label: "7 ngày",
-          text: "/tt7ngay"
+          text: "/7ngay"
         }
       },
       {
@@ -2447,6 +2501,9 @@ function getActiveTasksList() {
     for (var j = 0; j < expectedHeaders.length; j++) {
       var hName = expectedHeaders[j];
       var idx = actualHeaders.indexOf(hName);
+      if (idx === -1 && hName === "Hình thức xác nhận") {
+        idx = actualHeaders.indexOf("Hình thức");
+      }
       if (idx !== -1 && idx < row.length) {
         newRow.push(row[idx]);
       } else {
@@ -2636,7 +2693,7 @@ function buildHdFlexMessage() {
               layout: "vertical",
               spacing: "xxs",
               contents: [
-                { type: "text", text: "📊 /tthomnay (hoặc /toptt)", weight: "bold", size: "xs", color: "#3B82F6" },
+                { type: "text", text: "📊 /homnay (hoặc /toptt)", weight: "bold", size: "xs", color: "#3B82F6" },
                 { type: "text", text: "Xem bảng thống kê tương tác nhóm hôm nay", size: "xs", color: "#555555", wrap: true }
               ]
             },
@@ -2645,7 +2702,7 @@ function buildHdFlexMessage() {
               layout: "vertical",
               spacing: "xxs",
               contents: [
-                { type: "text", text: "📅 /tt7ngay (hoặc /tt30ngay)", weight: "bold", size: "xs", color: "#3B82F6" },
+                { type: "text", text: "📅 /7ngay (hoặc /30ngay)", weight: "bold", size: "xs", color: "#3B82F6" },
                 { type: "text", text: "Xem tương tác nhóm trong 7 ngày hoặc 30 ngày qua", size: "xs", color: "#555555", wrap: true }
               ]
             },
@@ -2694,7 +2751,7 @@ function buildHdFlexMessage() {
           action: {
             type: "message",
             label: "Tương Tác",
-            text: "/tthomnay"
+            text: "/homnay"
           }
         },
         {
@@ -3687,7 +3744,8 @@ function getColumnIndexByHeader(sheet, headerName) {
   if (lastCol < 1) return -1;
   var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
   for (var i = 0; i < headers.length; i++) {
-    if (String(headers[i]).trim() === headerName) {
+    var h = String(headers[i]).trim();
+    if (h === headerName || (headerName === "Hình thức xác nhận" && h === "Hình thức")) {
       _colIndexCache[cacheKey] = i + 1;
       return i + 1;
     }
@@ -3845,15 +3903,12 @@ function ensureSheetAndHeaders() {
     "Sự kiện": ["Task ID", "Tên sự kiện", "Nội dung", "Ngày giờ gửi", "Link ảnh đính kèm", "Lặp lại", "Nhóm nhận", "Người phụ trách", "Tần suất (phút)", "Hình thức xác nhận", "Độ ưu tiên", "Người xác nhận", "Trạng thái", "Lần nhắc cuối", "Số lần nhắc", "Link Ảnh Nghiệm Thu", "Deadline", "Loại công việc", "Người giao việc", "Người theo dõi", "Ghi chú", "Trạng thái xử lý chi tiết", "Lịch sử cập nhật", "Đã nhắc trước deadline", "Quote Token"],
     "ID_Group": ["Tên Group", "ID Group"],
     "ID_Member": ["Tên Line", "ID Line"],
-    "Tương Tác": ["Thời gian", "User ID", "Tên Line", "Nhóm", "Hành động", "Nội dung"],
     "Chatbot": ["Từ khóa", "Văn bản trả lời", "Link ảnh Google Drive"],
     "Link_img": ["Tên Ảnh", "Link Ảnh"],
     "Logs": ["Thời gian", "Loại", "Nội dung log"],
     "Settings": ["Key", "Value", "Mô tả"],
     "User_Roles": ["Tên Line", "User ID", "Vai trò", "Nhóm phụ trách", "Trạng thái", "Ghi chú", "Ngày cập nhật"],
     "Task_Logs": ["Thời gian", "Task ID", "Hành động", "Người thực hiện", "Nội dung cũ", "Nội dung mới", "Ghi chú"],
-    "Task_Comments": ["Thời gian", "Task ID", "User ID", "Tên Line", "Bình luận", "Link ảnh"],
-    "Task_Templates": ["Tên mẫu", "Loại công việc", "Tiêu đề mẫu", "Nội dung mẫu", "Ưu tiên mặc định", "Hình thức xác nhận mặc định"],
     "Daily_Report": ["Ngày", "Group ID", "Tổng việc", "Đã xong", "Chưa xong", "Quá hạn", "Cần hỗ trợ", "Nội dung báo cáo"],
     "Interaction_Logs": ["Thời gian", "Ngày", "Giờ", "Group ID", "Group Name", "User ID", "Tên Line", "Loại tương tác", "Nội dung rút gọn", "Task ID", "Điểm tương tác", "Nguồn", "Ghi chú"],
     "Group_Settings": ["Group ID", "Group Name", "Bật cảnh báo im lặng", "Số phút im lặng", "Giờ bắt đầu theo dõi", "Giờ kết thúc theo dõi", "Lần cảnh báo cuối", "Trạng thái", "Bật báo cáo cuối ngày", "Giờ gửi báo cáo", "Lần gửi báo cáo cuối", "Bật cảnh báo bất thường", "Ngưỡng giảm tương tác (%)", "Ngưỡng việc quá hạn", "Lần cảnh báo bất thường cuối"],
@@ -5787,7 +5842,7 @@ function CHAY_KIEM_TRA_SUC_KHOE_BOT() {
   
   // 1. Kiểm tra các sheet có đủ không
   var ss = getSpreadsheet();
-  var sheetsToCheck = ["Sự kiện", "Settings", "User_Roles", "Task_Logs", "Task_Comments", "ID_Group", "ID_Member", "Logs"];
+  var sheetsToCheck = ["Sự kiện", "Settings", "User_Roles", "Task_Logs", "ID_Group", "ID_Member", "Logs"];
   var sheetsStatus = [];
   sheetsToCheck.forEach(function(s) {
     var found = ss.getSheetByName(s) !== null;
@@ -6040,6 +6095,10 @@ function calculateInteractionScore(type) {
       return 0.5;
     case "image":
       return 2.0;
+    case "video":
+      return 3.0;
+    case "file":
+      return 3.0;
     case "image_proof":
       return 5.0;
     case "postback_hoantat":
@@ -6070,6 +6129,7 @@ function isBotCommand(text) {
     "hd", "huongdan", "hướng dẫn", "huong dan", "giới thiệu", "gioi thieu",
     "gv", "link", "giao", "tao", "do", "tạo việc", "tao viec", "giao việc", "giao viec", "mở giao việc", "mo giao viec",
     "id", "lấy id", "lay id",
+    "homnay", "7ngay", "30ngay",
     "tthomnay", "tuongtac", "tương tác", "tuong tac", "tương tác hôm nay", "tuong tac hom nay",
     "tt7ngay", "tương tác 7 ngày", "tuong tac 7 ngay",
     "vieccuatoi", "việc của tôi", "viec cua toi",
@@ -6103,6 +6163,12 @@ function getInteractionTypeFromEvent(event) {
     }
     if (msgType === "image") {
       return "image";
+    }
+    if (msgType === "video") {
+      return "video";
+    }
+    if (msgType === "file") {
+      return "file";
     }
   }
   if (event.type === "postback") {
@@ -6140,6 +6206,12 @@ function summarizeMessageContent(event) {
     }
     if (msgType === "image") {
       return "Image: messageId=" + (event.message.id || "");
+    }
+    if (msgType === "video") {
+      return "Video: messageId=" + (event.message.id || "");
+    }
+    if (msgType === "file") {
+      return "File: name=" + (event.message.fileName || "") + ", size=" + (event.message.fileSize || "");
     }
     return "Message type: " + msgType;
   }
@@ -6337,67 +6409,8 @@ function getInteractionStats(groupId, days) {
         }
       }
     }
-  } else {
-    var legacySheet = ss.getSheetByName("Tương Tác") || ss.getSheetByName("Tương tác") || ss.getSheetByName("TuongTac");
-    if (legacySheet && legacySheet.getLastRow() > 1) {
-      var legacyData = legacySheet.getDataRange().getValues();
-      var colTime = 1;
-      var colGroup = 2;
-      var colUser = 3;
-      var colName = 4;
-      var colText = 5;
-      var colSticker = 6;
-      var colImg = 7;
-      var colTotal = 8;
-      
-      for (var i = 1; i < legacyData.length; i++) {
-        var row = legacyData[i];
-        var rowGroup = row[colGroup - 1];
-        if (rowGroup !== groupId) continue;
-        
-        var rowTimeVal = row[colTime - 1];
-        var rowTime = new Date(rowTimeVal).getTime();
-        if (isNaN(rowTime) || rowTime < startTime) continue;
-        
-        var userId = row[colUser - 1];
-        if (!userId) continue;
-        
-        var userName = row[colName - 1] || "Người dùng";
-        var txtCount = parseInt(row[colText - 1]) || 0;
-        var stCount = parseInt(row[colSticker - 1]) || 0;
-        var imgCount = parseInt(row[colImg - 1]) || 0;
-        var totCount = parseInt(row[colTotal - 1]) || 0;
-        
-        if (!stats.members[userId]) {
-          stats.members[userId] = {
-            name: userName,
-            score: 0,
-            total: 0,
-            text: 0,
-            sticker: 0,
-            image: 0,
-            command: 0,
-            hoantat: 0,
-            proof: 0
-          };
-        }
-        
-        var m = stats.members[userId];
-        var score = txtCount * 1.0 + stCount * 0.5 + imgCount * 2.0;
-        m.score += score;
-        m.total += totCount;
-        m.text += txtCount;
-        m.sticker += stCount;
-        m.image += imgCount;
-        
-        stats.total += totCount;
-        stats.text += txtCount;
-        stats.sticker += stCount;
-        stats.image += imgCount;
-        stats.totalScore += score;
-      }
-    }
   }
+  
   
   stats.activeCount = Object.keys(stats.members).length;
   return stats;
@@ -6418,75 +6431,220 @@ function buildInteractionInsight(stats) {
   }
 }
 
-function buildInteractionReport(groupId, days) {
-  var stats = getInteractionStats(groupId, days);
-  stats.groupId = groupId;
+function formatScore(score) {
+  return score % 1 === 0 ? score.toFixed(0) : score.toFixed(1);
+}
+
+function getInteractionStatsForReport(groupId, days) {
+  var ss = getSpreadsheet();
+  var logSheet = ss.getSheetByName("Interaction_Logs");
+  var useLogs = false;
+  var data = [];
   
-  var groupName = getGroupName(groupId);
-  var reportTitle = "📊 TƯƠNG TÁC " + (days === 1 ? "HÔM NAY" : (days === 7 ? "7 NGÀY QUA" : days + " NGÀY QUA"));
-  
-  var dateStr = "";
-  var today = new Date();
-  if (days === 1) {
-    dateStr = formatDateDMY(today);
-  } else {
-    var start = new Date();
-    start.setDate(today.getDate() - days + 1);
-    dateStr = formatDateDMY(start) + " - " + formatDateDMY(today);
+  if (logSheet && logSheet.getLastRow() > 1) {
+    data = logSheet.getDataRange().getValues();
+    var colGroup = getColumnIndexByHeader(logSheet, "Group ID");
+    if (colGroup !== -1) {
+      for (var i = 1; i < data.length; i++) {
+        if (data[i][colGroup - 1] === groupId) {
+          useLogs = true;
+          break;
+        }
+      }
+    }
   }
   
-  var Y = getGroupMembersCount(groupId);
-  var X = stats.activeCount;
-  if (Y <= 0 || Y < X) Y = X;
+  var stats = {
+    total: 0,
+    text: 0,
+    sticker: 0,
+    image: 0,
+    video: 0,
+    file: 0,
+    members: {},
+    totalScore: 0,
+    activeCount: 0
+  };
   
-  var insight = buildInteractionInsight(stats);
+  var start = new Date();
+  start.setDate(start.getDate() - days + 1);
+  start.setHours(0, 0, 0, 0);
+  var startTime = start.getTime();
   
-  var details = [];
-  if (stats.text > 0) details.push(stats.text + " Tin nhắn");
-  if (stats.sticker > 0) details.push(stats.sticker + " Sticker");
-  if (stats.image > 0) details.push(stats.image + " Ảnh thường");
-  if (stats.command > 0) details.push(stats.command + " Lệnh bot");
-  if (stats.hoantat > 0) details.push(stats.hoantat + " Hoàn tất việc");
-  if (stats.proof > 0) details.push(stats.proof + " Ảnh nghiệm thu");
-  
-  var detailsStr = details.length > 0 ? " (" + details.join(", ") + ")" : "";
-  
-  var rep = reportTitle + "\n" +
-            "Group: " + groupName + "\n" +
-            "Ngày: " + dateStr + "\n" +
-            "Hoạt động: " + X + "/" + Y + " TV\n" +
-            "Tổng tương tác: " + stats.total + " lượt" + detailsStr + "\n\n";
-  
-  var allMembers = Object.keys(stats.members).map(function(userId) {
-    return {
-      userId: userId,
-      name: stats.members[userId].name,
-      total: stats.members[userId].total
+  // Lấy toàn bộ thành viên đã biết của nhóm để điền sẵn (đảm bảo hiển thị cả người có 0 tương tác)
+  var knownMembers = getKnownGroupMembers(groupId);
+  for (var userId in knownMembers) {
+    stats.members[userId] = {
+      name: knownMembers[userId] || userId,
+      score: 0,
+      total: 0,
+      text: 0,
+      sticker: 0,
+      image: 0,
+      video: 0,
+      file: 0
     };
-  });
-  
-  if (allMembers.length === 0) {
-    rep += "🔥 Thành viên tích cực:\n(Không có dữ liệu)\n\n📌 Nhận xét: " + insight;
-    return rep;
   }
   
-  // Sắp xếp theo số lượt tương tác giảm dần
-  var sortedMembers = allMembers.sort(function(a, b) {
+  if (useLogs) {
+    var colTime = getColumnIndexByHeader(logSheet, "Thời gian");
+    var colGroup = getColumnIndexByHeader(logSheet, "Group ID");
+    var colUser = getColumnIndexByHeader(logSheet, "User ID");
+    var colName = getColumnIndexByHeader(logSheet, "Tên Line");
+    var colType = getColumnIndexByHeader(logSheet, "Loại tương tác");
+    
+    if (colTime !== -1 && colGroup !== -1 && colUser !== -1 && colName !== -1 && colType !== -1) {
+      for (var i = 1; i < data.length; i++) {
+        var row = data[i];
+        var rowGroup = row[colGroup - 1];
+        if (rowGroup !== groupId) continue;
+        
+        var rowTimeVal = row[colTime - 1];
+        var rowTime = new Date(rowTimeVal).getTime();
+        if (isNaN(rowTime) || rowTime < startTime) continue;
+        
+        var userId = row[colUser - 1];
+        if (!userId) continue;
+        
+        var userName = row[colName - 1] || "Người dùng";
+        var type = String(row[colType - 1]).trim().toLowerCase();
+        
+        // Tính điểm theo quy định mới, chỉ nhận diện các tương tác hợp lệ
+        var score = 0;
+        if (type === "text") {
+          score = 1.0;
+        } else if (type === "sticker") {
+          score = 0.5;
+        } else if (type === "image") {
+          score = 2.0;
+        } else if (type === "video") {
+          score = 3.0;
+        } else if (type === "file") {
+          score = 3.0;
+        } else {
+          // Sự kiện hệ thống khác: bỏ qua không tính
+          continue;
+        }
+        
+        if (!stats.members[userId]) {
+          stats.members[userId] = {
+            name: userName,
+            score: 0,
+            total: 0,
+            text: 0,
+            sticker: 0,
+            image: 0,
+            video: 0,
+            file: 0
+          };
+        }
+        
+        var m = stats.members[userId];
+        m.score += score;
+        m.total += 1;
+        
+        stats.total += 1;
+        stats.totalScore += score;
+        
+        if (type === "text") m.text += 1;
+        else if (type === "sticker") m.sticker += 1;
+        else if (type === "image") m.image += 1;
+        else if (type === "video") m.video += 1;
+        else if (type === "file") m.file += 1;
+      }
+    }
+  }
+  
+  // Tính số lượng thành viên thực sự có tương tác (score > 0)
+  var activeCount = 0;
+  for (var userId in stats.members) {
+    if (stats.members[userId].score > 0) {
+      activeCount++;
+    }
+  }
+  stats.activeCount = activeCount;
+  
+  return stats;
+}
+
+function buildInteractionReport(groupId, days) {
+  var stats = getInteractionStatsForReport(groupId, days);
+  
+  var title = "";
+  if (days === 1) {
+    title = "📊 BÁO CÁO TƯƠNG TÁC HÔM NAY";
+  } else if (days === 7) {
+    title = "📊 BÁO CÁO TƯƠNG TÁC 7 NGÀY QUA";
+  } else if (days === 30) {
+    title = "📊 BÁO CÁO TƯƠNG TÁC 30 NGÀY QUA";
+  } else {
+    title = "📊 BÁO CÁO TƯƠNG TÁC " + days + " NGÀY QUA";
+  }
+  
+  var totalMembers = getGroupMembersCount(groupId);
+  var activeCount = stats.activeCount;
+  var knownMembersCount = Object.keys(stats.members).length;
+  if (totalMembers <= 0 || totalMembers < knownMembersCount) {
+    totalMembers = knownMembersCount;
+  }
+  var silentCount = totalMembers - activeCount;
+  if (silentCount < 0) silentCount = 0;
+  var activityRate = totalMembers > 0 ? Math.round((activeCount / totalMembers) * 100) : 0;
+  
+  var report = title + "\n\n" +
+               "👥 Thành viên: " + totalMembers + "\n" +
+               "✅ Hoạt động: " + activeCount + "\n" +
+               "❌ Chưa hoạt động: " + silentCount + "\n" +
+               "📈 Tỷ lệ hoạt động: " + activityRate + "%\n\n" +
+               "━━━━━━━━━━━━━━\n\n" +
+               "🔥 TOP 3\n\n";
+               
+  var sortedMembers = Object.keys(stats.members).map(function(uId) {
+    return stats.members[uId];
+  }).sort(function(a, b) {
+    if (b.score !== a.score) return b.score - a.score;
     return b.total - a.total;
   });
   
-  var limit = 5;
-  var showTop = sortedMembers.slice(0, limit);
+  // TOP 3 (Chỉ hiển thị người có điểm > 0)
+  var activeMembers = sortedMembers.filter(function(m) { return m.score > 0; });
+  var top3 = activeMembers.slice(0, 3);
+  if (top3.length > 0) {
+    top3.forEach(function(m, idx) {
+      var medal = idx === 0 ? "🥇" : (idx === 1 ? "🥈" : "🥉");
+      var shortName = shortenEmployeeName(m.name);
+      report += medal + " " + shortName + " - " + formatScore(m.score) + "\n";
+    });
+  } else {
+    report += "(Không có tương tác)\n";
+  }
   
-  rep += "🔥 Thành viên tích cực:\n";
-  showTop.forEach(function(m, idx) {
-    var shortName = shortenEmployeeName(m.name);
-    rep += (idx + 1) + ". " + shortName + ": " + m.total + "\n";
-  });
+  report += "\n━━━━━━━━━━━━━━\n\n" +
+            "📋 XẾP HẠNG TOÀN NHÓM\n\n";
+            
+  if (sortedMembers.length > 0) {
+    sortedMembers.forEach(function(m, idx) {
+      var shortName = shortenEmployeeName(m.name);
+      report += (idx + 1) + ". " + shortName + " - " + formatScore(m.score) + "\n";
+    });
+  } else {
+    report += "(Không có thành viên)\n";
+  }
   
-  rep += "\n📌 Nhận xét: " + insight;
+  report += "\n━━━━━━━━━━━━━━\n\n" +
+            "🚨 CHƯA TƯƠNG TÁC\n\n";
+            
+  var silentMembers = sortedMembers.filter(function(m) { return m.score === 0; });
+  if (silentMembers.length > 0) {
+    silentMembers.forEach(function(m) {
+      var shortName = shortenEmployeeName(m.name);
+      report += "• " + shortName + "\n";
+    });
+  } else {
+    report += "(Không có)\n";
+  }
   
-  return rep;
+  return report.trim();
 }
 
 function getActiveMemberCount(groupId, days) {
@@ -6552,16 +6710,6 @@ function getKnownGroupMembers(groupId) {
         if (data[i][colGroup - 1] === groupId) {
           addMember(data[i][colUser - 1], data[i][colName - 1]);
         }
-      }
-    }
-  }
-  
-  var legacySheet = ss.getSheetByName("Tương Tác") || ss.getSheetByName("Tương tác") || ss.getSheetByName("TuongTac");
-  if (legacySheet && legacySheet.getLastRow() > 1) {
-    var legacyData = legacySheet.getDataRange().getValues();
-    for (var i = 1; i < legacyData.length; i++) {
-      if (legacyData[i][1] === groupId) {
-        addMember(legacyData[i][2], legacyData[i][3]);
       }
     }
   }
@@ -6665,28 +6813,6 @@ function getActiveUsersInGroup(groupId, days) {
       if (!userId || type === "task_overdue") continue;
       
       activeIds[userId] = true;
-    }
-  } else {
-    var legacySheet = ss.getSheetByName("Tương Tác") || ss.getSheetByName("Tương tác") || ss.getSheetByName("TuongTac");
-    if (legacySheet && legacySheet.getLastRow() > 1) {
-      var legacyData = legacySheet.getDataRange().getValues();
-      for (var i = 1; i < legacyData.length; i++) {
-        var row = legacyData[i];
-        if (row[1] !== groupId) continue;
-        
-        var rowTime = new Date(row[0]).getTime();
-        if (isNaN(rowTime) || rowTime < startTime) continue;
-        
-        var userId = row[2];
-        var text = parseInt(row[4]) || 0;
-        var sticker = parseInt(row[5]) || 0;
-        var image = parseInt(row[6]) || 0;
-        var total = parseInt(row[7]) || 0;
-        
-        if (userId && (text > 0 || sticker > 0 || image > 0 || total > 0)) {
-          activeIds[userId] = true;
-        }
-      }
     }
   }
   
