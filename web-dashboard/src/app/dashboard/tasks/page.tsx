@@ -62,6 +62,47 @@ export default function TasksPage() {
     Promise.all([loadTasks(), loadUsersAndGroups()]).then(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    // Tự động phân giải ID chưa biết
+    if (tasks.length > 0 && (usersList.length > 0 || groupsList.length > 0) && !loading) {
+      const unknownUserIds = new Set<string>();
+      const unknownGroupIds = new Set<string>();
+      tasks.forEach(t => {
+        if (t.assigneeId && !usersList.find(u => u.lineUserId === t.assigneeId)) {
+          unknownUserIds.add(t.assigneeId);
+        }
+        if (t.groupId && t.groupId !== 'personal' && !groupsList.find(g => g.lineGroupId === t.groupId)) {
+          unknownGroupIds.add(t.groupId);
+        }
+      });
+      unknownUserIds.forEach(id => resolveMissingProfile(id, 'user'));
+      unknownGroupIds.forEach(id => resolveMissingProfile(id, 'group'));
+    }
+  }, [tasks, usersList, groupsList, loading]);
+
+  async function resolveMissingProfile(id: string, type: 'user'|'group') {
+    if (id === 'personal' || !id) return;
+    try {
+      const res = await fetch(`/api/line-profile?${type}Id=${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.name) {
+          // Save to Firestore so we don't have to fetch again
+          const collectionName = type === 'user' ? 'users' : 'groups';
+          const payload = type === 'user' 
+            ? { name: data.name, lineUserId: id, role: 'member', createdAt: serverTimestamp() }
+            : { name: data.name, lineGroupId: id, isMuted: false, createdAt: serverTimestamp() };
+          
+          await addDoc(collection(db, collectionName), payload);
+          // Reload lists
+          loadUsersAndGroups();
+        }
+      }
+    } catch (e) {
+      console.error('Error resolving profile', e);
+    }
+  }
+
   async function loadUsersAndGroups() {
     try {
       const uSnap = await getDocs(collection(db, 'users'));
@@ -361,11 +402,12 @@ export default function TasksPage() {
                   className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
                 >
                   <option value="">-- Chọn nhóm --</option>
+                  <option value="personal">Cá nhân</option>
                   {groupsList.map(g => (
                     <option key={g.id} value={g.lineGroupId}>{g.name}</option>
                   ))}
                   {/* Keep legacy option if ID not found */}
-                  {form.groupId && !groupsList.find(g => g.lineGroupId === form.groupId) && (
+                  {form.groupId && form.groupId !== 'personal' && !groupsList.find(g => g.lineGroupId === form.groupId) && (
                     <option value={form.groupId}>{form.groupName || form.groupId}</option>
                   )}
                 </select>
