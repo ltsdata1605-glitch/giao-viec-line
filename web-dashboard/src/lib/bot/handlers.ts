@@ -25,7 +25,25 @@ export async function handleLineEvent(event: line.webhook.Event) {
   const message = event.message as line.webhook.TextMessageContent;
   const text = message.text.trim();
 
-  // 1. Check for Keyword replies first
+  // 0. Tự động học (Passive Learning): Chạy ngầm
+  const client = getLineClient();
+  if (client) {
+    // Fire and forget
+    import('./sync').then(({ captureUserProfile }) => {
+      captureUserProfile(event as line.webhook.MessageEvent, client).catch(console.error);
+    });
+  }
+
+  // 1. Lệnh Đồng bộ (/dongbo)
+  if (['/dongbo', 'đồng bộ'].includes(text.toLowerCase())) {
+    if (client) {
+      const { handleDongboCommand } = await import('./sync');
+      await handleDongboCommand(event as line.webhook.MessageEvent, client);
+    }
+    return;
+  }
+
+  // 2. Check for Keyword replies first
   const keywordReply = await getReplyFromFirebase(text);
   
   if (keywordReply) {
