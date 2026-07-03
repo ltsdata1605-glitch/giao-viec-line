@@ -30,9 +30,26 @@ export async function handleGiaoCommand(
   let taskName = firstLine.replace('/giao', '').trim();
   
   if (!taskName) {
+    const liffUrl = process.env.NEXT_PUBLIC_LIFF_URL || `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`;
     await client.replyMessage({
       replyToken: event.replyToken as string,
-      messages: [{ type: 'text', text: '⚠️ Vui lòng nhập tên công việc. VD: /giao Làm báo cáo @Nam' }]
+      messages: [
+        {
+          type: 'template',
+          altText: 'Vui lòng mở Form trên điện thoại để Giao Việc.',
+          template: {
+            type: 'buttons',
+            text: 'Bấm vào nút bên dưới để mở Form Giao Việc nhanh chóng:',
+            actions: [
+              {
+                type: 'uri',
+                label: '📝 Mở Form Giao Việc',
+                uri: liffUrl
+              }
+            ]
+          }
+        }
+      ]
     });
     return;
   }

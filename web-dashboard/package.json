@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@line/bot-sdk": "^11.0.2",
+    "@line/liff": "^2.29.1",
     "dotenv": "^17.4.2",
     "firebase": "^12.15.0",
     "firebase-admin": "^14.1.0",
