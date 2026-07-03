@@ -65,7 +65,7 @@ export async function handleLineEvent(event: line.webhook.Event) {
     const { handleGiaoCommand } = await import('./tasks');
     const client = getLineClient();
     if (client) {
-      await handleGiaoCommand(text, messageEvent, client);
+      await handleGiaoCommand(text, event as line.webhook.MessageEvent, client);
     }
     return;
   }
@@ -74,7 +74,7 @@ export async function handleLineEvent(event: line.webhook.Event) {
     const { handleViecCuaToiCommand } = await import('./tasks');
     const client = getLineClient();
     if (client) {
-      await handleViecCuaToiCommand(messageEvent, client);
+      await handleViecCuaToiCommand(event as line.webhook.MessageEvent, client);
     }
     return;
   }
@@ -83,7 +83,7 @@ export async function handleLineEvent(event: line.webhook.Event) {
     const { handleTaskUpdateCommand } = await import('./tasks');
     const client = getLineClient();
     if (client) {
-      await handleTaskUpdateCommand(text, messageEvent, client);
+      await handleTaskUpdateCommand(text, event as line.webhook.MessageEvent, client);
     }
     return;
   }

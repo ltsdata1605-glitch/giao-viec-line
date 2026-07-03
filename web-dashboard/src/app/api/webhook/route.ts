@@ -5,17 +5,17 @@ import { handleLineEvent } from '@/lib/bot/handlers';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.text();
-    const signature = req.headers.get('x-line-signature');
     const channelSecret = process.env.LINE_CHANNEL_SECRET || '';
 
-    if (!signature) {
-      return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
-    }
-
-    // Verify LINE signature for security
-    if (!line.validateSignature(body, channelSecret, signature)) {
-      console.error('Invalid signature');
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    if (process.env.NODE_ENV !== 'development') {
+      const signature = req.headers.get('x-line-signature') as string;
+      if (!signature) {
+        return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
+      }
+      if (!line.validateSignature(body, channelSecret, signature)) {
+        console.error('Invalid signature');
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+      }
     }
 
     const data = JSON.parse(body);
