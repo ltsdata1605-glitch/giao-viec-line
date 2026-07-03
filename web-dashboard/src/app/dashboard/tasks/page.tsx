@@ -261,7 +261,8 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in-up">
+    <>
+      <div className="space-y-6 animate-fade-in-up">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -383,6 +384,7 @@ export default function TasksPage() {
             </table>
           </div>
         )}
+      </div>
       </div>
 
       {/* Create/Edit Modal */}
@@ -509,6 +511,6 @@ export default function TasksPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
