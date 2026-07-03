@@ -19,12 +19,20 @@ export default function LiffTaskPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  const getDefaultDeadline = () => {
+    const d = new Date();
+    d.setHours(d.getHours() + 2);
+    // Format to YYYY-MM-DDTHH:mm
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
+
   const [form, setForm] = useState({
     name: '',
     description: '',
     assigneeId: '',
     priority: 'Bình thường',
-    deadline: '',
+    deadline: getDefaultDeadline(),
   });
 
   useEffect(() => {
@@ -83,7 +91,7 @@ export default function LiffTaskPage() {
       // We can just rely on the bot / dashboard to resolve it.
 
       // 1. Save to Firebase
-      await addDoc(collection(db, 'tasks'), {
+      const docRef = await addDoc(collection(db, 'tasks'), {
         name: form.name.trim(),
         description: form.description.trim(),
         groupId: groupId,
@@ -100,12 +108,26 @@ export default function LiffTaskPage() {
         updatedAt: serverTimestamp(),
       });
 
-      // 2. Send message back to chat
+      // 2. Send notification API if it's assigned to someone else
+      if (profile?.userId && form.assigneeId !== profile.userId) {
+        await fetch('/api/notify-task', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            taskId: docRef.id,
+            assigneeId: form.assigneeId,
+            creatorId: profile.userId,
+            taskName: form.name.trim()
+          })
+        }).catch(err => console.error('Error notifying', err));
+      }
+
+      // 3. Send message back to chat
       if (liff.isInClient()) {
         await liff.sendMessages([
           {
             type: 'text',
-            text: `✅ Đã tạo công việc mới:\n📌 ${form.name.trim()}\n👤 Người làm: ${assigneeName}\n⏳ Hạn chót: ${form.deadline || 'Không có'}`
+            text: `✅ Đã tạo công việc mới:\n📌 ${form.name.trim()}\n👤 Người làm: ${assigneeName}\n⏳ Hạn chót: ${form.deadline ? form.deadline.replace('T', ' ') : 'Không có'}`
           }
         ]);
         liff.closeWindow();
@@ -166,7 +188,7 @@ export default function LiffTaskPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Hạn chót</label>
             <input 
-              type="date" 
+              type="datetime-local" 
               value={form.deadline}
               onChange={e => setForm({...form, deadline: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"

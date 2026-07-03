@@ -52,9 +52,17 @@ export default function TasksPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const getDefaultDeadline = () => {
+    const d = new Date();
+    d.setHours(d.getHours() + 2);
+    // Format to YYYY-MM-DDTHH:mm
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
+
   const defaultForm = {
     name: '', description: '', status: 'Chờ gửi', assigneeName: '', assigneeId: '',
-    groupName: '', groupId: '', priority: 'Bình thường', deadline: '', repeat: 'Không',
+    groupName: '', groupId: '', priority: 'Bình thường', deadline: getDefaultDeadline(), repeat: 'Không',
   };
   const [form, setForm] = useState(defaultForm);
 
@@ -372,10 +380,6 @@ export default function TasksPage() {
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Tên công việc *</label>
                 <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên sự kiện / công việc" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
               </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Mô tả</label>
-                <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors resize-none" />
-              </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Người nhận</label>
                 <select 
@@ -417,12 +421,14 @@ export default function TasksPage() {
                   )}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Trạng thái</label>
-                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors">
-                  {STATUS_LIST.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
+              {editingId && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Trạng thái</label>
+                  <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors">
+                    {STATUS_LIST.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Mức ưu tiên</label>
                 <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors">
@@ -441,6 +447,10 @@ export default function TasksPage() {
                   <option value="Hàng tuần">Hàng tuần</option>
                   <option value="Hàng tháng">Hàng tháng</option>
                 </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Mô tả chi tiết</label>
+                <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} placeholder="Nhập ghi chú hoặc mô tả chi tiết..." className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors resize-none" />
               </div>
             </div>
 
