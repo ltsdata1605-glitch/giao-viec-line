@@ -8,7 +8,8 @@ interface Keyword {
   id: string;
   keyword: string;
   reply_text: string;
-  image_url: string;
+  image_url?: string;
+  image_urls?: string[];
   createdAt?: Date;
 }
 
@@ -17,28 +18,24 @@ export default function KeywordsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ keyword: '', reply_text: '', image_url: '' });
+  const [form, setForm] = useState({ keyword: '', reply_text: '', image_urls: [] as string[] });
+  const [newUrlInput, setNewUrlInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (form.image_urls.length + files.length > 4) {
+      alert('Bạn chỉ được upload tối đa 4 ảnh để tránh giới hạn của LINE API.');
+      return;
+    }
 
     setUploading(true);
     try {
-      // Chuyển file sang Base64 để tránh lỗi FormData/CORS
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = error => reject(error);
-      });
-
-      const formData = new FormData();
-      formData.append('image', base64);
-
+      const newUrls: string[] = [];
       const imgbbKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
       if (!imgbbKey) {
         alert('Vui lòng cấu hình NEXT_PUBLIC_IMGBB_API_KEY trong file .env.local');
@@ -46,24 +43,56 @@ export default function KeywordsPage() {
         return;
       }
 
-      // Gọi ImgBB API trực tiếp (Miễn phí, hỗ trợ CORS, độ tin cậy cao)
-      const response = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, {
-        method: 'POST',
-        body: formData,
-      });
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = error => reject(error);
+        });
 
-      const data = await response.json();
-      if (data.success) {
-        setForm({ ...form, image_url: data.data.url });
-      } else {
-        throw new Error(data.error?.message || 'Upload failed');
+        const formData = new FormData();
+        formData.append('image', base64);
+
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          newUrls.push(data.data.url);
+        } else {
+          throw new Error(data.error?.message || 'Upload failed');
+        }
       }
+
+      setForm(prev => ({ ...prev, image_urls: [...prev.image_urls, ...newUrls] }));
     } catch (err) {
       console.error('Lỗi upload file:', err);
-      alert('Không thể tải ảnh lên lúc này. Vui lòng thử lại sau hoặc nhập link trực tiếp.');
+      alert('Không thể tải ảnh lên lúc này. Vui lòng thử lại sau.');
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
+  }
+
+  function handleAddUrl() {
+    if (!newUrlInput.trim()) return;
+    if (form.image_urls.length >= 4) {
+      alert('Bạn chỉ được upload tối đa 4 ảnh.');
+      return;
+    }
+    setForm(prev => ({ ...prev, image_urls: [...prev.image_urls, newUrlInput.trim()] }));
+    setNewUrlInput('');
+  }
+
+  function handleRemoveImage(index: number) {
+    setForm(prev => ({
+      ...prev,
+      image_urls: prev.image_urls.filter((_, i) => i !== index)
+    }));
   }
 
   useEffect(() => {
@@ -87,13 +116,21 @@ export default function KeywordsPage() {
 
   function openCreateModal() {
     setEditingId(null);
-    setForm({ keyword: '', reply_text: '', image_url: '' });
+    setForm({ keyword: '', reply_text: '', image_urls: [] });
+    setNewUrlInput('');
     setShowModal(true);
   }
 
   function openEditModal(kw: Keyword) {
     setEditingId(kw.id);
-    setForm({ keyword: kw.keyword, reply_text: kw.reply_text, image_url: kw.image_url || '' });
+    let urls: string[] = [];
+    if (kw.image_urls && kw.image_urls.length > 0) {
+      urls = [...kw.image_urls];
+    } else if (kw.image_url) {
+      urls = [kw.image_url];
+    }
+    setForm({ keyword: kw.keyword, reply_text: kw.reply_text, image_urls: urls });
+    setNewUrlInput('');
     setShowModal(true);
   }
 
@@ -105,14 +142,16 @@ export default function KeywordsPage() {
         await updateDoc(doc(db, 'keywords', editingId), {
           keyword: form.keyword.trim().toLowerCase(),
           reply_text: form.reply_text.trim(),
-          image_url: form.image_url.trim(),
+          image_urls: form.image_urls,
+          image_url: form.image_urls.length > 0 ? form.image_urls[0] : '', // for legacy compatibility
           updatedAt: serverTimestamp(),
         });
       } else {
         await addDoc(collection(db, 'keywords'), {
           keyword: form.keyword.trim().toLowerCase(),
           reply_text: form.reply_text.trim(),
-          image_url: form.image_url.trim(),
+          image_urls: form.image_urls,
+          image_url: form.image_urls.length > 0 ? form.image_urls[0] : '', // for legacy compatibility
           createdAt: serverTimestamp(),
         });
       }
@@ -233,16 +272,23 @@ export default function KeywordsPage() {
 
               <p className="text-sm text-[var(--color-text-primary)] mb-3 line-clamp-3">{kw.reply_text}</p>
 
-              {kw.image_url && (
-                <div className="mt-2 rounded-xl overflow-hidden border border-[var(--color-border)] bg-[var(--color-bg-primary)]">
-                  <img
-                    src={kw.image_url}
-                    alt={kw.keyword}
-                    className="w-full h-32 object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
+              {/* Hiển thị danh sách ảnh */}
+              {((kw.image_urls && kw.image_urls.length > 0) || kw.image_url) && (
+                <div className={`mt-3 grid gap-2 ${((kw.image_urls?.length || 1) > 1) ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {(kw.image_urls && kw.image_urls.length > 0 ? kw.image_urls : [kw.image_url]).map((url, i) => (
+                    url ? (
+                      <div key={i} className="rounded-xl overflow-hidden border border-[var(--color-border)] bg-[var(--color-bg-primary)]">
+                        <img
+                          src={url}
+                          alt={kw.keyword}
+                          className="w-full h-24 object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    ) : null
+                  ))}
                 </div>
               )}
             </div>
@@ -282,34 +328,66 @@ export default function KeywordsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Hình ảnh đính kèm (tùy chọn)</label>
-                <div className="flex flex-col gap-2">
-                  <input
-                    type="url"
-                    value={form.image_url}
-                    onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-                    placeholder="Nhập link ảnh (https://...) hoặc tải ảnh lên"
-                    className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
-                  />
-                  <div className="flex items-center gap-2">
-                    <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-[var(--color-bg-card)] border border-[var(--color-border)] hover:border-[var(--color-text-muted)] rounded-xl text-xs font-medium text-[var(--color-text-secondary)] transition-colors">
-                      {uploading ? (
-                        <>
-                          <div className="w-3 h-3 border-2 border-[var(--color-text-secondary)] border-t-transparent rounded-full animate-spin" />
-                          Đang tải lên...
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                          </svg>
-                          Tải ảnh từ máy tính
-                        </>
-                      )}
-                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" disabled={uploading} />
-                    </label>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5 flex justify-between">
+                  <span>Hình ảnh đính kèm (tùy chọn)</span>
+                  <span>{form.image_urls.length}/4 ảnh</span>
+                </label>
+                
+                {form.image_urls.length > 0 && (
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    {form.image_urls.map((url, index) => (
+                      <div key={index} className="relative group rounded-xl overflow-hidden border border-[var(--color-border)]">
+                        <img src={url} alt="Preview" className="w-full h-20 object-cover" />
+                        <button
+                          onClick={() => handleRemoveImage(index)}
+                          className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                </div>
+                )}
+
+                {form.image_urls.length < 4 && (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={newUrlInput}
+                        onChange={(e) => setNewUrlInput(e.target.value)}
+                        placeholder="Nhập link ảnh (https://...)"
+                        className="flex-1 px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddUrl(); } }}
+                      />
+                      <button
+                        onClick={handleAddUrl}
+                        disabled={!newUrlInput.trim()}
+                        className="px-4 py-2.5 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] disabled:opacity-50"
+                      >
+                        Thêm
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className={`cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-[var(--color-bg-card)] border border-[var(--color-border)] hover:border-[var(--color-text-muted)] rounded-xl text-xs font-medium text-[var(--color-text-secondary)] transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                        {uploading ? (
+                          <>
+                            <div className="w-3 h-3 border-2 border-[var(--color-text-secondary)] border-t-transparent rounded-full animate-spin" />
+                            Đang tải lên...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            Tải ảnh từ máy tính (chọn nhiều)
+                          </>
+                        )}
+                        <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" disabled={uploading} />
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

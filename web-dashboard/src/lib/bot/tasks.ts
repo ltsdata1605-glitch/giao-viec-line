@@ -44,8 +44,8 @@ export async function handleGiaoCommand(
 
   if (message.mention && message.mention.mentionees) {
     message.mention.mentionees.forEach(m => {
-      if (m.userId) {
-        assignees.push(m.userId);
+      if (m.type === 'user' && (m as any).userId) {
+        assignees.push((m as any).userId);
         // We could fetch user profile if needed
       }
     });
@@ -63,11 +63,12 @@ export async function handleGiaoCommand(
 
   // Create Task in Firestore
   if (adminDb) {
+    const source = event.source as any;
     const newTask: Task = {
       name: taskName,
-      groupId: event.source.type === 'group' ? event.source.groupId : 'personal',
-      assignees: assignees.length > 0 ? assignees : [event.source.userId || 'unknown'],
-      creatorId: event.source.userId || 'unknown',
+      groupId: source?.type === 'group' ? source.groupId : 'personal',
+      assignees: assignees.length > 0 ? assignees : [source?.userId || 'unknown'],
+      creatorId: source?.userId || 'unknown',
       status: 'Chưa làm',
       priority: 'Bình thường',
       deadline: null, // Parsing date logic can be added later
@@ -96,7 +97,8 @@ export async function handleViecCuaToiCommand(
   client: line.messagingApi.MessagingApiClient
 ) {
   if (!adminDb) return;
-  const userId = event.source.userId;
+  const source = event.source as any;
+  const userId = source?.userId;
   if (!userId) return;
 
   const snapshot = await adminDb.collection('tasks')

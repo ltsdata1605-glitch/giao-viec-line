@@ -38,24 +38,27 @@ export async function handleLineEvent(event: line.webhook.Event) {
       });
     }
 
-    if (keywordReply.image_url) {
-      messages.push({
-        type: 'image',
-        originalContentUrl: keywordReply.image_url,
-        previewImageUrl: keywordReply.image_url,
+    if (keywordReply.image_urls && keywordReply.image_urls.length > 0) {
+      // LINE API allows max 5 messages per reply.
+      // We already pushed 1 text message (optionally), so we can push up to 4 or 5 images.
+      const availableSlots = 5 - messages.length;
+      const urlsToPush = keywordReply.image_urls.slice(0, availableSlots);
+      
+      urlsToPush.forEach((url: string) => {
+        messages.push({
+          type: 'image',
+          originalContentUrl: url,
+          previewImageUrl: url,
+        });
       });
     }
 
-    if (messages.length > 0 && event.replyToken) {
-      const client = getLineClient();
-      if (client) {
-        await client.replyMessage({
-          replyToken: event.replyToken,
-          messages: messages,
-        });
-      } else {
-        console.error('LINE Client not initialized. Cannot reply.');
-      }
+    const client = getLineClient();
+    if (client && messages.length > 0 && event.replyToken) {
+      await client.replyMessage({
+        replyToken: event.replyToken,
+        messages,
+      });
     }
     return; // Done handling keyword
   }

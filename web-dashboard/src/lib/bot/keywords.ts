@@ -16,9 +16,16 @@ export async function getReplyFromFirebase(keyword: string) {
 
       if (!snapshot.empty) {
         const data = snapshot.docs[0].data();
+        let image_urls: string[] = [];
+        if (data.image_urls && Array.isArray(data.image_urls) && data.image_urls.length > 0) {
+          image_urls = data.image_urls;
+        } else if (data.image_url) {
+          image_urls = [data.image_url];
+        }
+
         return {
           reply_text: data.reply_text || '',
-          image_url: data.image_url || '',
+          image_urls: image_urls
         };
       }
     } else {
@@ -27,9 +34,16 @@ export async function getReplyFromFirebase(keyword: string) {
       const snap = await getDocs(q);
       if (!snap.empty) {
         const data = snap.docs[0].data();
+        let image_urls: string[] = [];
+        if (data.image_urls && Array.isArray(data.image_urls) && data.image_urls.length > 0) {
+          image_urls = data.image_urls;
+        } else if (data.image_url) {
+          image_urls = [data.image_url];
+        }
+
         return {
           reply_text: data.reply_text || '',
-          image_url: data.image_url || '',
+          image_urls: image_urls
         };
       }
     }
