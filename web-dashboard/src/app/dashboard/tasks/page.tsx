@@ -387,8 +387,8 @@ export default function TasksPage() {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass rounded-2xl w-full max-w-2xl p-6 animate-fade-in-up max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center p-4 sm:p-6 overflow-y-auto">
+          <div className="glass rounded-2xl w-full max-w-2xl p-6 sm:p-8 animate-fade-in-up my-4 sm:my-8 relative">
             <h3 className="text-lg font-bold text-[var(--color-text-primary)] mb-5">
               {editingId ? 'Chỉnh sửa công việc' : 'Tạo công việc mới'}
             </h3>
