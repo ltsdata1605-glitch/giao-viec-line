@@ -10,7 +10,8 @@ interface Task {
   description: string;
   status: string;
   assigneeName: string;
-  assigneeId: string;
+  assignees?: string[];
+  assigneeId?: string;
   groupName: string;
   groupId: string;
   priority: string;
@@ -18,6 +19,9 @@ interface Task {
   repeat: string;
   createdAt?: Date;
 }
+
+interface UserData { id: string; name: string; lineUserId: string; }
+interface GroupData { id: string; name: string; lineGroupId: string; }
 
 const STATUS_LIST = ['Chờ gửi', 'Đang làm', 'Cần hỗ trợ', 'Đã gửi', 'Quá hạn', 'Đã hủy'];
 const PRIORITY_LIST = ['Bình thường', 'Quan trọng', 'GẤP'];
@@ -39,6 +43,8 @@ const priorityStyles: Record<string, string> = {
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [usersList, setUsersList] = useState<UserData[]>([]);
+  const [groupsList, setGroupsList] = useState<GroupData[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -53,21 +59,38 @@ export default function TasksPage() {
   const [form, setForm] = useState(defaultForm);
 
   useEffect(() => {
-    loadTasks();
+    Promise.all([loadTasks(), loadUsersAndGroups()]).then(() => setLoading(false));
   }, []);
+
+  async function loadUsersAndGroups() {
+    try {
+      const uSnap = await getDocs(collection(db, 'users'));
+      setUsersList(uSnap.docs.map(d => ({ id: d.id, ...d.data() } as UserData)));
+      const gSnap = await getDocs(collection(db, 'groups'));
+      setGroupsList(gSnap.docs.map(d => ({ id: d.id, ...d.data() } as GroupData)));
+    } catch (err) {
+      console.error('Error loading users/groups', err);
+    }
+  }
 
   async function loadTasks() {
     try {
       const snap = await getDocs(collection(db, 'tasks'));
       const data = snap.docs.map((d) => {
         const raw = d.data();
+        let name = raw.assigneeName || '';
+        let aId = raw.assigneeId || '';
+        if (raw.assignees && Array.isArray(raw.assignees) && raw.assignees.length > 0) {
+          aId = raw.assignees[0];
+        }
         return {
           id: d.id,
           name: raw.name || '',
           description: raw.description || '',
           status: raw.status || 'Chờ gửi',
-          assigneeName: raw.assigneeName || '',
-          assigneeId: raw.assigneeId || '',
+          assigneeName: name,
+          assigneeId: aId,
+          assignees: raw.assignees || [],
           groupName: raw.groupName || '',
           groupId: raw.groupId || '',
           priority: raw.priority || 'Bình thường',
@@ -80,8 +103,6 @@ export default function TasksPage() {
       setTasks(data);
     } catch (err) {
       console.error('Error loading tasks:', err);
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -98,7 +119,7 @@ export default function TasksPage() {
       description: task.description,
       status: task.status,
       assigneeName: task.assigneeName,
-      assigneeId: task.assigneeId,
+      assigneeId: task.assigneeId || '',
       groupName: task.groupName,
       groupId: task.groupId,
       priority: task.priority,
@@ -118,6 +139,7 @@ export default function TasksPage() {
         status: form.status,
         assigneeName: form.assigneeName.trim(),
         assigneeId: form.assigneeId.trim(),
+        assignees: form.assigneeId.trim() ? [form.assigneeId.trim()] : [],
         groupName: form.groupName.trim(),
         groupId: form.groupId.trim(),
         priority: form.priority,
@@ -252,7 +274,9 @@ export default function TasksPage() {
                       {task.groupName && <p className="text-xs text-[var(--color-text-muted)] mt-0.5">📍 {task.groupName}</p>}
                     </td>
                     <td className="p-4 hidden md:table-cell">
-                      <p className="text-[var(--color-text-secondary)]">{task.assigneeName || 'N/A'}</p>
+                      <p className="text-[var(--color-text-secondary)]">
+                        {task.assigneeName || (task.assigneeId ? usersList.find(u => u.lineUserId === task.assigneeId)?.name || task.assigneeId.slice(0, 8) : 'N/A')}
+                      </p>
                     </td>
                     <td className="p-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border ${statusStyles[task.status] || 'bg-gray-500/10 text-gray-400 border-gray-500/20'}`}>
@@ -308,11 +332,43 @@ export default function TasksPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Người nhận</label>
-                <input type="text" value={form.assigneeName} onChange={(e) => setForm({ ...form, assigneeName: e.target.value })} placeholder="Tên nhân viên" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
+                <select 
+                  value={form.assigneeId} 
+                  onChange={(e) => {
+                    const u = usersList.find(x => x.lineUserId === e.target.value);
+                    setForm({ ...form, assigneeId: e.target.value, assigneeName: u ? u.name : '' });
+                  }}
+                  className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
+                >
+                  <option value="">-- Chọn nhân viên --</option>
+                  {usersList.map(u => (
+                    <option key={u.id} value={u.lineUserId}>{u.name}</option>
+                  ))}
+                  {/* Keep legacy option if ID not found */}
+                  {form.assigneeId && !usersList.find(u => u.lineUserId === form.assigneeId) && (
+                    <option value={form.assigneeId}>{form.assigneeName || form.assigneeId}</option>
+                  )}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Nhóm</label>
-                <input type="text" value={form.groupName} onChange={(e) => setForm({ ...form, groupName: e.target.value })} placeholder="Tên nhóm" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
+                <select 
+                  value={form.groupId} 
+                  onChange={(e) => {
+                    const g = groupsList.find(x => x.lineGroupId === e.target.value);
+                    setForm({ ...form, groupId: e.target.value, groupName: g ? g.name : '' });
+                  }}
+                  className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
+                >
+                  <option value="">-- Chọn nhóm --</option>
+                  {groupsList.map(g => (
+                    <option key={g.id} value={g.lineGroupId}>{g.name}</option>
+                  ))}
+                  {/* Keep legacy option if ID not found */}
+                  {form.groupId && !groupsList.find(g => g.lineGroupId === form.groupId) && (
+                    <option value={form.groupId}>{form.groupName || form.groupId}</option>
+                  )}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Trạng thái</label>
