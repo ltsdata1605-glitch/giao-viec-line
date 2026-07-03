@@ -25,7 +25,9 @@ export default function GroupsPage() {
   async function loadGroups() {
     try {
       const snap = await getDocs(collection(db, 'groups'));
-      setGroups(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Group)));
+      const rawGroups = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Group));
+      const uniqueGroups = Array.from(new Map(rawGroups.map(g => [g.lineGroupId, g])).values());
+      setGroups(uniqueGroups);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }

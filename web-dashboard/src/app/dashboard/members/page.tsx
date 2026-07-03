@@ -24,7 +24,9 @@ export default function MembersPage() {
   async function loadMembers() {
     try {
       const snap = await getDocs(collection(db, 'users'));
-      setMembers(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Member)));
+      const rawMembers = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Member));
+      const uniqueMembers = Array.from(new Map(rawMembers.map(m => [m.lineUserId, m])).values());
+      setMembers(uniqueMembers);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }

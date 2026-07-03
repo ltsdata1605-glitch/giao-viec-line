@@ -106,9 +106,14 @@ export default function TasksPage() {
   async function loadUsersAndGroups() {
     try {
       const uSnap = await getDocs(collection(db, 'users'));
-      setUsersList(uSnap.docs.map(d => ({ id: d.id, ...d.data() } as UserData)));
+      const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() } as UserData));
+      const uniqueUsers = Array.from(new Map(uData.map(u => [u.lineUserId, u])).values());
+      setUsersList(uniqueUsers);
+
       const gSnap = await getDocs(collection(db, 'groups'));
-      setGroupsList(gSnap.docs.map(d => ({ id: d.id, ...d.data() } as GroupData)));
+      const gData = gSnap.docs.map(d => ({ id: d.id, ...d.data() } as GroupData));
+      const uniqueGroups = Array.from(new Map(gData.map(g => [g.lineGroupId, g])).values());
+      setGroupsList(uniqueGroups);
     } catch (err) {
       console.error('Error loading users/groups', err);
     }
