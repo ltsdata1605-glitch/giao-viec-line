@@ -63,6 +63,12 @@ export default function TasksPage() {
   const defaultForm = {
     name: '', description: '', status: 'Chờ gửi', assigneeName: '', assigneeId: '',
     groupName: '', groupId: '', priority: 'Bình thường', deadline: getDefaultDeadline(), repeat: 'Không',
+    taskType: 'Vận hành',
+    quickReminder: 'Gửi ngay',
+    acceptanceType: 'Bấm hoàn tất',
+    reminderFrequency: '15 Phút',
+    attachmentUrl: '',
+    notes: '',
   };
   const [form, setForm] = useState(defaultForm);
 
@@ -179,6 +185,12 @@ export default function TasksPage() {
       priority: task.priority,
       deadline: task.deadline,
       repeat: task.repeat,
+      taskType: (task as any).taskType || 'Vận hành',
+      quickReminder: (task as any).quickReminder || 'Gửi ngay',
+      acceptanceType: (task as any).acceptanceType || 'Bấm hoàn tất',
+      reminderFrequency: (task as any).reminderFrequency || '15 Phút',
+      attachmentUrl: (task as any).attachmentUrl || '',
+      notes: (task as any).notes || '',
     });
     setShowModal(true);
   }
@@ -199,6 +211,12 @@ export default function TasksPage() {
         priority: form.priority,
         deadline: form.deadline || '',
         repeat: form.repeat,
+        taskType: form.taskType,
+        quickReminder: form.quickReminder,
+        acceptanceType: form.acceptanceType,
+        reminderFrequency: form.reminderFrequency,
+        attachmentUrl: form.attachmentUrl,
+        notes: form.notes,
         updatedAt: serverTimestamp(),
       };
 
@@ -430,6 +448,15 @@ export default function TasksPage() {
                 </div>
               )}
               <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Loại công việc</label>
+                <select value={form.taskType} onChange={(e) => setForm({ ...form, taskType: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors">
+                  <option value="Vận hành">Vận hành</option>
+                  <option value="Truyền thông">Truyền thông</option>
+                  <option value="Kế toán">Kế toán</option>
+                  <option value="Nhân sự">Nhân sự</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Mức ưu tiên</label>
                 <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors">
                   {PRIORITY_LIST.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -447,6 +474,25 @@ export default function TasksPage() {
                   <option value="Hàng tuần">Hàng tuần</option>
                   <option value="Hàng tháng">Hàng tháng</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Nghiệm thu</label>
+                <select value={form.acceptanceType} onChange={(e) => setForm({ ...form, acceptanceType: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors">
+                  <option value="Bấm hoàn tất">Bấm hoàn tất</option>
+                  <option value="Gửi ảnh chụp">Gửi ảnh chụp</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Thời gian nhắc (VD: Gửi ngay, 15p, Mai 08:00)</label>
+                <input type="text" value={form.quickReminder} onChange={(e) => setForm({ ...form, quickReminder: e.target.value })} placeholder="Gửi ngay" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Tần suất nhắc (Phút, Giờ)</label>
+                <input type="text" value={form.reminderFrequency} onChange={(e) => setForm({ ...form, reminderFrequency: e.target.value })} placeholder="15 Phút" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Link ảnh đính kèm (Tuỳ chọn)</label>
+                <input type="text" value={form.attachmentUrl} onChange={(e) => setForm({ ...form, attachmentUrl: e.target.value })} placeholder="https://example.com/image.jpg" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Mô tả chi tiết</label>
