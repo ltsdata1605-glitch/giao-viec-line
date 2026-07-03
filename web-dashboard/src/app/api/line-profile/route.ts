@@ -17,8 +17,12 @@ export async function GET(request: Request) {
        return NextResponse.json({ name: profile.displayName, pictureUrl: profile.pictureUrl });
     }
     if (groupId) {
-       const summary = await client.getGroupSummary(groupId);
-       return NextResponse.json({ name: summary.groupName, pictureUrl: summary.pictureUrl });
+       const summary = await client.getGroupSummary(groupId).catch(() => null);
+       if (summary) {
+         return NextResponse.json({ name: summary.groupName, pictureUrl: summary.pictureUrl });
+       } else {
+         return NextResponse.json({ name: `Nhóm ${groupId.substring(0, 6)}`, pictureUrl: '' });
+       }
     }
     return NextResponse.json({ error: 'No id provided' }, { status: 400 });
   } catch (error) {

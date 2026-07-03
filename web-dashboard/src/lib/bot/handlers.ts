@@ -17,25 +17,27 @@ function getLineClient() {
 }
 
 export async function handleLineEvent(event: line.webhook.Event) {
+  // 0. Tự động học (Passive Learning): Chạy ngầm cho mọi message và join
+  if (event.type === 'message' || event.type === 'join') {
+    const client = getLineClient();
+    if (client) {
+      import('./sync').then(({ captureUserProfile }) => {
+        captureUserProfile(event as line.webhook.MessageEvent, client).catch(console.error);
+      });
+    }
+  }
+
   if (event.type !== 'message' || event.message.type !== 'text') {
-    // Currently only handle text messages
+    // Currently only handle text messages for commands
     return;
   }
 
   const message = event.message as line.webhook.TextMessageContent;
   const text = message.text.trim();
 
-  // 0. Tự động học (Passive Learning): Chạy ngầm
-  const client = getLineClient();
-  if (client) {
-    // Fire and forget
-    import('./sync').then(({ captureUserProfile }) => {
-      captureUserProfile(event as line.webhook.MessageEvent, client).catch(console.error);
-    });
-  }
-
   // 1. Lệnh Đồng bộ (/dongbo)
   if (['/dongbo', 'đồng bộ'].includes(text.toLowerCase())) {
+    const client = getLineClient();
     if (client) {
       const { handleDongboCommand } = await import('./sync');
       await handleDongboCommand(event as line.webhook.MessageEvent, client);

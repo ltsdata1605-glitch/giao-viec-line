@@ -44,16 +44,18 @@ export async function captureUserProfile(
       
       if (groupSnap.empty) {
         // Fetch from LINE
-        const summary = await client.getGroupSummary(groupId).catch(() => null);
-        if (summary) {
-          await adminDb.collection('groups').add({
-            lineGroupId: groupId,
-            name: summary.groupName,
-            pictureUrl: summary.pictureUrl || '',
-            isMuted: false,
-            createdAt: FieldValue.serverTimestamp(),
-          });
-        }
+        const summary = await client.getGroupSummary(groupId).catch(e => {
+          console.log('Cannot fetch group summary, using fallback', e);
+          return null;
+        });
+        
+        await adminDb.collection('groups').add({
+          lineGroupId: groupId,
+          name: summary ? summary.groupName : `Nhóm ${groupId.substring(0, 6)}`,
+          pictureUrl: summary ? (summary.pictureUrl || '') : '',
+          isMuted: false,
+          createdAt: FieldValue.serverTimestamp(),
+        });
       }
     }
   } catch (err) {
