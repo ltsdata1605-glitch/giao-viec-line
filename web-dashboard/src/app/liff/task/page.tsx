@@ -29,6 +29,7 @@ export default function LiffTaskPage() {
   const [usersList, setUsersList] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const getDefaultDeadline = () => {
     const d = new Date();
@@ -94,6 +95,35 @@ export default function LiffTaskPage() {
 
   const handleQuickTemplate = (tpl: typeof QUICK_TEMPLATES[0]) => {
     setForm(f => ({ ...f, name: tpl.title, description: tpl.desc }));
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    setUploading(true);
+    try {
+      const file = e.target.files[0];
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setForm(f => ({ ...f, attachmentUrl: data.data.url }));
+      } else {
+        throw new Error(data.error?.message || 'Upload failed');
+      }
+    } catch (err) {
+      console.error('Lỗi upload file:', err);
+      alert('Không thể tải ảnh lên. Vui lòng dán link ảnh hoặc thử lại sau.');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -336,11 +366,37 @@ export default function LiffTaskPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <h2 className="text-sm font-bold border-l-4 border-green-500 pl-2 mb-4">Ảnh đính kèm</h2>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Ảnh đính kèm gợi ý (Tối đa 5 ảnh)</label>
-            <div className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 flex items-center mb-2">
-              <span className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs mr-2">Chọn tệp</span> chưa chọn tệp nào
+            <label className="block text-xs font-medium text-gray-500 mb-1">Ảnh đính kèm gợi ý (Tối đa 1 ảnh hiện tại)</label>
+            <div className="w-full relative px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 flex items-center mb-2 overflow-hidden">
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={handleFileUpload} 
+                disabled={uploading}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" 
+              />
+              <span className={`px-2 py-1 rounded text-xs mr-2 transition-colors ${uploading ? 'bg-gray-300 text-gray-500' : 'bg-gray-200 text-gray-700'}`}>
+                {uploading ? 'Đang tải lên...' : 'Chọn tệp'}
+              </span> 
+              <span className="truncate flex-1">
+                {form.attachmentUrl ? 'Đã tải lên 1 tệp' : 'Chưa chọn tệp nào'}
+              </span>
             </div>
-            <p className="text-[10px] text-gray-400 mb-3">Chọn từ thư viện hoặc chụp ảnh mới. Tự động nén chất lượng cao.</p>
+            
+            {form.attachmentUrl && (
+              <div className="mb-3 relative inline-block rounded-lg overflow-hidden border border-gray-200">
+                <img src={form.attachmentUrl} alt="Preview" className="h-24 w-auto object-cover" />
+                <button 
+                  type="button" 
+                  onClick={() => setForm({...form, attachmentUrl: ''})}
+                  className="absolute top-1 right-1 bg-white rounded-full p-1 shadow-sm text-red-500 hover:text-red-700"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
             
             <label className="block text-xs font-medium text-gray-500 mb-1">Hoặc dán link ảnh</label>
             <input type="text" value={form.attachmentUrl} onChange={e => setForm({...form, attachmentUrl: e.target.value})} placeholder="https://example.com/image.jpg"
