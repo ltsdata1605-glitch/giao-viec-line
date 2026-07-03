@@ -21,9 +21,8 @@ export async function handleLineEvent(event: line.webhook.Event) {
   if (event.type === 'message' || event.type === 'join') {
     const client = getLineClient();
     if (client) {
-      import('./sync').then(({ captureUserProfile }) => {
-        captureUserProfile(event as line.webhook.MessageEvent, client).catch(console.error);
-      });
+      const { captureUserProfile } = await import('./sync');
+      await captureUserProfile(event as line.webhook.MessageEvent, client).catch(console.error);
     }
   }
 
