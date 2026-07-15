@@ -4,21 +4,25 @@ import { adminDb } from '@/lib/firebase-admin';
 
 export async function POST(request: Request) {
   try {
-    const { taskId, assigneeId, taskName, creatorId } = await request.json();
-    if (!assigneeId || !taskName) {
-      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    const { taskId, assigneeId, assignees, groupId, taskName, taskDescription, creatorId } = await request.json();
+    
+    // Support both legacy single assigneeId and new array assignees
+    let targetAssignees: string[] = [];
+    if (assignees && Array.isArray(assignees) && assignees.length > 0) {
+      targetAssignees = assignees;
+    } else if (assigneeId) {
+      targetAssignees = [assigneeId];
     }
 
-    if (assigneeId === creatorId) {
-      return NextResponse.json({ success: true, ignored: true });
+    if (targetAssignees.length === 0 || !taskName) {
+      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
 
     const client = new line.messagingApi.MessagingApiClient({
       channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || ''
     });
 
-    // We can fetch creator name
-    let creatorName = 'Ai đó';
+    let creatorName = 'Admin';
     if (adminDb && creatorId) {
       const snap = await adminDb.collection('users').where('lineUserId', '==', creatorId).limit(1).get();
       if (!snap.empty) {
@@ -27,6 +31,40 @@ export async function POST(request: Request) {
     }
 
     const shortId = taskId.slice(-5);
+    
+    const bodyContents: any[] = [
+      { type: 'text', text: taskName, weight: 'bold', size: 'lg', wrap: true }
+    ];
+
+    if (taskDescription) {
+      bodyContents.push({
+        type: 'text',
+        text: taskDescription,
+        color: '#666666',
+        size: 'sm',
+        wrap: true,
+        margin: 'md'
+      });
+    }
+
+    bodyContents.push({
+      type: 'box',
+      layout: 'vertical',
+      margin: 'lg',
+      spacing: 'sm',
+      contents: [
+        {
+          type: 'box',
+          layout: 'baseline',
+          spacing: 'sm',
+          contents: [
+            { type: 'text', text: 'Người giao', color: '#aaaaaa', size: 'sm', flex: 3 },
+            { type: 'text', text: creatorName, wrap: true, color: '#333333', size: 'sm', flex: 7, weight: 'bold' }
+          ]
+        }
+      ]
+    });
+
     const flexMessage: line.messagingApi.FlexMessage = {
       type: 'flex',
       altText: `Nhiệm vụ mới: ${taskName}`,
@@ -38,41 +76,13 @@ export async function POST(request: Request) {
           layout: 'vertical',
           backgroundColor: '#1db446',
           contents: [
-            { type: 'text', text: '🎯 NHIỆM VỤ MỚI', color: '#ffffff', weight: 'bold', size: 'sm' }
+            { type: 'text', text: '🎯 CÔNG VIỆC SIÊU THỊ', color: '#ffffff', weight: 'bold', size: 'xl' }
           ]
         },
         body: {
           type: 'box',
           layout: 'vertical',
-          contents: [
-            { type: 'text', text: taskName, weight: 'bold', size: 'lg', wrap: true },
-            {
-              type: 'box',
-              layout: 'vertical',
-              margin: 'lg',
-              spacing: 'sm',
-              contents: [
-                {
-                  type: 'box',
-                  layout: 'baseline',
-                  spacing: 'sm',
-                  contents: [
-                    { type: 'text', text: 'Người giao', color: '#aaaaaa', size: 'sm', flex: 3 },
-                    { type: 'text', text: creatorName, wrap: true, color: '#333333', size: 'sm', flex: 7, weight: 'bold' }
-                  ]
-                },
-                {
-                  type: 'box',
-                  layout: 'baseline',
-                  spacing: 'sm',
-                  contents: [
-                    { type: 'text', text: 'Mã Việc', color: '#aaaaaa', size: 'sm', flex: 3 },
-                    { type: 'text', text: shortId, wrap: true, color: '#333333', size: 'sm', flex: 7 }
-                  ]
-                }
-              ]
-            }
-          ]
+          contents: bodyContents
         },
         footer: {
           type: 'box',
@@ -97,10 +107,26 @@ export async function POST(request: Request) {
       }
     };
 
-    await client.pushMessage({
-      to: assigneeId,
-      messages: [flexMessage]
-    });
+    if (groupId) {
+      // Send to Group
+      await client.pushMessage({
+        to: groupId,
+        messages: [flexMessage]
+      });
+    } else {
+      // Multicast to multiple users, or single push if only 1
+      if (targetAssignees.length === 1) {
+        await client.pushMessage({
+          to: targetAssignees[0],
+          messages: [flexMessage]
+        });
+      } else {
+        await client.multicast({
+          to: targetAssignees,
+          messages: [flexMessage]
+        });
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

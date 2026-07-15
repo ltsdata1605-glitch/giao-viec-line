@@ -108,6 +108,7 @@ export default function TasksPage() {
 
   const defaultForm = {
     name: '', description: '', status: 'Chờ gửi', assigneeName: '', assigneeId: '',
+    assignees: [] as string[],
     groupName: '', groupId: '', priority: 'Bình thường', deadline: getDefaultDeadline(), repeat: 'Không',
     taskType: 'Vận hành',
     quickReminder: 'Gửi ngay',
@@ -230,6 +231,7 @@ export default function TasksPage() {
       status: task.status,
       assigneeName: task.assigneeName,
       assigneeId: task.assigneeId || '',
+      assignees: task.assignees || (task.assigneeId ? [task.assigneeId] : []),
       groupName: task.groupName,
       groupId: task.groupId,
       priority: task.priority,
@@ -253,13 +255,27 @@ export default function TasksPage() {
     if (!form.name.trim()) return;
     setSaving(true);
     try {
+      let sendAt = Date.now();
+      if (form.quickReminder === '15 Phút') sendAt += 15 * 60000;
+      else if (form.quickReminder === '30 Phút') sendAt += 30 * 60000;
+      else if (form.quickReminder === '1 Giờ') sendAt += 60 * 60000;
+      else if (form.quickReminder === 'Mai 08:00') {
+        const t = new Date();
+        t.setDate(t.getDate() + 1);
+        t.setHours(8, 0, 0, 0);
+        sendAt = t.getTime();
+      } else if (form.quickReminder !== 'Gửi ngay' && form.quickReminder !== 'Tùy chọn') {
+        const parsed = new Date(form.quickReminder).getTime();
+        if (!isNaN(parsed)) sendAt = parsed;
+      }
+
       const payload = {
         name: form.name.trim(),
         description: form.description.trim(),
         status: form.status,
-        assigneeName: form.assigneeName.trim(),
-        assigneeId: form.assigneeId.trim(),
-        assignees: form.assigneeId.trim() ? [form.assigneeId.trim()] : [],
+        assigneeName: form.assignees.map(id => usersList.find(u => u.lineUserId === id)?.name || id).join(', '),
+        assigneeId: form.assignees[0] || '',
+        assignees: form.assignees,
         groupName: form.groupName.trim(),
         groupId: form.groupId.trim(),
         priority: form.priority,
@@ -274,6 +290,7 @@ export default function TasksPage() {
         intervalHours: (form as any).intervalHours || '1',
         repeatDays: (form as any).repeatDays || [],
         customRepeat: (form as any).customRepeat || '',
+        sendAt,
         updatedAt: serverTimestamp(),
       };
 
@@ -286,16 +303,19 @@ export default function TasksPage() {
       }
       
       // Auto-send task if 'Gửi ngay'
-      if (form.quickReminder === 'Gửi ngay' && form.assigneeId.trim()) {
+      if (form.quickReminder === 'Gửi ngay' && (form.assignees.length > 0 || form.groupId.trim())) {
         try {
           await fetch('/api/notify-task', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               taskId: newTaskId,
-              assigneeId: form.assigneeId.trim(),
+              assignees: form.assignees,
+              assigneeId: form.assignees[0] || '',
+              groupId: form.groupId.trim(),
               taskName: form.name.trim(),
-              creatorId: '' // We can skip creatorId for now or pass actual if available
+              taskDescription: form.description.trim(),
+              creatorId: 'U5bff120f01066eefca60fd0c8ea3537c' // Admin ID
             })
           });
           // Update status to "Đang làm" after sending
@@ -508,24 +528,41 @@ export default function TasksPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Người nhận</label>
-                <select 
-                  value={form.assigneeId} 
-                  onChange={(e) => {
-                    const u = usersList.find(x => x.lineUserId === e.target.value);
-                    setForm({ ...form, assigneeId: e.target.value, assigneeName: u ? u.name : '' });
-                  }}
-                  className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
-                >
-                  <option value="">-- Chọn nhân viên --</option>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Người nhận (Có thể chọn nhiều)</label>
+                <div className="w-full max-h-40 overflow-y-auto px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus-within:border-[var(--color-border-active)] transition-colors">
                   {usersList.map(u => (
-                    <option key={u.id} value={u.lineUserId}>{u.name}</option>
+                    <label key={u.id} className="flex items-center space-x-2 py-1 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]"
+                        checked={form.assignees.includes(u.lineUserId)}
+                        onChange={(e) => {
+                          let newAssignees = [...form.assignees];
+                          if (e.target.checked) {
+                            newAssignees.push(u.lineUserId);
+                          } else {
+                            newAssignees = newAssignees.filter(id => id !== u.lineUserId);
+                          }
+                          setForm({ ...form, assignees: newAssignees });
+                        }}
+                      />
+                      <span>{u.name}</span>
+                    </label>
                   ))}
-                  {/* Keep legacy option if ID not found */}
-                  {form.assigneeId && !usersList.find(u => u.lineUserId === form.assigneeId) && (
-                    <option value={form.assigneeId}>{form.assigneeName || form.assigneeId}</option>
-                  )}
-                </select>
+                  {form.assignees.filter(id => !usersList.find(u => u.lineUserId === id)).map(id => (
+                    <label key={id} className="flex items-center space-x-2 py-1 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]"
+                        checked={true}
+                        onChange={(e) => {
+                          setForm({ ...form, assignees: form.assignees.filter(x => x !== id) });
+                        }}
+                      />
+                      <span>{id}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div>
