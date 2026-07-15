@@ -42,24 +42,19 @@ export async function handlePmhAdminCommand(text: string, event: line.webhook.Me
 
   const userId = source.userId;
   
-  // 1. Kiểm tra quyền Admin
-  let isAdmin = false;
-  try {
-    const userSnap = await adminDb.collection('users').where('lineUserId', '==', userId).limit(1).get();
-    if (!userSnap.empty) {
-      const userData = userSnap.docs[0].data();
-      if (userData.role === 'admin') {
-        isAdmin = true;
-      }
-    }
-  } catch (err) {
-    console.error('Error checking admin role:', err);
-  }
+  // Danh sách LINE ID của Admin (Bạn có thể thêm/bớt ID của bạn vào mảng này)
+  const ADMIN_LINE_IDS = [
+    "Ua5509d3b3780ee833633e8b4ad332b70",
+    "U5bc60a8b92b67f62fa417df854e4df75"
+  ];
+  
+  // 1. Kiểm tra quyền Admin dựa vào LINE ID
+  const isAdmin = ADMIN_LINE_IDS.includes(userId);
 
   if (!isAdmin) {
     await client.replyMessage({
       replyToken: event.replyToken,
-      messages: [{ type: 'text', text: '❌ Bạn không có quyền sử dụng lệnh này. Vui lòng liên hệ quản trị viên để cập nhật role thành "admin" trên Firebase.' }]
+      messages: [{ type: 'text', text: '❌ Bạn không có quyền sử dụng lệnh này. Vui lòng liên hệ quản trị viên (hoặc thêm ID của bạn vào code).' }]
     });
     return;
   }
