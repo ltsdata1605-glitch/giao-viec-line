@@ -44,8 +44,7 @@ export async function handlePmhAdminCommand(text: string, event: line.webhook.Me
   
   // Danh sách LINE ID của Admin (Bạn có thể thêm/bớt ID của bạn vào mảng này)
   const ADMIN_LINE_IDS = [
-    "Ua5509d3b3780ee833633e8b4ad332b70",
-    "U5bc60a8b92b67f62fa417df854e4df75"
+    "U5bff120f01066eefca60fd0c8ea3537c"
   ];
   
   // 1. Kiểm tra quyền Admin dựa vào LINE ID
