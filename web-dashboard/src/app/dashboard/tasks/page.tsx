@@ -277,11 +277,36 @@ export default function TasksPage() {
         updatedAt: serverTimestamp(),
       };
 
+      let newTaskId = editingId;
       if (editingId) {
         await updateDoc(doc(db, 'tasks', editingId), payload);
       } else {
-        await addDoc(collection(db, 'tasks'), { ...payload, createdAt: serverTimestamp() });
+        const docRef = await addDoc(collection(db, 'tasks'), { ...payload, createdAt: serverTimestamp() });
+        newTaskId = docRef.id;
       }
+      
+      // Auto-send task if 'Gửi ngay'
+      if (form.quickReminder === 'Gửi ngay' && form.assigneeId.trim()) {
+        try {
+          await fetch('/api/notify-task', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              taskId: newTaskId,
+              assigneeId: form.assigneeId.trim(),
+              taskName: form.name.trim(),
+              creatorId: '' // We can skip creatorId for now or pass actual if available
+            })
+          });
+          // Update status to "Đang làm" after sending
+          if (newTaskId) {
+            await updateDoc(doc(db, 'tasks', newTaskId), { status: 'Đang làm' });
+          }
+        } catch (err) {
+          console.error('Failed to notify task', err);
+        }
+      }
+
       setShowModal(false);
       loadTasks();
     } catch (err) {
