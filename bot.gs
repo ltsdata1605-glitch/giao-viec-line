@@ -560,7 +560,7 @@ function doPost(e) {
       var event = events[i];
       try {
         if (event.type === "message") {
-          var uId = event.source.userId, gId = event.source.groupId, msgType = event.message.type;
+          var uId = event.source.userId, gId = event.source.groupId || event.source.roomId, msgType = event.message.type;
           
           // Tự động đăng ký Thành viên / Nhóm
           var name = "Nhân viên";
@@ -613,7 +613,7 @@ function doPost(e) {
             // ==========================================
             // LỌC MÃ PMH TỰ ĐỘNG
             // ==========================================
-            if (gId && originalText.indexOf('➜ PMH') !== -1) {
+            if (gId && originalText.indexOf('PMH') !== -1) {
               var pmhKeywords = ['21707', '22094', '21453']; // Có thể cấu hình từ khoá tại đây
               var textLower = text;
               var containsKeyword = false;
@@ -622,32 +622,42 @@ function doPost(e) {
                   containsKeyword = true; break;
                 }
               }
+              
               if (containsKeyword) {
-                var blocks = originalText.split(/[\-—_─━]{3,}/);
-                var matchedBlocks = [];
-                for (var b = 0; b < blocks.length; b++) {
-                  var block = blocks[b].trim();
-                  if (!block) continue;
-                  if (block.indexOf('Admin đã duyệt phát mã') !== -1 || 
-                      block.indexOf('BOT đã tự động duyệt') !== -1 || 
-                      block.indexOf('Hãy chuyển tiếp tin nhắn này') !== -1 || 
-                      block.indexOf('lọc nhanh PMH') !== -1 ||
-                      block.indexOf('Loại PMH Thiếu Hoặc Sai Cú Pháp') !== -1) {
-                    continue;
-                  }
-                  var blockLower = block.toLowerCase();
-                  var matchFound = false;
-                  for (var kw = 0; kw < pmhKeywords.length; kw++) {
-                    if (pmhKeywords[kw] && blockLower.indexOf(pmhKeywords[kw].toLowerCase()) !== -1) {
-                      matchFound = true; break;
-                    }
-                  }
-                  if (matchFound) {
-                    matchedBlocks.push(block);
+                var lines = originalText.split(/\r?\n/);
+                var matchedPairs = [];
+                
+                for (var i = 0; i < lines.length; i++) {
+                  var line = lines[i].trim();
+                  // Tìm dòng chứa nội dung phát mã PMH
+                  if (line.indexOf('PMH') !== -1 && (line.indexOf('➜') !== -1 || line.indexOf('->') !== -1 || line.indexOf('=>') !== -1 || line.indexOf('➡') !== -1)) {
+                     // Nếu dòng này là thông báo lỗi của hệ thống thì bỏ qua
+                     if (line.indexOf('❌') !== -1 || line.toLowerCase().indexOf('sai cú pháp') !== -1) {
+                       continue;
+                     }
+                     
+                     var prevLine = (i > 0) ? lines[i-1].trim() : "";
+                     // Nếu prevLine là dòng gạch ngang (separator) hoặc dòng rỗng thì lùi thêm 1 dòng nữa
+                     if ((/^[\-—_─━=]{2,}$/.test(prevLine) || prevLine === "") && i > 1) {
+                         prevLine = lines[i-2].trim();
+                     }
+                     
+                     var combined = (prevLine + " " + line).toLowerCase();
+                     var matchFound = false;
+                     for (var kw = 0; kw < pmhKeywords.length; kw++) {
+                       if (pmhKeywords[kw] && combined.indexOf(pmhKeywords[kw].toLowerCase()) !== -1) {
+                         matchFound = true; break;
+                       }
+                     }
+                     
+                     if (matchFound) {
+                       matchedPairs.push(prevLine + "\n" + line);
+                     }
                   }
                 }
-                if (matchedBlocks.length > 0) {
-                  var replyMsg = "Danh sách mã PMH của bạn là:\n━━━━━━\n" + matchedBlocks.join('\n━━━━━━\n');
+                
+                if (matchedPairs.length > 0) {
+                  var replyMsg = "Danh sách mã PMH của bạn là:\n━━━━━━\n" + matchedPairs.join('\n━━━━━━\n');
                   replyMessages(event.replyToken, [{type: 'text', text: replyMsg}], "Lọc mã PMH tự động");
                   continue; 
                 }
