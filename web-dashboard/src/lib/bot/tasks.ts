@@ -95,13 +95,83 @@ export async function handleGiaoCommand(
 
     const docRef = await adminDb.collection('tasks').add(newTask);
 
+    const shortId = docRef.id.slice(-5);
+    const assigneesText = assignees.length > 0 ? assignees.join(', ') : 'Bạn';
+
+    const flexMessage: line.messagingApi.FlexMessage = {
+      type: 'flex',
+      altText: `Nhiệm vụ mới: ${taskName}`,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#1db446',
+          contents: [
+            { type: 'text', text: '🎯 NHIỆM VỤ MỚI', color: '#ffffff', weight: 'bold', size: 'sm' }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: taskName, weight: 'bold', size: 'lg', wrap: true },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'lg',
+              spacing: 'sm',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'baseline',
+                  spacing: 'sm',
+                  contents: [
+                    { type: 'text', text: 'Người nhận', color: '#aaaaaa', size: 'sm', flex: 3 },
+                    { type: 'text', text: assigneesText, wrap: true, color: '#333333', size: 'sm', flex: 7, weight: 'bold' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'baseline',
+                  spacing: 'sm',
+                  contents: [
+                    { type: 'text', text: 'Mã Việc', color: '#aaaaaa', size: 'sm', flex: 3 },
+                    { type: 'text', text: shortId, wrap: true, color: '#333333', size: 'sm', flex: 7 }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              color: '#1db446',
+              action: { type: 'message', label: '✅ Hoàn thành', text: `/xong ${shortId}` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'message', label: '❌ Huỷ', text: `/huy ${shortId}` }
+            }
+          ]
+        }
+      }
+    };
+
     // Send confirmation
     await client.replyMessage({
       replyToken: event.replyToken as string,
-      messages: [{ 
-        type: 'text', 
-        text: `✅ Đã giao việc thành công!\n📋 Công việc: ${taskName}\n👤 Người nhận: ${assignees.length > 0 ? assignees.join(', ') : 'Bạn'}\n🆔 ID Việc: ${docRef.id.slice(-5)}` 
-      }]
+      messages: [flexMessage]
     });
   }
 }
