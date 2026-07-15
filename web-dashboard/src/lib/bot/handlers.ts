@@ -1,5 +1,6 @@
 import * as line from '@line/bot-sdk';
 import { getReplyFromFirebase } from './keywords';
+import { getPmhKeywords, handlePmhAdminCommand } from './pmh';
 
 // Initialize LINE Client lazily to allow env vars to be loaded
 let lineClient: line.messagingApi.MessagingApiClient | null = null;
@@ -36,9 +37,18 @@ export async function handleLineEvent(event: line.webhook.Event) {
   const source = event.source as any;
   const gId = source.groupId || source.roomId;
 
+  // 0.4 Admin Private Chat cho PMH
+  if (!gId && text.toLowerCase().startsWith('pmh')) {
+    const client = getLineClient();
+    if (client) {
+      await handlePmhAdminCommand(text, event as line.webhook.MessageEvent, client);
+    }
+    return;
+  }
+
   // 0.5 LỌC MÃ PMH TỰ ĐỘNG TRONG NHÓM
   if (gId && text.includes('PMH')) {
-    const pmhKeywords = ['21707', '22094', '21453']; // Có thể cấu hình từ khoá tại đây
+    const pmhKeywords = await getPmhKeywords(); // Lấy từ Firebase thay vì hardcode
     const textLower = text.toLowerCase();
     
     if (pmhKeywords.some(kw => textLower.includes(kw.toLowerCase()))) {
