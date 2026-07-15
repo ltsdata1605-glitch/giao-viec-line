@@ -33,6 +33,51 @@ export async function handleLineEvent(event: line.webhook.Event) {
 
   const message = event.message as line.webhook.TextMessageContent;
   const text = message.text.trim();
+  const source = event.source as any;
+  const gId = source.groupId || source.roomId;
+
+  // 0.5 LỌC MÃ PMH TỰ ĐỘNG TRONG NHÓM
+  if (gId && text.includes('PMH')) {
+    const pmhKeywords = ['21707', '22094', '21453']; // Có thể cấu hình từ khoá tại đây
+    const textLower = text.toLowerCase();
+    
+    if (pmhKeywords.some(kw => textLower.includes(kw.toLowerCase()))) {
+      const lines = text.split(/\r?\n/);
+      const matchedPairs: string[] = [];
+      
+      for (let i = 0; i < lines.length; i++) {
+        const lineStr = lines[i].trim();
+        // Tìm dòng chứa nội dung phát mã PMH
+        if (lineStr.includes('PMH') && (lineStr.includes('➜') || lineStr.includes('->') || lineStr.includes('=>') || lineStr.includes('➡'))) {
+          // Bỏ qua dòng báo lỗi
+          if (lineStr.includes('❌') || lineStr.toLowerCase().includes('sai cú pháp')) continue;
+          
+          let prevLine = (i > 0) ? lines[i-1].trim() : "";
+          // Nếu dòng trên là separator hoặc trống thì lùi thêm 1 dòng
+          if ((/^[\-—_─━=]{2,}$/.test(prevLine) || prevLine === "") && i > 1) {
+            prevLine = lines[i-2].trim();
+          }
+          
+          const combined = (prevLine + " " + lineStr).toLowerCase();
+          if (pmhKeywords.some(kw => combined.includes(kw.toLowerCase()))) {
+            matchedPairs.push(prevLine + "\n" + lineStr);
+          }
+        }
+      }
+      
+      if (matchedPairs.length > 0) {
+        const replyMsg = "Danh sách mã PMH của bạn là:\n━━━━━━\n" + matchedPairs.join('\n━━━━━━\n');
+        const client = getLineClient();
+        if (client && event.replyToken) {
+          await client.replyMessage({
+            replyToken: event.replyToken,
+            messages: [{ type: 'text', text: replyMsg }]
+          });
+        }
+        return; 
+      }
+    }
+  }
 
   // 1. Lệnh Đồng bộ (/dongbo)
   if (['/dongbo', 'đồng bộ'].includes(text.toLowerCase())) {
