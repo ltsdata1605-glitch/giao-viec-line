@@ -611,6 +611,50 @@ function doPost(e) {
             } catch (err) {}
             
             // ==========================================
+            // LỌC MÃ PMH TỰ ĐỘNG
+            // ==========================================
+            if (gId && originalText.indexOf('➜ PMH') !== -1) {
+              var pmhKeywords = ['21707', '22094', '21453']; // Có thể cấu hình từ khoá tại đây
+              var textLower = text;
+              var containsKeyword = false;
+              for (var k = 0; k < pmhKeywords.length; k++) {
+                if (textLower.indexOf(pmhKeywords[k].toLowerCase()) !== -1) {
+                  containsKeyword = true; break;
+                }
+              }
+              if (containsKeyword) {
+                var blocks = originalText.split(/[\-—_─━]{3,}/);
+                var matchedBlocks = [];
+                for (var b = 0; b < blocks.length; b++) {
+                  var block = blocks[b].trim();
+                  if (!block) continue;
+                  if (block.indexOf('Admin đã duyệt phát mã') !== -1 || 
+                      block.indexOf('BOT đã tự động duyệt') !== -1 || 
+                      block.indexOf('Hãy chuyển tiếp tin nhắn này') !== -1 || 
+                      block.indexOf('lọc nhanh PMH') !== -1 ||
+                      block.indexOf('Loại PMH Thiếu Hoặc Sai Cú Pháp') !== -1) {
+                    continue;
+                  }
+                  var blockLower = block.toLowerCase();
+                  var matchFound = false;
+                  for (var kw = 0; kw < pmhKeywords.length; kw++) {
+                    if (pmhKeywords[kw] && blockLower.indexOf(pmhKeywords[kw].toLowerCase()) !== -1) {
+                      matchFound = true; break;
+                    }
+                  }
+                  if (matchFound) {
+                    matchedBlocks.push(block);
+                  }
+                }
+                if (matchedBlocks.length > 0) {
+                  var replyMsg = "Danh sách mã PMH của bạn là:\n━━━━━━\n" + matchedBlocks.join('\n━━━━━━\n');
+                  replyMessages(event.replyToken, [{type: 'text', text: replyMsg}], "Lọc mã PMH tự động");
+                  continue; 
+                }
+              }
+            }
+            
+            // ==========================================
             // KIỂM TRA TỪ KHÓA FIREBASE TRƯỚC
             // ==========================================
             var firebaseReply = getReplyFromFirebase(text); // text đã được trim() và toLowerCase()
