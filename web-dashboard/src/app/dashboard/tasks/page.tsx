@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface Task {
   id: string;
@@ -51,6 +52,51 @@ export default function TasksPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [newUrlInput, setNewUrlInput] = useState('');
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploadingImage(true);
+    try {
+      const imgbbKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
+      if (!imgbbKey) {
+        alert('Vui lòng cấu hình NEXT_PUBLIC_IMGBB_API_KEY trong file .env.local');
+        setUploadingImage(false);
+        return;
+      }
+      
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = error => reject(error);
+      });
+
+      const formData = new FormData();
+      formData.append('image', base64);
+
+      const response = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setForm(prev => ({ ...prev, attachmentUrl: data.data.url }));
+      } else {
+        throw new Error(data.error?.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error("Lỗi upload ảnh:", error);
+      alert("Không thể tải ảnh lên. Vui lòng thử lại.");
+    } finally {
+      setUploadingImage(false);
+      e.target.value = '';
+    }
+  }
 
   const getDefaultDeadline = () => {
     const d = new Date();
@@ -66,9 +112,12 @@ export default function TasksPage() {
     taskType: 'Vận hành',
     quickReminder: 'Gửi ngay',
     acceptanceType: 'Bấm hoàn tất',
-    reminderFrequency: '15 Phút',
+    reminderFrequency: '15',
     attachmentUrl: '',
     notes: '',
+    intervalHours: '1',
+    repeatDays: [],
+    customRepeat: '',
   };
   const [form, setForm] = useState(defaultForm);
 
@@ -169,6 +218,7 @@ export default function TasksPage() {
   function openCreateModal() {
     setEditingId(null);
     setForm(defaultForm);
+    setNewUrlInput('');
     setShowModal(true);
   }
 
@@ -188,10 +238,14 @@ export default function TasksPage() {
       taskType: (task as any).taskType || 'Vận hành',
       quickReminder: (task as any).quickReminder || 'Gửi ngay',
       acceptanceType: (task as any).acceptanceType || 'Bấm hoàn tất',
-      reminderFrequency: (task as any).reminderFrequency || '15 Phút',
+      reminderFrequency: (task as any).reminderFrequency || '15',
       attachmentUrl: (task as any).attachmentUrl || '',
       notes: (task as any).notes || '',
+      intervalHours: (task as any).intervalHours || '1',
+      repeatDays: (task as any).repeatDays || [],
+      customRepeat: (task as any).customRepeat || '',
     });
+    setNewUrlInput('');
     setShowModal(true);
   }
 
@@ -217,6 +271,9 @@ export default function TasksPage() {
         reminderFrequency: form.reminderFrequency,
         attachmentUrl: form.attachmentUrl,
         notes: form.notes,
+        intervalHours: (form as any).intervalHours || '1',
+        repeatDays: (form as any).repeatDays || [],
+        customRepeat: (form as any).customRepeat || '',
         updatedAt: serverTimestamp(),
       };
 
@@ -400,25 +457,9 @@ export default function TasksPage() {
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Tên công việc *</label>
                 <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên sự kiện / công việc" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Người nhận</label>
-                <select 
-                  value={form.assigneeId} 
-                  onChange={(e) => {
-                    const u = usersList.find(x => x.lineUserId === e.target.value);
-                    setForm({ ...form, assigneeId: e.target.value, assigneeName: u ? u.name : '' });
-                  }}
-                  className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
-                >
-                  <option value="">-- Chọn nhân viên --</option>
-                  {usersList.map(u => (
-                    <option key={u.id} value={u.lineUserId}>{u.name}</option>
-                  ))}
-                  {/* Keep legacy option if ID not found */}
-                  {form.assigneeId && !usersList.find(u => u.lineUserId === form.assigneeId) && (
-                    <option value={form.assigneeId}>{form.assigneeName || form.assigneeId}</option>
-                  )}
-                </select>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Mô tả chi tiết</label>
+                <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} placeholder="Nhập ghi chú hoặc mô tả chi tiết..." className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors resize-none" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Nhóm</label>
@@ -441,23 +482,27 @@ export default function TasksPage() {
                   )}
                 </select>
               </div>
-              {editingId && (
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Trạng thái</label>
-                  <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors">
-                    {STATUS_LIST.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-              )}
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Loại công việc</label>
-                <select value={form.taskType} onChange={(e) => setForm({ ...form, taskType: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors">
-                  <option value="Vận hành">Vận hành</option>
-                  <option value="Truyền thông">Truyền thông</option>
-                  <option value="Kế toán">Kế toán</option>
-                  <option value="Nhân sự">Nhân sự</option>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Người nhận</label>
+                <select 
+                  value={form.assigneeId} 
+                  onChange={(e) => {
+                    const u = usersList.find(x => x.lineUserId === e.target.value);
+                    setForm({ ...form, assigneeId: e.target.value, assigneeName: u ? u.name : '' });
+                  }}
+                  className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
+                >
+                  <option value="">-- Chọn nhân viên --</option>
+                  {usersList.map(u => (
+                    <option key={u.id} value={u.lineUserId}>{u.name}</option>
+                  ))}
+                  {/* Keep legacy option if ID not found */}
+                  {form.assigneeId && !usersList.find(u => u.lineUserId === form.assigneeId) && (
+                    <option value={form.assigneeId}>{form.assigneeName || form.assigneeId}</option>
+                  )}
                 </select>
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Mức ưu tiên</label>
                 <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors">
@@ -466,39 +511,159 @@ export default function TasksPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Hạn chót (Deadline)</label>
-                <input type="datetime-local" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
+                <input type="datetime-local" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors [color-scheme:dark]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Thời gian gửi</label>
+                <div className="flex gap-2">
+                  <select 
+                    value={['Gửi ngay', '15 Phút', '30 Phút', '1 Giờ', 'Mai 08:00'].includes(form.quickReminder) ? form.quickReminder : 'Tùy chọn'} 
+                    onChange={(e) => {
+                      if (e.target.value === 'Tùy chọn') {
+                        setForm({ ...form, quickReminder: getDefaultDeadline() });
+                      } else {
+                        setForm({ ...form, quickReminder: e.target.value });
+                      }
+                    }} 
+                    className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
+                  >
+                    <option value="Gửi ngay">Gửi ngay</option>
+                    <option value="15 Phút">15 Phút</option>
+                    <option value="30 Phút">30 Phút</option>
+                    <option value="1 Giờ">1 Giờ</option>
+                    <option value="Mai 08:00">Mai 08:00</option>
+                    <option value="Tùy chọn">Tùy chọn</option>
+                  </select>
+                  {!['Gửi ngay', '15 Phút', '30 Phút', '1 Giờ', 'Mai 08:00'].includes(form.quickReminder) && (
+                    <input 
+                      type="datetime-local" 
+                      value={form.quickReminder} 
+                      onChange={(e) => setForm({ ...form, quickReminder: e.target.value })} 
+                      className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors [color-scheme:dark]" 
+                    />
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Tần suất nhắc (phút)</label>
+                <input type="text" value={form.reminderFrequency} onChange={(e) => setForm({ ...form, reminderFrequency: e.target.value })} placeholder="15" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Lặp lại</label>
-                <select value={form.repeat} onChange={(e) => setForm({ ...form, repeat: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors">
+                <select value={form.repeat} onChange={(e) => setForm({ ...form, repeat: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors mb-3">
                   <option value="Không">Không</option>
+                  <option value="Hàng giờ">Hàng giờ</option>
                   <option value="Hàng ngày">Hàng ngày</option>
                   <option value="Hàng tuần">Hàng tuần</option>
                   <option value="Hàng tháng">Hàng tháng</option>
+                  <option value="Trước ngày cuối tháng 2 ngày">Trước ngày cuối tháng 2 ngày</option>
+                  <option value="Trước ngày đầu tháng 1 ngày">Trước ngày đầu tháng 1 ngày</option>
+                  <option value="Ngày cuối tháng">Ngày cuối tháng</option>
+                  <option value="Tuỳ chọn">Tuỳ chọn</option>
                 </select>
+
+                {form.repeat === 'Hàng giờ' && (
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Lặp lại sau mấy giờ</label>
+                    <input type="number" min="1" value={(form as any).intervalHours || '1'} onChange={(e) => setForm({ ...form, intervalHours: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
+                  </div>
+                )}
+
+                {form.repeat === 'Hàng ngày' && (
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Chọn các ngày trong tuần</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(day => (
+                        <label key={day} className="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-text-primary)] bg-[var(--color-bg-primary)] border border-[var(--color-border)] px-3 py-1.5 rounded-lg hover:border-[var(--color-text-muted)] transition-colors">
+                          <input 
+                            type="checkbox" 
+                            checked={((form as any).repeatDays || []).includes(day)}
+                            onChange={(e) => {
+                              const currentDays = (form as any).repeatDays || [];
+                              if (e.target.checked) {
+                                setForm({ ...form, repeatDays: [...currentDays, day] });
+                              } else {
+                                setForm({ ...form, repeatDays: currentDays.filter((d: string) => d !== day) });
+                              }
+                            }}
+                            className="w-4 h-4 text-indigo-600 rounded bg-[var(--color-bg-primary)] border-[var(--color-border)] focus:ring-indigo-500 focus:ring-offset-gray-900"
+                          />
+                          {day}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {form.repeat === 'Tuỳ chọn' && (
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Chu kỳ tuỳ chọn</label>
+                    <input type="text" value={(form as any).customRepeat || ''} onChange={(e) => setForm({ ...form, customRepeat: e.target.value })} placeholder="VD: Mỗi 3 ngày" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Nghiệm thu</label>
                 <select value={form.acceptanceType} onChange={(e) => setForm({ ...form, acceptanceType: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors">
                   <option value="Bấm hoàn tất">Bấm hoàn tất</option>
                   <option value="Gửi ảnh chụp">Gửi ảnh chụp</option>
+                  <option value="Không cần">Không cần</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Thời gian nhắc (VD: Gửi ngay, 15p, Mai 08:00)</label>
-                <input type="text" value={form.quickReminder} onChange={(e) => setForm({ ...form, quickReminder: e.target.value })} placeholder="Gửi ngay" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Tần suất nhắc (Phút, Giờ)</label>
-                <input type="text" value={form.reminderFrequency} onChange={(e) => setForm({ ...form, reminderFrequency: e.target.value })} placeholder="15 Phút" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Link ảnh đính kèm (Tuỳ chọn)</label>
-                <input type="text" value={form.attachmentUrl} onChange={(e) => setForm({ ...form, attachmentUrl: e.target.value })} placeholder="https://example.com/image.jpg" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
-              </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Mô tả chi tiết</label>
-                <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} placeholder="Nhập ghi chú hoặc mô tả chi tiết..." className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors resize-none" />
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Ảnh đính kèm (Tuỳ chọn)</label>
+                
+                {form.attachmentUrl && (
+                  <div className="relative group rounded-xl overflow-hidden border border-[var(--color-border)] mb-3 w-48">
+                    <img src={form.attachmentUrl} alt="Preview" className="w-full h-32 object-cover" />
+                    <button
+                      onClick={() => setForm({...form, attachmentUrl: ''})}
+                      className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                )}
+
+                {!form.attachmentUrl && (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={newUrlInput}
+                        onChange={(e) => setNewUrlInput(e.target.value)}
+                        placeholder="Nhập link ảnh (https://...)"
+                        className="flex-1 px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setForm({...form, attachmentUrl: newUrlInput.trim()}); setNewUrlInput(''); } }}
+                      />
+                      <button
+                        onClick={() => { setForm({...form, attachmentUrl: newUrlInput.trim()}); setNewUrlInput(''); }}
+                        disabled={!newUrlInput.trim()}
+                        className="px-4 py-2.5 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] disabled:opacity-50"
+                      >
+                        Thêm
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className={`cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-[var(--color-bg-card)] border border-[var(--color-border)] hover:border-[var(--color-text-muted)] rounded-xl text-xs font-medium text-[var(--color-text-secondary)] transition-colors ${uploadingImage ? 'opacity-50 pointer-events-none' : ''}`}>
+                        {uploadingImage ? (
+                          <>
+                            <div className="w-3 h-3 border-2 border-[var(--color-text-secondary)] border-t-transparent rounded-full animate-spin" />
+                            Đang tải lên...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            Tải ảnh từ máy tính
+                          </>
+                        )}
+                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploadingImage} />
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
