@@ -116,7 +116,7 @@ export default function TasksPage() {
     attachmentUrl: '',
     notes: '',
     intervalHours: '1',
-    repeatDays: [],
+    repeatDays: [] as string[],
     customRepeat: '',
   };
   const [form, setForm] = useState(defaultForm);
