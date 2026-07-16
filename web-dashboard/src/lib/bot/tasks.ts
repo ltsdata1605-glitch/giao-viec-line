@@ -202,13 +202,13 @@ export async function handleGiaoCommand(
               style: 'primary',
               height: 'sm',
               color: '#1db446',
-              action: { type: 'message', label: '✅ Hoàn tất', text: `/xong ${shortId}` }
+              action: { type: 'postback', label: '✅ Hoàn tất', data: `action=xong&taskId=${shortId}` }
             },
             {
               type: 'button',
               style: 'secondary',
               height: 'sm',
-              action: { type: 'message', label: 'Nhận việc', text: `/nhan ${shortId}` }
+              action: { type: 'postback', label: 'Nhận việc', data: `action=nhan&taskId=${shortId}` }
             }
           ]
         }
@@ -303,29 +303,72 @@ export async function handleTaskUpdateCommand(
 
   await doc.ref.update({ status: newStatus, updatedAt: FieldValue.serverTimestamp() });
   
+  const taskData = doc.data();
+  const creatorId = taskData.creatorId || 'unknown';
+  const clickerId = (event.source as any)?.userId || '';
+
   if (command === '/nhan') {
-    const taskData = doc.data();
-    const creatorId = taskData.creatorId;
-    if (creatorId) {
-      let assignerName = 'Bạn';
-      const uSnap = await adminDb.collection('users').where('lineUserId', '==', (event.source as any)?.userId || '').limit(1).get();
-      if (!uSnap.empty) assignerName = uSnap.docs[0].data().name;
+    const mentionees = [];
+    let textStr = '';
+    let cIdx = 0;
 
-      const mentionText = `@creator `;
-      const textMessage: any = {
-        type: 'text',
-        text: `${mentionText}${assignerName} đã nhận thông tin!`,
-        mention: {
-          mentionees: [{ index: 0, length: 8, userId: creatorId }]
-        }
-      };
-
-      await client.replyMessage({
-        replyToken: event.replyToken as string,
-        messages: [textMessage]
-      });
-      return;
+    if (creatorId !== 'unknown') {
+      textStr += '@creator ';
+      mentionees.push({ index: cIdx, length: 8, userId: creatorId });
+      cIdx += 9;
     }
+
+    if (clickerId) {
+      textStr += '@assignee ';
+      mentionees.push({ index: cIdx, length: 9, userId: clickerId });
+      cIdx += 10;
+    }
+
+    textStr += `đã nhận thông tin!`;
+
+    const textMessage: any = {
+      type: 'text',
+      text: textStr,
+      mention: mentionees.length > 0 ? { mentionees } : undefined
+    };
+
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [textMessage]
+    });
+    return;
+  }
+
+  if (command === '/xong') {
+    const mentionees = [];
+    let textStr = `✅ Công việc "${taskData.name}" đã được hoàn tất bởi `;
+    let cIdx = textStr.length;
+
+    if (clickerId) {
+      textStr += '@assignee ';
+      mentionees.push({ index: cIdx, length: 9, userId: clickerId });
+      cIdx += 10;
+    }
+    
+    if (creatorId !== 'unknown') {
+      textStr += 'và ';
+      cIdx += 3;
+      textStr += '@creator ';
+      mentionees.push({ index: cIdx, length: 8, userId: creatorId });
+      cIdx += 9;
+    }
+
+    const textMessage: any = {
+      type: 'text',
+      text: textStr.trim(),
+      mention: mentionees.length > 0 ? { mentionees } : undefined
+    };
+
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [textMessage]
+    });
+    return;
   }
 
   await client.replyMessage({

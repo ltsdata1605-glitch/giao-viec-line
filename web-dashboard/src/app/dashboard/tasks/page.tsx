@@ -115,6 +115,7 @@ export default function TasksPage() {
     quickReminder: 'Gửi ngay',
     acceptanceType: 'Bấm hoàn tất',
     reminderFrequency: '15',
+    creatorId: 'U5bff120f01066eefca60fd0c8ea3537c', // Mặc định là Admin
     attachmentUrl: '',
     notes: '',
     intervalHours: '1',
@@ -243,6 +244,7 @@ export default function TasksPage() {
       quickReminder: (task as any).quickReminder || 'Gửi ngay',
       acceptanceType: (task as any).acceptanceType || 'Bấm hoàn tất',
       reminderFrequency: (task as any).reminderFrequency || '15',
+      creatorId: (task as any).creatorId || 'U5bff120f01066eefca60fd0c8ea3537c',
       attachmentUrl: (task as any).attachmentUrl || '',
       notes: (task as any).notes || '',
       intervalHours: (task as any).intervalHours || '1',
@@ -294,7 +296,7 @@ export default function TasksPage() {
         repeatDays: (form as any).repeatDays || [],
         customRepeat: (form as any).customRepeat || '',
         sendAt,
-        creatorId: 'U5bff120f01066eefca60fd0c8ea3537c', // Admin ID
+        creatorId: form.creatorId || 'U5bff120f01066eefca60fd0c8ea3537c',
         updatedAt: serverTimestamp(),
       };
 
@@ -320,7 +322,7 @@ export default function TasksPage() {
               groupIds: form.groupIds,
               taskName: form.name.trim(),
               taskDescription: form.description.trim(),
-              creatorId: 'U5bff120f01066eefca60fd0c8ea3537c' // Admin ID
+              creatorId: form.creatorId || 'U5bff120f01066eefca60fd0c8ea3537c'
             })
           });
           // Update status to "Đang làm" after sending
@@ -600,6 +602,20 @@ export default function TasksPage() {
                     </label>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Người giao việc</label>
+                <select 
+                  value={(form as any).creatorId || 'U5bff120f01066eefca60fd0c8ea3537c'} 
+                  onChange={(e) => setForm({ ...form, creatorId: e.target.value })} 
+                  className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
+                >
+                  <option value="U5bff120f01066eefca60fd0c8ea3537c">Admin (BOT)</option>
+                  {usersList.map(u => (
+                    <option key={u.id} value={u.lineUserId}>{u.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

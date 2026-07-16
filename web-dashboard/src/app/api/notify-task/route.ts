@@ -39,7 +39,15 @@ export async function POST(request: Request) {
       if (taskSnap.exists) {
         const taskData = taskSnap.data();
         assigneeNameStr = taskData?.assigneeName || '';
-        deadlineStr = taskData?.deadline || '';
+        if (taskData?.deadline) {
+          const d = new Date(taskData.deadline);
+          if (!isNaN(d.getTime())) {
+            const pad = (n: number) => n.toString().padStart(2, '0');
+            deadlineStr = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+          } else {
+            deadlineStr = taskData.deadline;
+          }
+        }
         acceptanceTypeStr = taskData?.acceptanceType || '';
       }
     }
@@ -152,13 +160,13 @@ export async function POST(request: Request) {
               style: 'primary',
               height: 'sm',
               color: '#1db446',
-              action: { type: 'message', label: '✅ Hoàn tất', text: `/xong ${shortId}` }
+              action: { type: 'postback', label: '✅ Hoàn tất', data: `action=xong&taskId=${shortId}` }
             },
             {
               type: 'button',
               style: 'secondary',
               height: 'sm',
-              action: { type: 'message', label: 'Nhận việc', text: `/nhan ${shortId}` }
+              action: { type: 'postback', label: 'Nhận việc', data: `action=nhan&taskId=${shortId}` }
             }
           ]
         }

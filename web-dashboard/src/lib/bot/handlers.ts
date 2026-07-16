@@ -27,6 +27,24 @@ export async function handleLineEvent(event: line.webhook.Event) {
     }
   }
 
+  if (event.type === 'postback') {
+    const data = event.postback.data;
+    if (data.startsWith('action=')) {
+      const params = new URLSearchParams(data);
+      const action = params.get('action');
+      const taskId = params.get('taskId');
+      if (action && taskId) {
+        const text = `/${action} ${taskId}`;
+        const { handleTaskUpdateCommand } = await import('./tasks');
+        const client = getLineClient();
+        if (client) {
+          await handleTaskUpdateCommand(text, event as any, client);
+        }
+      }
+    }
+    return;
+  }
+
   if (event.type !== 'message' || event.message.type !== 'text') {
     // Currently only handle text messages for commands
     return;
