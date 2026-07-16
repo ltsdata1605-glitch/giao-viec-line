@@ -80,7 +80,7 @@ export async function GET(request: Request) {
         keywordBatch.update(doc.ref, { scheduleEnabled: false });
       } else {
         // Calculate next sendAt
-        let nextSendAt = data.sendAt || now;
+        const nextSendAt = data.sendAt || now;
         const sendDate = new Date(nextSendAt);
         
         if (repeat === 'Hằng ngày') {

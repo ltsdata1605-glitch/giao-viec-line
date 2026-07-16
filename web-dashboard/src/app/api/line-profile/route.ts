@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import * as line from '@line/bot-sdk';
-import { adminDb } from '@/lib/firebase-admin';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

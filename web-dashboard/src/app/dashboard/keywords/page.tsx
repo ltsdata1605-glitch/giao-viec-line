@@ -127,10 +127,6 @@ export default function KeywordsPage() {
     }));
   }
 
-  useEffect(() => {
-    loadKeywords();
-  }, []);
-
   async function loadKeywords() {
     try {
       const snap = await getDocs(collection(db, 'keywords'));
@@ -163,8 +159,7 @@ export default function KeywordsPage() {
   }
 
   useEffect(() => {
-    loadKeywords();
-    loadUsersAndGroups();
+    Promise.all([loadKeywords(), loadUsersAndGroups()]);
   }, []);
 
   function openCreateModal() {

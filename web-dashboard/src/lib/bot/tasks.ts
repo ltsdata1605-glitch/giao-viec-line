@@ -17,6 +17,160 @@ export interface Task {
 }
 
 /**
+ * Tra cứu tên hiển thị của user theo LINE ID, mặc định trả về 'Admin' nếu không có.
+ */
+export async function getUserDisplayName(userId?: string): Promise<string> {
+  if (!adminDb || !userId || userId === 'unknown') return 'Admin';
+  const snap = await adminDb.collection('users').where('lineUserId', '==', userId).limit(1).get();
+  if (!snap.empty) {
+    return snap.docs[0].data().name;
+  }
+  return 'Admin';
+}
+
+/**
+ * Dựng tin nhắn mention danh sách người nhận việc (dùng chung cho lệnh /giao và API notify-task).
+ * Trả về null nếu không có ai được mention hợp lệ (ID bắt đầu bằng 'U').
+ */
+export function buildAssigneeMentionMessage(assignees: string[]): line.messagingApi.TextMessage | null {
+  let mentionText = '';
+  const mentionees: { index: number; length: number; userId: string }[] = [];
+  let currentIndex = 0;
+
+  for (let i = 0; i < assignees.length; i++) {
+    const uId = assignees[i];
+    if (!uId.startsWith('U')) continue; // valid LINE ID check
+    const placeholder = `@user${i} `;
+    mentionText += placeholder;
+    mentionees.push({
+      index: currentIndex,
+      length: placeholder.length - 1,
+      userId: uId
+    });
+    currentIndex += placeholder.length;
+  }
+
+  if (mentionees.length === 0) return null;
+
+  return {
+    type: 'text',
+    text: `${mentionText}Vui lòng đọc kỹ nội dung, thời gian hoàn tất và hình thức báo cáo!`,
+    mention: { mentionees }
+  } as line.messagingApi.TextMessage;
+}
+
+/**
+ * Dựng Flex Message thẻ công việc (dùng chung cho lệnh /giao và API notify-task).
+ */
+export function buildTaskFlexMessage(params: {
+  taskName: string;
+  shortId: string;
+  creatorName: string;
+  assigneeText: string;
+  deadlineText?: string;
+  acceptanceText?: string;
+  description?: string;
+}): line.messagingApi.FlexMessage {
+  const { taskName, shortId, creatorName, assigneeText, deadlineText, acceptanceText, description } = params;
+
+  const bodyContents: any[] = [
+    { type: 'text', text: '🎯 CÔNG VIỆC SIÊU THỊ', color: '#1db446', weight: 'bold', size: 'xl' },
+    { type: 'separator', margin: 'lg' },
+    { type: 'text', text: taskName, weight: 'bold', size: 'md', wrap: true, margin: 'lg' }
+  ];
+
+  if (description) {
+    bodyContents.push({
+      type: 'text',
+      text: description,
+      color: '#666666',
+      size: 'sm',
+      wrap: true,
+      margin: 'md'
+    });
+  }
+
+  bodyContents.push({
+    type: 'box',
+    layout: 'vertical',
+    margin: 'lg',
+    spacing: 'sm',
+    contents: [
+      {
+        type: 'box',
+        layout: 'baseline',
+        spacing: 'sm',
+        contents: [
+          { type: 'text', text: 'Người giao', color: '#aaaaaa', size: 'sm', flex: 3 },
+          { type: 'text', text: creatorName, wrap: true, color: '#333333', size: 'sm', flex: 7, weight: 'bold' }
+        ]
+      },
+      {
+        type: 'box',
+        layout: 'baseline',
+        spacing: 'sm',
+        contents: [
+          { type: 'text', text: 'Người nhận', color: '#aaaaaa', size: 'sm', flex: 3 },
+          { type: 'text', text: assigneeText, wrap: true, color: '#333333', size: 'sm', flex: 7, weight: 'bold' }
+        ]
+      },
+      {
+        type: 'box',
+        layout: 'baseline',
+        spacing: 'sm',
+        contents: [
+          { type: 'text', text: 'Deadline', color: '#aaaaaa', size: 'sm', flex: 3 },
+          { type: 'text', text: deadlineText || 'Không có', wrap: true, color: '#ff4d4f', size: 'sm', flex: 7, weight: 'bold' }
+        ]
+      },
+      {
+        type: 'box',
+        layout: 'baseline',
+        spacing: 'sm',
+        contents: [
+          { type: 'text', text: 'Nghiệm thu', color: '#aaaaaa', size: 'sm', flex: 3 },
+          { type: 'text', text: acceptanceText || 'Bấm hoàn tất', wrap: true, color: '#1db446', size: 'sm', flex: 7, weight: 'bold' }
+        ]
+      }
+    ]
+  });
+
+  return {
+    type: 'flex',
+    altText: `Nhiệm vụ mới: ${taskName}`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: bodyContents
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            height: 'sm',
+            color: '#1db446',
+            action: { type: 'postback', label: '✅ Hoàn tất', data: `action=xong&taskId=${shortId}` }
+          },
+          {
+            type: 'button',
+            style: 'secondary',
+            height: 'sm',
+            action: { type: 'postback', label: 'Nhận việc', data: `action=nhan&taskId=${shortId}` }
+          }
+        ]
+      }
+    }
+  };
+}
+
+/**
  * Handle "/giao" command
  * Syntax: /giao [Task Name] @[User] [Deadline]
  */
@@ -28,7 +182,7 @@ export async function handleGiaoCommand(
   // Extract task details from text
   const parts = text.split('\n');
   const firstLine = parts[0];
-  let taskName = firstLine.replace('/giao', '').trim();
+  const taskName = firstLine.replace('/giao', '').trim();
   
   if (!taskName) {
     const liffUrl = process.env.NEXT_PUBLIC_LIFF_URL || `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`;
@@ -99,123 +253,18 @@ export async function handleGiaoCommand(
 
     const shortId = docRef.id.slice(-5);
     const assigneesText = assignees.length > 0 ? assignees.join(', ') : 'Bạn';
-
-    let creatorName = 'Admin';
     const creatorId = source?.userId || 'unknown';
-    if (adminDb && creatorId !== 'unknown') {
-      const snap = await adminDb.collection('users').where('lineUserId', '==', creatorId).limit(1).get();
-      if (!snap.empty) {
-        creatorName = snap.docs[0].data().name;
-      }
-    }
+    const creatorName = await getUserDisplayName(creatorId);
 
-    let mentionText = '';
-    const mentioneesArr: any[] = [];
-    let currentIndex = 0;
+    const mentionMessage = buildAssigneeMentionMessage(assignees);
+    const flexMessage = buildTaskFlexMessage({
+      taskName,
+      shortId,
+      creatorName,
+      assigneeText: assigneesText
+    });
 
-    for (let i = 0; i < assignees.length; i++) {
-      const uId = assignees[i];
-      if (uId.startsWith('U')) { // valid LINE ID check
-        const placeholder = `@user${i} `;
-        mentionText += placeholder;
-        mentioneesArr.push({
-          index: currentIndex,
-          length: placeholder.length - 1,
-          userId: uId
-        });
-        currentIndex += placeholder.length;
-      }
-    }
-
-    const textMessage: any = {
-      type: 'text',
-      text: `${mentionText}Vui lòng đọc kỹ nội dung, thời gian hoàn tất và hình thức báo cáo!`,
-      mention: mentioneesArr.length > 0 ? { mentionees: mentioneesArr } : undefined
-    };
-
-    const flexMessage: line.messagingApi.FlexMessage = {
-      type: 'flex',
-      altText: `Nhiệm vụ mới: ${taskName}`,
-      contents: {
-        type: 'bubble',
-        size: 'mega',
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            { type: 'text', text: '🎯 CÔNG VIỆC SIÊU THỊ', color: '#1db446', weight: 'bold', size: 'xl' },
-            { type: 'separator', margin: 'lg' },
-            { type: 'text', text: taskName, weight: 'bold', size: 'md', wrap: true, margin: 'lg' },
-            {
-              type: 'box',
-              layout: 'vertical',
-              margin: 'lg',
-              spacing: 'sm',
-              contents: [
-                {
-                  type: 'box',
-                  layout: 'baseline',
-                  spacing: 'sm',
-                  contents: [
-                    { type: 'text', text: 'Người giao', color: '#aaaaaa', size: 'sm', flex: 3 },
-                    { type: 'text', text: creatorName, wrap: true, color: '#333333', size: 'sm', flex: 7, weight: 'bold' }
-                  ]
-                },
-                {
-                  type: 'box',
-                  layout: 'baseline',
-                  spacing: 'sm',
-                  contents: [
-                    { type: 'text', text: 'Người nhận', color: '#aaaaaa', size: 'sm', flex: 3 },
-                    { type: 'text', text: assigneesText, wrap: true, color: '#333333', size: 'sm', flex: 7, weight: 'bold' }
-                  ]
-                },
-                {
-                  type: 'box',
-                  layout: 'baseline',
-                  spacing: 'sm',
-                  contents: [
-                    { type: 'text', text: 'Deadline', color: '#aaaaaa', size: 'sm', flex: 3 },
-                    { type: 'text', text: 'Không có', wrap: true, color: '#ff4d4f', size: 'sm', flex: 7, weight: 'bold' }
-                  ]
-                },
-                {
-                  type: 'box',
-                  layout: 'baseline',
-                  spacing: 'sm',
-                  contents: [
-                    { type: 'text', text: 'Nghiệm thu', color: '#aaaaaa', size: 'sm', flex: 3 },
-                    { type: 'text', text: 'Bấm hoàn tất', wrap: true, color: '#1db446', size: 'sm', flex: 7, weight: 'bold' }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        footer: {
-          type: 'box',
-          layout: 'horizontal',
-          spacing: 'sm',
-          contents: [
-            {
-              type: 'button',
-              style: 'primary',
-              height: 'sm',
-              color: '#1db446',
-              action: { type: 'postback', label: '✅ Hoàn tất', data: `action=xong&taskId=${shortId}` }
-            },
-            {
-              type: 'button',
-              style: 'secondary',
-              height: 'sm',
-              action: { type: 'postback', label: 'Nhận việc', data: `action=nhan&taskId=${shortId}` }
-            }
-          ]
-        }
-      }
-    };
-
-    const messagesToSend = mentioneesArr.length > 0 ? [textMessage, flexMessage] : [flexMessage];
+    const messagesToSend = mentionMessage ? [mentionMessage, flexMessage] : [flexMessage];
 
     // Send confirmation
     await client.replyMessage({

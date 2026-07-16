@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface Task {
   id: string;
@@ -190,7 +189,7 @@ export default function TasksPage() {
       const snap = await getDocs(collection(db, 'tasks'));
       const data = snap.docs.map((d) => {
         const raw = d.data();
-        let name = raw.assigneeName || '';
+        const name = raw.assigneeName || '';
         let aId = raw.assigneeId || '';
         if (raw.assignees && Array.isArray(raw.assignees) && raw.assignees.length > 0) {
           aId = raw.assignees[0];
@@ -544,7 +543,7 @@ export default function TasksPage() {
                         type="checkbox" 
                         className="rounded border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]"
                         checked={true}
-                        onChange={(e) => {
+                        onChange={() => {
                           setForm({ ...form, groupIds: form.groupIds.filter(x => x !== id) });
                         }}
                       />
@@ -557,7 +556,7 @@ export default function TasksPage() {
                         type="checkbox" 
                         className="rounded border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]"
                         checked={true}
-                        onChange={(e) => {
+                        onChange={() => {
                           setForm({ ...form, groupId: '' });
                         }}
                       />
@@ -594,7 +593,7 @@ export default function TasksPage() {
                         type="checkbox" 
                         className="rounded border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]"
                         checked={true}
-                        onChange={(e) => {
+                        onChange={() => {
                           setForm({ ...form, assignees: form.assignees.filter(x => x !== id) });
                         }}
                       />

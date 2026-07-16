@@ -60,7 +60,6 @@ export async function handlePmhAdminCommand(text: string, event: line.webhook.Me
 
   // 2. Phân tích lệnh
   const args = text.split(/\s+/);
-  const command = args[0].toLowerCase(); // 'pmh'
   const action = args[1] ? args[1].toLowerCase() : '';
   const keyword = args.slice(2).join(' ').trim();
 

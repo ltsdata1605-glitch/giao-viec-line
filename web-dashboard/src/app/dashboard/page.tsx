@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, where, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
 
 interface StatCard {
   label: string;
@@ -23,10 +23,6 @@ export default function DashboardPage() {
     deadline: string;
   }>>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
 
   async function loadDashboardData() {
     try {
@@ -133,6 +129,10 @@ export default function DashboardPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
 
   const statusColor: Record<string, string> = {
     'Chờ gửi': 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',

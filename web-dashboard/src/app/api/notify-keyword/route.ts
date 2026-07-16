@@ -3,7 +3,7 @@ import * as line from '@line/bot-sdk';
 
 export async function POST(request: Request) {
   try {
-    const { keywordId, keyword, reply_text, image_urls, assignees, groupId, groupIds } = await request.json();
+    const { reply_text, image_urls, assignees, groupId, groupIds } = await request.json();
     
     let targetAssignees: string[] = [];
     if (assignees && Array.isArray(assignees) && assignees.length > 0) {
