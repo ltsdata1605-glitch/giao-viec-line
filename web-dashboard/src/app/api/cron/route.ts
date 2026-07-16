@@ -68,11 +68,50 @@ export async function GET(request: Request) {
     const keywordsToNotify: any[] = [];
     const keywordBatch = adminDb.batch();
 
+    const dayMap: Record<string, number> = { 'CN': 0, 'T2': 1, 'T3': 2, 'T4': 3, 'T5': 4, 'T6': 5, 'T7': 6 };
+
     for (const doc of pendingKeywordsSnap.docs) {
       const data = doc.data();
       keywordsToNotify.push({ id: doc.id, ...data });
-      // Disable schedule so it doesn't fire again immediately
-      keywordBatch.update(doc.ref, { scheduleEnabled: false });
+      
+      const repeat = data.repeat || 'Không';
+      if (repeat === 'Không') {
+        keywordBatch.update(doc.ref, { scheduleEnabled: false });
+      } else {
+        // Calculate next sendAt
+        let nextSendAt = data.sendAt || now;
+        const sendDate = new Date(nextSendAt);
+        
+        if (repeat === 'Hằng ngày') {
+          do {
+            sendDate.setDate(sendDate.getDate() + 1);
+          } while (sendDate.getTime() <= now);
+          keywordBatch.update(doc.ref, { sendAt: sendDate.getTime() });
+        } else if (repeat === 'Hằng tháng') {
+          do {
+            sendDate.setMonth(sendDate.getMonth() + 1);
+          } while (sendDate.getTime() <= now);
+          keywordBatch.update(doc.ref, { sendAt: sendDate.getTime() });
+        } else if (repeat === 'Hằng tuần') {
+          const repeatDays = data.repeatDays || [];
+          if (repeatDays.length > 0) {
+            do {
+              sendDate.setDate(sendDate.getDate() + 1);
+              const dayStr = Object.keys(dayMap).find(k => dayMap[k] === sendDate.getDay());
+              if (dayStr && repeatDays.includes(dayStr) && sendDate.getTime() > now) {
+                break;
+              }
+            } while (true);
+            keywordBatch.update(doc.ref, { sendAt: sendDate.getTime() });
+          } else {
+            // Fallback if no days selected: just add 7 days
+            do {
+              sendDate.setDate(sendDate.getDate() + 7);
+            } while (sendDate.getTime() <= now);
+            keywordBatch.update(doc.ref, { sendAt: sendDate.getTime() });
+          }
+        }
+      }
     }
 
     await keywordBatch.commit();
@@ -85,7 +124,7 @@ export async function GET(request: Request) {
           reply_text: kw.reply_text || '',
           image_urls: kw.image_urls || (kw.image_url ? [kw.image_url] : []),
           assignees: kw.assignees || [],
-          groupId: kw.groupId || ''
+          groupIds: kw.groupIds || (kw.groupId ? [kw.groupId] : []),
         };
         
         const host = request.headers.get('host');

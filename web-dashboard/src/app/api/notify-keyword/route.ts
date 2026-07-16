@@ -3,14 +3,21 @@ import * as line from '@line/bot-sdk';
 
 export async function POST(request: Request) {
   try {
-    const { keywordId, keyword, reply_text, image_urls, assignees, groupId } = await request.json();
+    const { keywordId, keyword, reply_text, image_urls, assignees, groupId, groupIds } = await request.json();
     
     let targetAssignees: string[] = [];
     if (assignees && Array.isArray(assignees) && assignees.length > 0) {
       targetAssignees = assignees;
     }
 
-    if (!groupId && targetAssignees.length === 0) {
+    let targetGroupIds: string[] = [];
+    if (groupIds && Array.isArray(groupIds) && groupIds.length > 0) {
+      targetGroupIds = groupIds;
+    } else if (groupId) {
+      targetGroupIds = [groupId];
+    }
+
+    if (targetGroupIds.length === 0 && targetAssignees.length === 0) {
       return NextResponse.json({ error: 'Missing target' }, { status: 400 });
     }
 
@@ -45,12 +52,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No content to send' }, { status: 400 });
     }
 
-    if (groupId) {
-      // Send to Group
-      await client.pushMessage({
-        to: groupId,
-        messages
-      });
+    if (targetGroupIds.length > 0) {
+      // Send to all Groups
+      for (const gId of targetGroupIds) {
+        await client.pushMessage({
+          to: gId,
+          messages
+        });
+      }
     } else {
       // Multicast to multiple users, or single push if only 1
       if (targetAssignees.length === 1) {

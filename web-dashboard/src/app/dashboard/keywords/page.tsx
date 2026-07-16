@@ -12,10 +12,13 @@ interface Keyword {
   image_urls?: string[];
   createdAt?: Date;
   assignees?: string[];
-  groupId?: string;
+  groupId?: string; // legacy support
+  groupIds?: string[];
   scheduleEnabled?: boolean;
   quickReminder?: string;
   sendAt?: number;
+  repeat?: string;
+  repeatDays?: string[];
 }
 
 interface UserData {
@@ -42,9 +45,11 @@ export default function KeywordsPage() {
     reply_text: '', 
     image_urls: [] as string[],
     scheduleEnabled: false,
-    groupId: '',
+    groupIds: [] as string[],
     assignees: [] as string[],
-    quickReminder: 'Gửi ngay'
+    quickReminder: 'Gửi ngay',
+    repeat: 'Không',
+    repeatDays: [] as string[]
   });
   const [newUrlInput, setNewUrlInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -169,9 +174,11 @@ export default function KeywordsPage() {
       reply_text: '', 
       image_urls: [],
       scheduleEnabled: false,
-      groupId: '',
+      groupIds: [],
       assignees: [],
-      quickReminder: 'Gửi ngay'
+      quickReminder: 'Gửi ngay',
+      repeat: 'Không',
+      repeatDays: []
     });
     setNewUrlInput('');
     setShowModal(true);
@@ -190,9 +197,11 @@ export default function KeywordsPage() {
       reply_text: kw.reply_text, 
       image_urls: urls,
       scheduleEnabled: kw.scheduleEnabled || false,
-      groupId: kw.groupId || '',
+      groupIds: kw.groupIds || (kw.groupId ? [kw.groupId] : []),
       assignees: kw.assignees || [],
-      quickReminder: kw.quickReminder || 'Gửi ngay'
+      quickReminder: kw.quickReminder || 'Gửi ngay',
+      repeat: kw.repeat || 'Không',
+      repeatDays: kw.repeatDays || []
     });
     setNewUrlInput('');
     setShowModal(true);
@@ -225,10 +234,12 @@ export default function KeywordsPage() {
         image_urls: form.image_urls,
         image_url: form.image_urls.length > 0 ? form.image_urls[0] : '', // for legacy compatibility
         scheduleEnabled: form.scheduleEnabled,
-        groupId: form.groupId,
+        groupIds: form.groupIds,
         assignees: form.assignees,
         quickReminder: form.quickReminder,
         sendAt,
+        repeat: form.repeat,
+        repeatDays: form.repeatDays,
         updatedAt: serverTimestamp(),
       };
 
@@ -491,13 +502,28 @@ export default function KeywordsPage() {
             {form.scheduleEnabled && (
               <div className="space-y-4 pt-4 mt-2">
                 <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Gửi vào Nhóm</label>
-                  <select value={form.groupId} onChange={(e) => setForm({ ...form, groupId: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors">
-                    <option value="">-- Không gửi vào nhóm --</option>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Gửi vào Nhóm (Có thể chọn nhiều)</label>
+                  <div className="w-full max-h-40 overflow-y-auto px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus-within:border-[var(--color-border-active)] transition-colors">
                     {groupsList.map(g => (
-                      <option key={g.id} value={g.lineGroupId}>{g.name}</option>
+                      <label key={g.id} className="flex items-center space-x-2 py-1 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]"
+                          checked={form.groupIds.includes(g.lineGroupId)}
+                          onChange={(e) => {
+                            let newGroupIds = [...form.groupIds];
+                            if (e.target.checked) {
+                              newGroupIds.push(g.lineGroupId);
+                            } else {
+                              newGroupIds = newGroupIds.filter(id => id !== g.lineGroupId);
+                            }
+                            setForm({ ...form, groupIds: newGroupIds });
+                          }}
+                        />
+                        <span>{g.name}</span>
+                      </label>
                     ))}
-                  </select>
+                  </div>
                 </div>
 
                 <div>
@@ -555,6 +581,46 @@ export default function KeywordsPage() {
                       />
                     )}
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Lặp lại lịch gửi</label>
+                  <select 
+                    value={form.repeat} 
+                    onChange={(e) => setForm({ ...form, repeat: e.target.value })} 
+                    className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors mb-3"
+                  >
+                    <option value="Không">Không lặp lại</option>
+                    <option value="Hằng ngày">Hằng ngày</option>
+                    <option value="Hằng tuần">Hằng tuần</option>
+                    <option value="Hằng tháng">Hằng tháng</option>
+                  </select>
+                  
+                  {form.repeat === 'Hằng tuần' && (
+                    <div className="mt-3">
+                      <label className="block text-sm text-[var(--color-text-secondary)] mb-2">Chọn thứ</label>
+                      <div className="flex flex-wrap gap-2">
+                        {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day) => (
+                          <label key={day} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg cursor-pointer hover:border-indigo-500 transition-colors">
+                            <input 
+                              type="checkbox" 
+                              className="rounded border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]"
+                              checked={form.repeatDays.includes(day)}
+                              onChange={(e) => {
+                                const currentDays = form.repeatDays;
+                                if (e.target.checked) {
+                                  setForm({ ...form, repeatDays: [...currentDays, day] });
+                                } else {
+                                  setForm({ ...form, repeatDays: currentDays.filter(d => d !== day) });
+                                }
+                              }}
+                            />
+                            <span className="text-sm font-medium text-[var(--color-text-primary)]">{day}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
