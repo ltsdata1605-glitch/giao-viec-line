@@ -47,7 +47,7 @@ export async function handleLineEvent(event: line.webhook.Event) {
   }
 
   // 0.5 LỌC MÃ PMH TỰ ĐỘNG TRONG NHÓM
-  if (gId && text.includes('PMH')) {
+  if (gId && (text.includes('PMH') || text.includes('➜') || text.includes('=>') || text.includes('->'))) {
     const pmhKeywords = await getPmhKeywords(); // Lấy từ Firebase thay vì hardcode
     const textLower = text.toLowerCase();
     
@@ -57,11 +57,8 @@ export async function handleLineEvent(event: line.webhook.Event) {
       
       for (let i = 0; i < lines.length; i++) {
         const lineStr = lines[i].trim();
-        // Tìm dòng chứa nội dung phát mã PMH
-        if (lineStr.includes('PMH') && (lineStr.includes('➜') || lineStr.includes('->') || lineStr.includes('=>') || lineStr.includes('➡'))) {
-          // Bỏ qua dòng báo lỗi
-          if (lineStr.includes('❌') || lineStr.toLowerCase().includes('sai cú pháp')) continue;
-          
+        // Tìm dòng chứa nội dung phát mã (hoặc báo lỗi) có mũi tên
+        if (lineStr.includes('➜') || lineStr.includes('->') || lineStr.includes('=>') || lineStr.includes('➡')) {
           let prevLine = (i > 0) ? lines[i-1].trim() : "";
           // Nếu dòng trên là separator hoặc trống thì lùi thêm 1 dòng
           if ((/^[\-—_─━=]{2,}$/.test(prevLine) || prevLine === "") && i > 1) {
