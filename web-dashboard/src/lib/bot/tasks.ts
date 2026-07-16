@@ -98,6 +98,39 @@ export async function handleGiaoCommand(
     const shortId = docRef.id.slice(-5);
     const assigneesText = assignees.length > 0 ? assignees.join(', ') : 'Bạn';
 
+    let creatorName = 'Admin';
+    const creatorId = source?.userId || 'unknown';
+    if (adminDb && creatorId !== 'unknown') {
+      const snap = await adminDb.collection('users').where('lineUserId', '==', creatorId).limit(1).get();
+      if (!snap.empty) {
+        creatorName = snap.docs[0].data().name;
+      }
+    }
+
+    let mentionText = '';
+    const mentioneesArr: any[] = [];
+    let currentIndex = 0;
+
+    for (let i = 0; i < assignees.length; i++) {
+      const uId = assignees[i];
+      if (uId.startsWith('U')) { // valid LINE ID check
+        const placeholder = `@user${i} `;
+        mentionText += placeholder;
+        mentioneesArr.push({
+          index: currentIndex,
+          length: placeholder.length - 1,
+          userId: uId
+        });
+        currentIndex += placeholder.length;
+      }
+    }
+
+    const textMessage: any = {
+      type: 'text',
+      text: `${mentionText}Vui lòng đọc kỹ nội dung, thời gian hoàn tất và hình thức báo cáo!`,
+      mention: mentioneesArr.length > 0 ? { mentionees: mentioneesArr } : undefined
+    };
+
     const flexMessage: line.messagingApi.FlexMessage = {
       type: 'flex',
       altText: `Nhiệm vụ mới: ${taskName}`,
@@ -109,7 +142,7 @@ export async function handleGiaoCommand(
           layout: 'vertical',
           backgroundColor: '#1db446',
           contents: [
-            { type: 'text', text: '🎯 NHIỆM VỤ MỚI', color: '#ffffff', weight: 'bold', size: 'sm' }
+            { type: 'text', text: '🎯 CÔNG VIỆC SIÊU THỊ', color: '#ffffff', weight: 'bold', size: 'lg' }
           ]
         },
         body: {
@@ -128,6 +161,15 @@ export async function handleGiaoCommand(
                   layout: 'baseline',
                   spacing: 'sm',
                   contents: [
+                    { type: 'text', text: 'Người giao', color: '#aaaaaa', size: 'sm', flex: 3 },
+                    { type: 'text', text: creatorName, wrap: true, color: '#333333', size: 'sm', flex: 7, weight: 'bold' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'baseline',
+                  spacing: 'sm',
+                  contents: [
                     { type: 'text', text: 'Người nhận', color: '#aaaaaa', size: 'sm', flex: 3 },
                     { type: 'text', text: assigneesText, wrap: true, color: '#333333', size: 'sm', flex: 7, weight: 'bold' }
                   ]
@@ -137,8 +179,17 @@ export async function handleGiaoCommand(
                   layout: 'baseline',
                   spacing: 'sm',
                   contents: [
-                    { type: 'text', text: 'Mã Việc', color: '#aaaaaa', size: 'sm', flex: 3 },
-                    { type: 'text', text: shortId, wrap: true, color: '#333333', size: 'sm', flex: 7 }
+                    { type: 'text', text: 'Deadline', color: '#aaaaaa', size: 'sm', flex: 3 },
+                    { type: 'text', text: 'Không có', wrap: true, color: '#ff4d4f', size: 'sm', flex: 7, weight: 'bold' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'baseline',
+                  spacing: 'sm',
+                  contents: [
+                    { type: 'text', text: 'Nghiệm thu', color: '#aaaaaa', size: 'sm', flex: 3 },
+                    { type: 'text', text: 'Bấm hoàn tất', wrap: true, color: '#1db446', size: 'sm', flex: 7, weight: 'bold' }
                   ]
                 }
               ]
@@ -155,23 +206,25 @@ export async function handleGiaoCommand(
               style: 'primary',
               height: 'sm',
               color: '#1db446',
-              action: { type: 'message', label: '✅ Hoàn thành', text: `/xong ${shortId}` }
+              action: { type: 'message', label: '✅ Hoàn tất', text: `/xong ${shortId}` }
             },
             {
               type: 'button',
               style: 'secondary',
               height: 'sm',
-              action: { type: 'message', label: '❌ Huỷ', text: `/huy ${shortId}` }
+              action: { type: 'message', label: 'Nhận việc', text: `/nhan ${shortId}` }
             }
           ]
         }
       }
     };
 
+    const messagesToSend = mentioneesArr.length > 0 ? [textMessage, flexMessage] : [flexMessage];
+
     // Send confirmation
     await client.replyMessage({
       replyToken: event.replyToken as string,
-      messages: [flexMessage]
+      messages: messagesToSend
     });
   }
 }
@@ -259,7 +312,7 @@ export async function handleTaskUpdateCommand(
     const creatorId = taskData.creatorId;
     if (creatorId) {
       let assignerName = 'Bạn';
-      const uSnap = await adminDb.collection('users').where('lineUserId', '==', event.source.userId).limit(1).get();
+      const uSnap = await adminDb.collection('users').where('lineUserId', '==', (event.source as any)?.userId || '').limit(1).get();
       if (!uSnap.empty) assignerName = uSnap.docs[0].data().name;
 
       const mentionText = `@creator `;
