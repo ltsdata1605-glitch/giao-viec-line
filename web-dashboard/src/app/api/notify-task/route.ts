@@ -70,7 +70,9 @@ export async function POST(request: Request) {
     };
     
     const bodyContents: any[] = [
-      { type: 'text', text: taskName, weight: 'bold', size: 'lg', wrap: true }
+      { type: 'text', text: '🎯 CÔNG VIỆC SIÊU THỊ', color: '#1db446', weight: 'bold', size: 'xl' },
+      { type: 'separator', margin: 'lg' },
+      { type: 'text', text: taskName, weight: 'bold', size: 'md', wrap: true, margin: 'lg' }
     ];
 
     if (taskDescription) {
@@ -135,14 +137,6 @@ export async function POST(request: Request) {
       contents: {
         type: 'bubble',
         size: 'mega',
-        header: {
-          type: 'box',
-          layout: 'vertical',
-          backgroundColor: '#1db446',
-          contents: [
-            { type: 'text', text: '🎯 CÔNG VIỆC SIÊU THỊ', color: '#ffffff', weight: 'bold', size: 'lg' }
-          ]
-        },
         body: {
           type: 'box',
           layout: 'vertical',
