@@ -15,6 +15,7 @@ interface Task {
   assigneeId?: string;
   groupName: string;
   groupId: string;
+  groupIds?: string[];
   priority: string;
   deadline: string;
   repeat: string;
@@ -109,7 +110,7 @@ export default function TasksPage() {
   const defaultForm = {
     name: '', description: '', status: 'Chờ gửi', assigneeName: '', assigneeId: '',
     assignees: [] as string[],
-    groupName: '', groupId: '', priority: 'Bình thường', deadline: getDefaultDeadline(), repeat: 'Không',
+    groupName: '', groupId: '', groupIds: [] as string[], priority: 'Bình thường', deadline: getDefaultDeadline(), repeat: 'Không',
     taskType: 'Vận hành',
     quickReminder: 'Gửi ngay',
     acceptanceType: 'Bấm hoàn tất',
@@ -234,6 +235,7 @@ export default function TasksPage() {
       assignees: task.assignees || (task.assigneeId ? [task.assigneeId] : []),
       groupName: task.groupName,
       groupId: task.groupId,
+      groupIds: task.groupIds || (task.groupId && task.groupId !== 'personal' ? [task.groupId] : []),
       priority: task.priority,
       deadline: task.deadline,
       repeat: task.repeat,
@@ -278,6 +280,7 @@ export default function TasksPage() {
         assignees: form.assignees,
         groupName: form.groupName.trim(),
         groupId: form.groupId.trim(),
+        groupIds: form.groupIds,
         priority: form.priority,
         deadline: form.deadline || '',
         repeat: form.repeat,
@@ -314,6 +317,7 @@ export default function TasksPage() {
               assignees: form.assignees,
               assigneeId: form.assignees[0] || '',
               groupId: form.groupId.trim(),
+              groupIds: form.groupIds,
               taskName: form.name.trim(),
               taskDescription: form.description.trim(),
               creatorId: 'U5bff120f01066eefca60fd0c8ea3537c' // Admin ID
@@ -508,25 +512,57 @@ export default function TasksPage() {
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} placeholder="Nhập ghi chú hoặc mô tả chi tiết..." className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors resize-none" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Nhóm</label>
-                <select 
-                  value={form.groupId} 
-                  onChange={(e) => {
-                    const g = groupsList.find(x => x.lineGroupId === e.target.value);
-                    setForm({ ...form, groupId: e.target.value, groupName: g ? g.name : '' });
-                  }}
-                  className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
-                >
-                  <option value="">-- Chọn nhóm --</option>
-                  <option value="personal">Cá nhân</option>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Nhóm (Có thể chọn nhiều)</label>
+                <div className="w-full max-h-40 overflow-y-auto px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus-within:border-[var(--color-border-active)] transition-colors">
                   {groupsList.map(g => (
-                    <option key={g.id} value={g.lineGroupId}>{g.name}</option>
+                    <label key={g.id} className="flex items-center space-x-2 py-1 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]"
+                        checked={form.groupIds.includes(g.lineGroupId) || form.groupId === g.lineGroupId}
+                        onChange={(e) => {
+                          let newGroupIds = [...form.groupIds];
+                          if (form.groupId && form.groupId !== 'personal' && !newGroupIds.includes(form.groupId)) {
+                            newGroupIds.push(form.groupId);
+                          }
+                          if (e.target.checked) {
+                            if (!newGroupIds.includes(g.lineGroupId)) newGroupIds.push(g.lineGroupId);
+                          } else {
+                            newGroupIds = newGroupIds.filter(id => id !== g.lineGroupId);
+                          }
+                          setForm({ ...form, groupIds: newGroupIds, groupId: '' });
+                        }}
+                      />
+                      <span>{g.name}</span>
+                    </label>
                   ))}
-                  {/* Keep legacy option if ID not found */}
-                  {form.groupId && form.groupId !== 'personal' && !groupsList.find(g => g.lineGroupId === form.groupId) && (
-                    <option value={form.groupId}>{form.groupName || form.groupId}</option>
+                  {form.groupIds.filter(id => !groupsList.find(g => g.lineGroupId === id)).map(id => (
+                    <label key={id} className="flex items-center space-x-2 py-1 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]"
+                        checked={true}
+                        onChange={(e) => {
+                          setForm({ ...form, groupIds: form.groupIds.filter(x => x !== id) });
+                        }}
+                      />
+                      <span>{id}</span>
+                    </label>
+                  ))}
+                  {form.groupId && form.groupId !== 'personal' && !groupsList.find(g => g.lineGroupId === form.groupId) && !form.groupIds.includes(form.groupId) && (
+                    <label className="flex items-center space-x-2 py-1 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]"
+                        checked={true}
+                        onChange={(e) => {
+                          setForm({ ...form, groupId: '' });
+                        }}
+                      />
+                      <span>{form.groupName || form.groupId}</span>
+                    </label>
                   )}
-                </select>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Người nhận (Có thể chọn nhiều)</label>

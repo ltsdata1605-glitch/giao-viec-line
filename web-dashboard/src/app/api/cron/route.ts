@@ -39,6 +39,7 @@ export async function GET(request: Request) {
           taskId: task.id,
           assignees: task.assignees || (task.assigneeId ? [task.assigneeId] : []),
           groupId: task.groupId || '',
+          groupIds: task.groupIds || [],
           taskName: task.name || '',
           taskDescription: task.description || '',
           creatorId: 'U5bff120f01066eefca60fd0c8ea3537c' // Default Admin

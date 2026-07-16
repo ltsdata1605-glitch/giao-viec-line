@@ -6,6 +6,7 @@ export interface Task {
   id?: string;
   name: string;
   groupId: string;
+  groupIds?: string[];
   assignees: string[]; // User IDs (or LINE user IDs/mentions)
   creatorId: string;
   status: 'Chưa làm' | 'Đang làm' | 'Hoàn thành' | 'Đã hủy';
@@ -84,6 +85,7 @@ export async function handleGiaoCommand(
     const newTask: Task = {
       name: taskName,
       groupId: source?.type === 'group' ? source.groupId : 'personal',
+      groupIds: source?.type === 'group' ? [source.groupId] : [],
       assignees: assignees.length > 0 ? assignees : [source?.userId || 'unknown'],
       creatorId: source?.userId || 'unknown',
       status: 'Chưa làm',

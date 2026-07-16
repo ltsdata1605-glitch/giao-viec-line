@@ -4,7 +4,7 @@ import { adminDb } from '@/lib/firebase-admin';
 
 export async function POST(request: Request) {
   try {
-    const { taskId, assigneeId, assignees, groupId, taskName, taskDescription, creatorId } = await request.json();
+    const { taskId, assigneeId, assignees, groupId, groupIds, taskName, taskDescription, creatorId } = await request.json();
     
     // Support both legacy single assigneeId and new array assignees
     let targetAssignees: string[] = [];
@@ -173,12 +173,16 @@ export async function POST(request: Request) {
 
     const messagesToSend: line.messagingApi.Message[] = targetAssignees.length > 0 && targetAssignees[0] !== 'all' ? [textMessage, flexMessage] : [flexMessage];
 
-    if (groupId) {
-      // Send to Group
-      await client.pushMessage({
-        to: groupId,
-        messages: messagesToSend
-      });
+    const targetGroupIds = groupIds && Array.isArray(groupIds) && groupIds.length > 0 ? groupIds : (groupId ? [groupId] : []);
+
+    if (targetGroupIds.length > 0) {
+      // Send to all Groups
+      await Promise.all(targetGroupIds.map(gId => 
+        client.pushMessage({
+          to: gId,
+          messages: messagesToSend
+        }).catch(err => console.error(`Failed to push to group ${gId}`, err))
+      ));
     } else {
       // Multicast to multiple users, or single push if only 1
       if (targetAssignees.length === 1) {
