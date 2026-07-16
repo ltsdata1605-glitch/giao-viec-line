@@ -11,6 +11,23 @@ interface Keyword {
   image_url?: string;
   image_urls?: string[];
   createdAt?: Date;
+  assignees?: string[];
+  groupId?: string;
+  scheduleEnabled?: boolean;
+  quickReminder?: string;
+  sendAt?: number;
+}
+
+interface UserData {
+  id: string;
+  lineUserId: string;
+  name: string;
+}
+
+interface GroupData {
+  id: string;
+  lineGroupId: string;
+  name: string;
 }
 
 export default function KeywordsPage() {
@@ -18,7 +35,17 @@ export default function KeywordsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ keyword: '', reply_text: '', image_urls: [] as string[] });
+  const [usersList, setUsersList] = useState<UserData[]>([]);
+  const [groupsList, setGroupsList] = useState<GroupData[]>([]);
+  const [form, setForm] = useState({ 
+    keyword: '', 
+    reply_text: '', 
+    image_urls: [] as string[],
+    scheduleEnabled: false,
+    groupId: '',
+    assignees: [] as string[],
+    quickReminder: 'Gửi ngay'
+  });
   const [newUrlInput, setNewUrlInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
@@ -114,9 +141,38 @@ export default function KeywordsPage() {
     }
   }
 
+  async function loadUsersAndGroups() {
+    try {
+      const uSnap = await getDocs(collection(db, 'users'));
+      const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() } as UserData));
+      const uniqueUsers = Array.from(new Map(uData.map(u => [u.lineUserId, u])).values());
+      setUsersList(uniqueUsers);
+
+      const gSnap = await getDocs(collection(db, 'groups'));
+      const gData = gSnap.docs.map(d => ({ id: d.id, ...d.data() } as GroupData));
+      const uniqueGroups = Array.from(new Map(gData.map(g => [g.lineGroupId, g])).values());
+      setGroupsList(uniqueGroups);
+    } catch (err) {
+      console.error('Error loading users/groups', err);
+    }
+  }
+
+  useEffect(() => {
+    loadKeywords();
+    loadUsersAndGroups();
+  }, []);
+
   function openCreateModal() {
     setEditingId(null);
-    setForm({ keyword: '', reply_text: '', image_urls: [] });
+    setForm({ 
+      keyword: '', 
+      reply_text: '', 
+      image_urls: [],
+      scheduleEnabled: false,
+      groupId: '',
+      assignees: [],
+      quickReminder: 'Gửi ngay'
+    });
     setNewUrlInput('');
     setShowModal(true);
   }
@@ -129,7 +185,15 @@ export default function KeywordsPage() {
     } else if (kw.image_url) {
       urls = [kw.image_url];
     }
-    setForm({ keyword: kw.keyword, reply_text: kw.reply_text, image_urls: urls });
+    setForm({ 
+      keyword: kw.keyword, 
+      reply_text: kw.reply_text, 
+      image_urls: urls,
+      scheduleEnabled: kw.scheduleEnabled || false,
+      groupId: kw.groupId || '',
+      assignees: kw.assignees || [],
+      quickReminder: kw.quickReminder || 'Gửi ngay'
+    });
     setNewUrlInput('');
     setShowModal(true);
   }
@@ -138,21 +202,42 @@ export default function KeywordsPage() {
     if (!form.keyword.trim() || !form.reply_text.trim()) return;
     setSaving(true);
     try {
+      let sendAt = 0;
+      if (form.scheduleEnabled) {
+        sendAt = Date.now();
+        if (form.quickReminder === '15 Phút') sendAt += 15 * 60000;
+        else if (form.quickReminder === '30 Phút') sendAt += 30 * 60000;
+        else if (form.quickReminder === '1 Giờ') sendAt += 60 * 60000;
+        else if (form.quickReminder === 'Mai 08:00') {
+          const t = new Date();
+          t.setDate(t.getDate() + 1);
+          t.setHours(8, 0, 0, 0);
+          sendAt = t.getTime();
+        } else if (form.quickReminder !== 'Gửi ngay' && form.quickReminder !== 'Tùy chọn') {
+          const parsed = new Date(form.quickReminder).getTime();
+          if (!isNaN(parsed)) sendAt = parsed;
+        }
+      }
+
+      const payload = {
+        keyword: form.keyword.trim().toLowerCase(),
+        reply_text: form.reply_text.trim(),
+        image_urls: form.image_urls,
+        image_url: form.image_urls.length > 0 ? form.image_urls[0] : '', // for legacy compatibility
+        scheduleEnabled: form.scheduleEnabled,
+        groupId: form.groupId,
+        assignees: form.assignees,
+        quickReminder: form.quickReminder,
+        sendAt,
+        updatedAt: serverTimestamp(),
+      };
+
       if (editingId) {
-        await updateDoc(doc(db, 'keywords', editingId), {
-          keyword: form.keyword.trim().toLowerCase(),
-          reply_text: form.reply_text.trim(),
-          image_urls: form.image_urls,
-          image_url: form.image_urls.length > 0 ? form.image_urls[0] : '', // for legacy compatibility
-          updatedAt: serverTimestamp(),
-        });
+        await updateDoc(doc(db, 'keywords', editingId), payload);
       } else {
         await addDoc(collection(db, 'keywords'), {
-          keyword: form.keyword.trim().toLowerCase(),
-          reply_text: form.reply_text.trim(),
-          image_urls: form.image_urls,
-          image_url: form.image_urls.length > 0 ? form.image_urls[0] : '', // for legacy compatibility
-          createdAt: serverTimestamp(),
+          ...payload,
+          createdAt: serverTimestamp()
         });
       }
       setShowModal(false);
@@ -390,6 +475,89 @@ export default function KeywordsPage() {
                 )}
               </div>
             </div>
+
+            <div className="mt-4 pt-4 border-t border-[var(--color-border)]">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input 
+                  type="checkbox"
+                  className="w-5 h-5 rounded border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]"
+                  checked={form.scheduleEnabled}
+                  onChange={(e) => setForm({ ...form, scheduleEnabled: e.target.checked })}
+                />
+                <span className="font-medium text-[var(--color-text-primary)]">Bật Hẹn giờ Gửi Từ khoá</span>
+              </label>
+            </div>
+
+            {form.scheduleEnabled && (
+              <div className="space-y-4 pt-4 mt-2">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Gửi vào Nhóm</label>
+                  <select value={form.groupId} onChange={(e) => setForm({ ...form, groupId: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors">
+                    <option value="">-- Không gửi vào nhóm --</option>
+                    {groupsList.map(g => (
+                      <option key={g.id} value={g.lineGroupId}>{g.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Người nhận (Có thể chọn nhiều)</label>
+                  <div className="w-full max-h-40 overflow-y-auto px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus-within:border-[var(--color-border-active)] transition-colors">
+                    {usersList.map(u => (
+                      <label key={u.id} className="flex items-center space-x-2 py-1 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]"
+                          checked={form.assignees.includes(u.lineUserId)}
+                          onChange={(e) => {
+                            let newAssignees = [...form.assignees];
+                            if (e.target.checked) {
+                              newAssignees.push(u.lineUserId);
+                            } else {
+                              newAssignees = newAssignees.filter(id => id !== u.lineUserId);
+                            }
+                            setForm({ ...form, assignees: newAssignees });
+                          }}
+                        />
+                        <span>{u.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Thời gian gửi</label>
+                  <div className="flex gap-2">
+                    <select 
+                      value={['Gửi ngay', '15 Phút', '30 Phút', '1 Giờ', 'Mai 08:00'].includes(form.quickReminder) ? form.quickReminder : 'Tùy chọn'} 
+                      onChange={(e) => {
+                        if (e.target.value === 'Tùy chọn') {
+                          setForm({ ...form, quickReminder: new Date().toISOString().slice(0, 16) });
+                        } else {
+                          setForm({ ...form, quickReminder: e.target.value });
+                        }
+                      }} 
+                      className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
+                    >
+                      <option value="Gửi ngay">Gửi ngay</option>
+                      <option value="15 Phút">15 Phút</option>
+                      <option value="30 Phút">30 Phút</option>
+                      <option value="1 Giờ">1 Giờ</option>
+                      <option value="Mai 08:00">Mai 08:00</option>
+                      <option value="Tùy chọn">Tùy chọn</option>
+                    </select>
+                    {!['Gửi ngay', '15 Phút', '30 Phút', '1 Giờ', 'Mai 08:00'].includes(form.quickReminder) && (
+                      <input 
+                        type="datetime-local" 
+                        value={form.quickReminder} 
+                        onChange={(e) => setForm({ ...form, quickReminder: e.target.value })} 
+                        className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors [color-scheme:dark]" 
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center justify-end gap-3 mt-6">
               <button

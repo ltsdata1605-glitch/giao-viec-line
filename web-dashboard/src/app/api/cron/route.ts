@@ -59,9 +59,51 @@ export async function GET(request: Request) {
       }
     }
 
+    // 2. Process Pending Keywords (Từ khoá hẹn giờ)
+    const pendingKeywordsSnap = await adminDb.collection('keywords')
+      .where('scheduleEnabled', '==', true)
+      .where('sendAt', '<=', now)
+      .get();
+
+    const keywordsToNotify: any[] = [];
+    const keywordBatch = adminDb.batch();
+
+    for (const doc of pendingKeywordsSnap.docs) {
+      const data = doc.data();
+      keywordsToNotify.push({ id: doc.id, ...data });
+      // Disable schedule so it doesn't fire again immediately
+      keywordBatch.update(doc.ref, { scheduleEnabled: false });
+    }
+
+    await keywordBatch.commit();
+
+    for (const kw of keywordsToNotify) {
+      try {
+        const payload = {
+          keywordId: kw.id,
+          keyword: kw.keyword || '',
+          reply_text: kw.reply_text || '',
+          image_urls: kw.image_urls || (kw.image_url ? [kw.image_url] : []),
+          assignees: kw.assignees || [],
+          groupId: kw.groupId || ''
+        };
+        
+        const host = request.headers.get('host');
+        const protocol = host?.includes('localhost') ? 'http' : 'https';
+        await fetch(`${protocol}://${host}/api/notify-keyword`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        console.error('Failed to notify keyword via cron', kw.id, e);
+      }
+    }
+
     return NextResponse.json({ 
       success: true, 
       processedTasks: tasksToNotify.length,
+      processedKeywords: keywordsToNotify.length,
       timestamp: now 
     });
 
