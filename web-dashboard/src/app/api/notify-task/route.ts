@@ -30,7 +30,44 @@ export async function POST(request: Request) {
       }
     }
 
+    let assigneeNameStr = '';
+    let deadlineStr = '';
+    let acceptanceTypeStr = '';
+
+    if (adminDb) {
+      const taskSnap = await adminDb.collection('tasks').doc(taskId).get();
+      if (taskSnap.exists) {
+        const taskData = taskSnap.data();
+        assigneeNameStr = taskData?.assigneeName || '';
+        deadlineStr = taskData?.deadline || '';
+        acceptanceTypeStr = taskData?.acceptanceType || '';
+      }
+    }
+
     const shortId = taskId.slice(-5);
+    
+    // Construct Text message with mentions
+    let mentionText = '';
+    const mentionees: any[] = [];
+    let currentIndex = 0;
+
+    for (let i = 0; i < targetAssignees.length; i++) {
+      const uId = targetAssignees[i];
+      const placeholder = `@user${i} `;
+      mentionText += placeholder;
+      mentionees.push({
+        index: currentIndex,
+        length: placeholder.length - 1, // '@user0' length is 6
+        userId: uId
+      });
+      currentIndex += placeholder.length;
+    }
+
+    const textMessage: any = {
+      type: 'text',
+      text: `${mentionText}Vui lòng đọc kỹ nội dung, thời gian hoàn tất và hình thức báo cáo!`,
+      mention: mentionees.length > 0 ? { mentionees } : undefined
+    };
     
     const bodyContents: any[] = [
       { type: 'text', text: taskName, weight: 'bold', size: 'lg', wrap: true }
@@ -61,6 +98,33 @@ export async function POST(request: Request) {
             { type: 'text', text: 'Người giao', color: '#aaaaaa', size: 'sm', flex: 3 },
             { type: 'text', text: creatorName, wrap: true, color: '#333333', size: 'sm', flex: 7, weight: 'bold' }
           ]
+        },
+        {
+          type: 'box',
+          layout: 'baseline',
+          spacing: 'sm',
+          contents: [
+            { type: 'text', text: 'Người nhận', color: '#aaaaaa', size: 'sm', flex: 3 },
+            { type: 'text', text: assigneeNameStr || 'Chưa rõ', wrap: true, color: '#333333', size: 'sm', flex: 7, weight: 'bold' }
+          ]
+        },
+        {
+          type: 'box',
+          layout: 'baseline',
+          spacing: 'sm',
+          contents: [
+            { type: 'text', text: 'Deadline', color: '#aaaaaa', size: 'sm', flex: 3 },
+            { type: 'text', text: deadlineStr || 'Không có', wrap: true, color: '#ff4d4f', size: 'sm', flex: 7, weight: 'bold' }
+          ]
+        },
+        {
+          type: 'box',
+          layout: 'baseline',
+          spacing: 'sm',
+          contents: [
+            { type: 'text', text: 'Nghiệm thu', color: '#aaaaaa', size: 'sm', flex: 3 },
+            { type: 'text', text: acceptanceTypeStr || 'Bấm hoàn tất', wrap: true, color: '#1db446', size: 'sm', flex: 7, weight: 'bold' }
+          ]
         }
       ]
     });
@@ -76,7 +140,7 @@ export async function POST(request: Request) {
           layout: 'vertical',
           backgroundColor: '#1db446',
           contents: [
-            { type: 'text', text: '🎯 CÔNG VIỆC SIÊU THỊ', color: '#ffffff', weight: 'bold', size: 'xl' }
+            { type: 'text', text: '🎯 CÔNG VIỆC SIÊU THỊ', color: '#ffffff', weight: 'bold', size: 'lg' }
           ]
         },
         body: {
@@ -94,36 +158,38 @@ export async function POST(request: Request) {
               style: 'primary',
               height: 'sm',
               color: '#1db446',
-              action: { type: 'message', label: '✅ Hoàn thành', text: `/xong ${shortId}` }
+              action: { type: 'message', label: '✅ Hoàn tất', text: `/xong ${shortId}` }
             },
             {
               type: 'button',
               style: 'secondary',
               height: 'sm',
-              action: { type: 'message', label: '❌ Huỷ', text: `/huy ${shortId}` }
+              action: { type: 'message', label: 'Nhận việc', text: `/nhan ${shortId}` }
             }
           ]
         }
       }
     };
 
+    const messagesToSend: line.messagingApi.Message[] = targetAssignees.length > 0 && targetAssignees[0] !== 'all' ? [textMessage, flexMessage] : [flexMessage];
+
     if (groupId) {
       // Send to Group
       await client.pushMessage({
         to: groupId,
-        messages: [flexMessage]
+        messages: messagesToSend
       });
     } else {
       // Multicast to multiple users, or single push if only 1
       if (targetAssignees.length === 1) {
         await client.pushMessage({
           to: targetAssignees[0],
-          messages: [flexMessage]
+          messages: messagesToSend
         });
       } else {
         await client.multicast({
           to: targetAssignees,
-          messages: [flexMessage]
+          messages: messagesToSend
         });
       }
     }

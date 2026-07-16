@@ -215,7 +215,7 @@ export async function handleViecCuaToiCommand(
 }
 
 /**
- * Handle status update commands: /xong, /huy
+ * Handle status update commands: /xong, /huy, /nhan
  */
 export async function handleTaskUpdateCommand(
   text: string,
@@ -250,9 +250,35 @@ export async function handleTaskUpdateCommand(
   let newStatus = '';
   if (command === '/xong') newStatus = 'Hoàn thành';
   else if (command === '/huy') newStatus = 'Đã hủy';
+  else if (command === '/nhan') newStatus = 'Đang làm';
 
   await doc.ref.update({ status: newStatus, updatedAt: FieldValue.serverTimestamp() });
   
+  if (command === '/nhan') {
+    const taskData = doc.data();
+    const creatorId = taskData.creatorId;
+    if (creatorId) {
+      let assignerName = 'Bạn';
+      const uSnap = await adminDb.collection('users').where('lineUserId', '==', event.source.userId).limit(1).get();
+      if (!uSnap.empty) assignerName = uSnap.docs[0].data().name;
+
+      const mentionText = `@creator `;
+      const textMessage: any = {
+        type: 'text',
+        text: `${mentionText}${assignerName} đã nhận thông tin!`,
+        mention: {
+          mentionees: [{ index: 0, length: 8, userId: creatorId }]
+        }
+      };
+
+      await client.replyMessage({
+        replyToken: event.replyToken as string,
+        messages: [textMessage]
+      });
+      return;
+    }
+  }
+
   await client.replyMessage({
     replyToken: event.replyToken as string,
     messages: [{ type: 'text', text: `✅ Đã chuyển trạng thái công việc [${doc.data().name}] thành: ${newStatus}` }]

@@ -156,7 +156,7 @@ export async function handleLineEvent(event: line.webhook.Event) {
     return;
   }
 
-  if (['/xong', '/huy'].some(cmd => text.toLowerCase().startsWith(cmd + ' '))) {
+  if (['/xong', '/huy', '/nhan'].some(cmd => text.toLowerCase().startsWith(cmd + ' '))) {
     const { handleTaskUpdateCommand } = await import('./tasks');
     const client = getLineClient();
     if (client) {

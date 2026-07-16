@@ -291,6 +291,7 @@ export default function TasksPage() {
         repeatDays: (form as any).repeatDays || [],
         customRepeat: (form as any).customRepeat || '',
         sendAt,
+        creatorId: 'U5bff120f01066eefca60fd0c8ea3537c', // Admin ID
         updatedAt: serverTimestamp(),
       };
 
