@@ -24,16 +24,18 @@ interface Task {
 interface UserData { id: string; name: string; lineUserId: string; }
 interface GroupData { id: string; name: string; lineGroupId: string; }
 
-const STATUS_LIST = ['Chờ gửi', 'Đang làm', 'Cần hỗ trợ', 'Đã gửi', 'Quá hạn', 'Đã hủy'];
+// Vòng đời trạng thái task thống nhất với bot (xem TaskStatus trong lib/bot/tasks.ts):
+// Chờ gửi -> Chưa làm -> Đang làm -> Hoàn thành | Quá hạn | Đã hủy
+const STATUS_LIST = ['Chờ gửi', 'Chưa làm', 'Đang làm', 'Hoàn thành', 'Quá hạn', 'Đã hủy'];
 const PRIORITY_LIST = ['Bình thường', 'Quan trọng', 'GẤP'];
 
 const statusStyles: Record<string, string> = {
   'Chờ gửi': 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+  'Chưa làm': 'bg-slate-500/10 text-slate-300 border-slate-500/20',
   'Đang làm': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  'Đã gửi': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  'Hoàn thành': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
   'Quá hạn': 'bg-red-500/10 text-red-400 border-red-500/20',
   'Đã hủy': 'bg-gray-500/10 text-gray-400 border-gray-500/20',
-  'Cần hỗ trợ': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
 };
 
 const priorityStyles: Record<string, string> = {
@@ -305,10 +307,12 @@ export default function TasksPage() {
       } else {
         const docRef = await addDoc(collection(db, 'tasks'), { ...payload, createdAt: serverTimestamp() });
         newTaskId = docRef.id;
+        // Lưu ID rút gọn để bot tra cứu nhanh qua /xong, /nhan, /huy thay vì quét toàn bộ collection
+        await updateDoc(docRef, { shortId: docRef.id.slice(-5) });
       }
       
       // Auto-send task if 'Gửi ngay'
-      if (form.quickReminder === 'Gửi ngay' && (form.assignees.length > 0 || form.groupId.trim())) {
+      if (form.quickReminder === 'Gửi ngay' && (form.assignees.length > 0 || form.groupId.trim() || form.groupIds.length > 0)) {
         try {
           await fetch('/api/notify-task', {
             method: 'POST',
@@ -324,9 +328,9 @@ export default function TasksPage() {
               creatorId: form.creatorId || 'U5bff120f01066eefca60fd0c8ea3537c'
             })
           });
-          // Update status to "Đang làm" after sending
+          // Đã gửi cho người nhận nhưng chưa ai nhận việc -> "Chưa làm" (khớp trạng thái bot dùng)
           if (newTaskId) {
-            await updateDoc(doc(db, 'tasks', newTaskId), { status: 'Đang làm' });
+            await updateDoc(doc(db, 'tasks', newTaskId), { status: 'Chưa làm' });
           }
         } catch (err) {
           console.error('Failed to notify task', err);

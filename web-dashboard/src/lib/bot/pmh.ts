@@ -2,6 +2,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import * as line from '@line/bot-sdk';
+import { isAdmin } from './admin';
 
 const DEFAULT_KEYWORDS = ['21707', '22094', '21453'];
 
@@ -41,16 +42,9 @@ export async function handlePmhAdminCommand(text: string, event: line.webhook.Me
   if (!adminDb || !event.replyToken || !source || !source.userId) return;
 
   const userId = source.userId;
-  
-  // Danh sách LINE ID của Admin (Bạn có thể thêm/bớt ID của bạn vào mảng này)
-  const ADMIN_LINE_IDS = [
-    "U5bff120f01066eefca60fd0c8ea3537c"
-  ];
-  
-  // 1. Kiểm tra quyền Admin dựa vào LINE ID
-  const isAdmin = ADMIN_LINE_IDS.includes(userId);
 
-  if (!isAdmin) {
+  // 1. Kiểm tra quyền Admin dựa vào LINE ID
+  if (!isAdmin(userId)) {
     await client.replyMessage({
       replyToken: event.replyToken,
       messages: [{ type: 'text', text: '❌ Bạn không có quyền sử dụng lệnh này. Vui lòng liên hệ quản trị viên (hoặc thêm ID của bạn vào code).' }]

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import liff from '@line/liff';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 interface UserData {
   id: string;
@@ -160,6 +160,8 @@ export default function LiffTaskPage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      // Lưu ID rút gọn để bot tra cứu nhanh qua /xong, /nhan, /huy thay vì quét toàn bộ collection
+      await updateDoc(docRef, { shortId: docRef.id.slice(-5) });
 
       if (profile?.userId && form.assigneeId !== profile.userId) {
         await fetch('/api/notify-task', {

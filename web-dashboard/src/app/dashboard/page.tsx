@@ -43,7 +43,7 @@ export default function DashboardPage() {
       tasksSnap.forEach((doc) => {
         const data = doc.data();
         if (data.status === 'Quá hạn') overdueTasks++;
-        if (data.status === 'Đã gửi') completedTasks++;
+        if (data.status === 'Hoàn thành') completedTasks++;
       });
 
       setStats([
@@ -136,11 +136,11 @@ export default function DashboardPage() {
 
   const statusColor: Record<string, string> = {
     'Chờ gửi': 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+    'Chưa làm': 'bg-slate-500/10 text-slate-300 border-slate-500/20',
     'Đang làm': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    'Đã gửi': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    'Hoàn thành': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
     'Quá hạn': 'bg-red-500/10 text-red-400 border-red-500/20',
     'Đã hủy': 'bg-gray-500/10 text-gray-400 border-gray-500/20',
-    'Cần hỗ trợ': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
   };
 
   if (loading) {

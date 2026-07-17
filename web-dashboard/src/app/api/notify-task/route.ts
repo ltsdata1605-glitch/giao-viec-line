@@ -15,7 +15,10 @@ export async function POST(request: Request) {
       targetAssignees = [assigneeId];
     }
 
-    if (targetAssignees.length === 0 || !taskName) {
+    const targetGroupIds = groupIds && Array.isArray(groupIds) && groupIds.length > 0 ? groupIds : (groupId ? [groupId] : []);
+
+    // Cần ít nhất một đích đến: người nhận riêng HOẶC nhóm (task giao cho cả nhóm, không có assignee riêng vẫn hợp lệ)
+    if ((targetAssignees.length === 0 && targetGroupIds.length === 0) || !taskName) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
 
@@ -28,6 +31,7 @@ export async function POST(request: Request) {
     let assigneeNameStr = '';
     let deadlineStr = '';
     let acceptanceTypeStr = '';
+    let priorityStr = '';
 
     if (adminDb) {
       const taskSnap = await adminDb.collection('tasks').doc(taskId).get();
@@ -44,6 +48,7 @@ export async function POST(request: Request) {
           }
         }
         acceptanceTypeStr = taskData?.acceptanceType || '';
+        priorityStr = taskData?.priority || '';
       }
     }
 
@@ -57,12 +62,12 @@ export async function POST(request: Request) {
       assigneeText: assigneeNameStr || 'Chưa rõ',
       deadlineText: deadlineStr,
       acceptanceText: acceptanceTypeStr,
-      description: taskDescription
+      description: taskDescription,
+      // Ẩn dòng Ưu tiên khi ở mức mặc định để thẻ Flex gọn gàng, chỉ nổi bật khi Quan trọng/GẤP
+      priorityText: priorityStr && priorityStr !== 'Bình thường' ? priorityStr : undefined
     });
 
     const messagesToSend: line.messagingApi.Message[] = mentionMessage ? [mentionMessage, flexMessage] : [flexMessage];
-
-    const targetGroupIds = groupIds && Array.isArray(groupIds) && groupIds.length > 0 ? groupIds : (groupId ? [groupId] : []);
 
     // Lưu quote token của thẻ Flex vừa gửi, theo từng nơi nhận, để trích dẫn lại khi công việc hoàn thành.
     // Lưu ý: multicast không trả về quoteToken theo từng người nhận nên không hỗ trợ trích dẫn ở nhánh đó.
