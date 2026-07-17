@@ -14,6 +14,52 @@ export interface Task {
   deadline: Date | null;
   createdAt: any;
   updatedAt: any;
+  // Quote token của thẻ Flex công việc đã gửi, theo từng nơi nhận (groupId/roomId/userId).
+  // Dùng để trả lời trích dẫn (quote reply) lại đúng thẻ Flex khi công việc hoàn thành.
+  flexQuoteTokens?: Record<string, string>;
+}
+
+/**
+ * Đoạn nội dung tin nhắn textV2: hoặc văn bản thường, hoặc một lượt tag (mention) một user.
+ */
+type MentionSegment = { text: string } | { mentionUserId: string };
+
+/**
+ * Dựng tin nhắn textV2 từ danh sách đoạn văn bản/tag, dùng chung cho mọi luồng cần tag người dùng.
+ * LINE chỉ hỗ trợ tag (mention) chủ động qua type "textV2" + substitution, không phải type "text".
+ */
+function buildMentionText(segments: MentionSegment[], quoteToken?: string): line.messagingApi.TextMessageV2 {
+  let text = '';
+  const substitution: Record<string, line.messagingApi.MentionSubstitutionObject> = {};
+  let counter = 0;
+
+  for (const seg of segments) {
+    if ('mentionUserId' in seg) {
+      const key = `m${counter++}`;
+      substitution[key] = { type: 'mention', mentionee: { type: 'user', userId: seg.mentionUserId } };
+      text += `{${key}}`;
+    } else {
+      text += seg.text;
+    }
+  }
+
+  return {
+    type: 'textV2',
+    text,
+    substitution,
+    ...(quoteToken ? { quoteToken } : {})
+  };
+}
+
+/**
+ * Xác định "nơi chat" (group/room/user) từ event.source, dùng làm key lưu quoteToken theo từng cuộc trò chuyện
+ * vì quoteToken chỉ dùng trích dẫn được trong đúng cuộc trò chuyện đã nhận tin nhắn đó.
+ */
+function getChatKey(source: any): string {
+  if (!source) return 'unknown';
+  if (source.type === 'group') return source.groupId;
+  if (source.type === 'room') return source.roomId;
+  return source.userId || 'unknown';
 }
 
 /**
@@ -29,34 +75,18 @@ export async function getUserDisplayName(userId?: string): Promise<string> {
 }
 
 /**
- * Dựng tin nhắn mention danh sách người nhận việc (dùng chung cho lệnh /giao và API notify-task).
+ * Dựng tin nhắn tag (mention) danh sách người nhận việc (dùng chung cho lệnh /giao và API notify-task).
  * Trả về null nếu không có ai được mention hợp lệ (ID bắt đầu bằng 'U').
  */
-export function buildAssigneeMentionMessage(assignees: string[]): line.messagingApi.TextMessage | null {
-  let mentionText = '';
-  const mentionees: { index: number; length: number; userId: string }[] = [];
-  let currentIndex = 0;
+export function buildAssigneeMentionMessage(assignees: string[]): line.messagingApi.TextMessageV2 | null {
+  const validIds = assignees.filter(id => id.startsWith('U')); // valid LINE ID check
 
-  for (let i = 0; i < assignees.length; i++) {
-    const uId = assignees[i];
-    if (!uId.startsWith('U')) continue; // valid LINE ID check
-    const placeholder = `@user${i} `;
-    mentionText += placeholder;
-    mentionees.push({
-      index: currentIndex,
-      length: placeholder.length - 1,
-      userId: uId
-    });
-    currentIndex += placeholder.length;
-  }
+  if (validIds.length === 0) return null;
 
-  if (mentionees.length === 0) return null;
+  const segments: MentionSegment[] = validIds.map(userId => ({ mentionUserId: userId }));
+  segments.push({ text: ' Vui lòng đọc kỹ nội dung, thời gian hoàn tất và hình thức báo cáo!' });
 
-  return {
-    type: 'text',
-    text: `${mentionText}Vui lòng đọc kỹ nội dung, thời gian hoàn tất và hình thức báo cáo!`,
-    mention: { mentionees }
-  } as line.messagingApi.TextMessage;
+  return buildMentionText(segments);
 }
 
 /**
@@ -267,10 +297,16 @@ export async function handleGiaoCommand(
     const messagesToSend = mentionMessage ? [mentionMessage, flexMessage] : [flexMessage];
 
     // Send confirmation
-    await client.replyMessage({
+    const response = await client.replyMessage({
       replyToken: event.replyToken as string,
       messages: messagesToSend
     });
+
+    // Lưu quote token của thẻ Flex vừa gửi để trích dẫn lại khi công việc hoàn thành
+    const flexSent = response.sentMessages[response.sentMessages.length - 1];
+    if (flexSent?.quoteToken) {
+      await docRef.update({ [`flexQuoteTokens.${getChatKey(source)}`]: flexSent.quoteToken });
+    }
   }
 }
 
@@ -357,65 +393,38 @@ export async function handleTaskUpdateCommand(
   const clickerId = (event.source as any)?.userId || '';
 
   if (command === '/nhan') {
-    const mentionees = [];
-    let textStr = '';
-    let cIdx = 0;
-
-    if (creatorId !== 'unknown') {
-      textStr += '@creator ';
-      mentionees.push({ index: cIdx, length: 8, userId: creatorId });
-      cIdx += 9;
-    }
-
+    const segments: MentionSegment[] = [];
+    if (creatorId !== 'unknown') segments.push({ mentionUserId: creatorId });
     if (clickerId) {
-      textStr += '@assignee ';
-      mentionees.push({ index: cIdx, length: 9, userId: clickerId });
-      cIdx += 10;
+      if (segments.length > 0) segments.push({ text: ' ' });
+      segments.push({ mentionUserId: clickerId });
     }
-
-    textStr += `đã nhận thông tin!`;
-
-    const textMessage: any = {
-      type: 'text',
-      text: textStr,
-      mention: mentionees.length > 0 ? { mentionees } : undefined
-    };
+    segments.push({ text: ' đã nhận thông tin!' });
 
     await client.replyMessage({
       replyToken: event.replyToken as string,
-      messages: [textMessage]
+      messages: [buildMentionText(segments)]
     });
     return;
   }
 
   if (command === '/xong') {
-    const mentionees = [];
-    let textStr = `✅ Công việc "${taskData.name}" đã được hoàn tất bởi `;
-    let cIdx = textStr.length;
-
-    if (clickerId) {
-      textStr += '@assignee ';
-      mentionees.push({ index: cIdx, length: 9, userId: clickerId });
-      cIdx += 10;
-    }
-    
+    const segments: MentionSegment[] = [
+      { text: `✅ Công việc "${taskData.name}" đã được hoàn tất bởi ` }
+    ];
+    if (clickerId) segments.push({ mentionUserId: clickerId });
     if (creatorId !== 'unknown') {
-      textStr += 'và ';
-      cIdx += 3;
-      textStr += '@creator ';
-      mentionees.push({ index: cIdx, length: 8, userId: creatorId });
-      cIdx += 9;
+      segments.push({ text: ' và ' });
+      segments.push({ mentionUserId: creatorId });
     }
 
-    const textMessage: any = {
-      type: 'text',
-      text: textStr.trim(),
-      mention: mentionees.length > 0 ? { mentionees } : undefined
-    };
+    // Trả lời trích dẫn lại đúng thẻ Flex công việc đã gửi trong cuộc trò chuyện này (nếu có)
+    const chatKey = getChatKey(event.source as any);
+    const quoteToken = taskData.flexQuoteTokens?.[chatKey];
 
     await client.replyMessage({
       replyToken: event.replyToken as string,
-      messages: [textMessage]
+      messages: [buildMentionText(segments, quoteToken)]
     });
     return;
   }

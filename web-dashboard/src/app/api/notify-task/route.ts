@@ -64,27 +64,40 @@ export async function POST(request: Request) {
 
     const targetGroupIds = groupIds && Array.isArray(groupIds) && groupIds.length > 0 ? groupIds : (groupId ? [groupId] : []);
 
+    // Lưu quote token của thẻ Flex vừa gửi, theo từng nơi nhận, để trích dẫn lại khi công việc hoàn thành.
+    // Lưu ý: multicast không trả về quoteToken theo từng người nhận nên không hỗ trợ trích dẫn ở nhánh đó.
+    const quoteTokenUpdates: Record<string, string> = {};
+
     if (targetGroupIds.length > 0) {
       // Send to all Groups
-      await Promise.all(targetGroupIds.map(gId => 
-        client.pushMessage({
-          to: gId,
-          messages: messagesToSend
-        }).catch(err => console.error(`Failed to push to group ${gId}`, err))
-      ));
+      await Promise.all(targetGroupIds.map(async (gId) => {
+        try {
+          const resp = await client.pushMessage({ to: gId, messages: messagesToSend });
+          const flexSent = resp.sentMessages[resp.sentMessages.length - 1];
+          if (flexSent?.quoteToken) quoteTokenUpdates[`flexQuoteTokens.${gId}`] = flexSent.quoteToken;
+        } catch (err) {
+          console.error(`Failed to push to group ${gId}`, err);
+        }
+      }));
     } else {
       // Multicast to multiple users, or single push if only 1
       if (targetAssignees.length === 1) {
-        await client.pushMessage({
+        const resp = await client.pushMessage({
           to: targetAssignees[0],
           messages: messagesToSend
         });
+        const flexSent = resp.sentMessages[resp.sentMessages.length - 1];
+        if (flexSent?.quoteToken) quoteTokenUpdates[`flexQuoteTokens.${targetAssignees[0]}`] = flexSent.quoteToken;
       } else {
         await client.multicast({
           to: targetAssignees,
           messages: messagesToSend
         });
       }
+    }
+
+    if (adminDb && taskId && Object.keys(quoteTokenUpdates).length > 0) {
+      await adminDb.collection('tasks').doc(taskId).update(quoteTokenUpdates);
     }
 
     return NextResponse.json({ success: true });
