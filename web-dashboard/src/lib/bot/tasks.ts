@@ -288,7 +288,18 @@ export async function handleGiaoCommand(
   event: line.webhook.MessageEvent,
   client: line.messagingApi.MessagingApiClient
 ) {
-  const requesterId = (event.source as any)?.userId;
+  const source = event.source as any;
+  const requesterId = source?.userId;
+
+  // Chỉ dùng /giao qua chat riêng (1:1) với bot, để không làm phiền cả nhóm bằng
+  // tin nhắn "Mở Form Giao Việc" mỗi khi có người gõ lệnh này trong nhóm.
+  if (source?.type === 'group' || source?.type === 'room') {
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{ type: 'text', text: '💬 Vui lòng nhắn "/giao" riêng cho bot (chat 1:1) để mở Form Giao Việc, tránh làm phiền cả nhóm.' }]
+    });
+    return;
+  }
 
   // Chỉ admin (hardcode hoặc role="admin" trên Firestore) mới được giao việc
   if (!(await isAdmin(requesterId))) {
