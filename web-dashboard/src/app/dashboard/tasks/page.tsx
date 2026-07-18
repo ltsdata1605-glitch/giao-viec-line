@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
+import { QUICK_TEMPLATES } from '@/lib/taskTemplates';
 
 interface Task {
   id: string;
@@ -552,6 +553,22 @@ export default function TasksPage() {
             <h3 className="text-lg font-bold text-[var(--color-text-primary)] mb-5">
               {editingId ? 'Chỉnh sửa công việc' : 'Tạo công việc mới'}
             </h3>
+
+            <div className="mb-5">
+              <p className="text-sm font-medium text-[var(--color-text-secondary)] mb-2">Mẫu nhanh</p>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_TEMPLATES.map((tpl, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setForm({ ...form, name: tpl.title, description: tpl.desc })}
+                    className="px-3 py-1.5 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-full text-xs text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent-hover)] transition-colors"
+                  >
+                    {tpl.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">

@@ -5,6 +5,7 @@ import liff from '@line/liff';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { ADMIN_LINE_IDS } from '@/lib/adminIds';
+import { QUICK_TEMPLATES } from '@/lib/taskTemplates';
 
 interface UserData {
   id: string;
@@ -18,17 +19,6 @@ interface GroupData {
   name: string;
   lineGroupId: string;
 }
-
-const QUICK_TEMPLATES = [
-  { label: 'Truyền thông:', title: 'Truyền thông', desc: 'Thực hiện truyền thông về...' },
-  { label: 'Online và GHTK', title: 'Xử lý đơn Online', desc: 'Kiểm tra và xử lý các đơn hàng online, đóng gói GHTK.' },
-  { label: 'Chụp ảnh trưng bày', title: 'Chụp ảnh trưng bày', desc: 'Chụp ảnh các góc trưng bày gửi báo cáo.' },
-  { label: 'Nhắc họp đầu ca', title: 'Họp đầu ca', desc: 'Chuẩn bị nội dung và nhắc mọi người họp đầu ca.' },
-  { label: 'Hoàn tất báo cáo', title: 'Làm báo cáo', desc: 'Hoàn tất báo cáo doanh thu và nộp cho quản lý.' },
-  { label: 'Kiểm tra vệ sinh quầy kệ', title: 'Kiểm tra vệ sinh quầy kệ', desc: 'Kiểm tra vệ sinh và lau dọn quầy kệ trưng bày theo line được phân công. Đảm bảo sạch và đầy đủ bảng giá' },
-  { label: 'Gọi khách hẹn nhận hàng', title: 'Gọi khách hẹn', desc: 'Gọi điện thoại cho khách hàng đã hẹn nhận hàng hôm nay.' },
-  { label: 'Chăm sóc khách sau bán', title: 'Chăm sóc khách hàng', desc: 'Gọi điện hỏi thăm khách hàng sau khi mua hàng.' }
-];
 
 const QUICK_REMINDER_PRESETS = ['Gửi ngay', '15p', '30p', '10h', '14h', '18h', 'Mai 08:00'];
 const WEEKDAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
@@ -85,6 +75,7 @@ export default function LiffTaskPage() {
     description: '',
     taskType: 'Vận hành',
     priority: 'Bình thường',
+    creatorId: '',
     groupIds: [] as string[],
     assignees: [] as string[],
     quickReminder: 'Gửi ngay',
@@ -113,8 +104,9 @@ export default function LiffTaskPage() {
         const ctx = liff.getContext();
         setProfile(prof);
         setContext(ctx);
-        // Mặc định chọn sẵn nhóm hiện tại (nếu mở từ trong nhóm), vẫn chọn thêm/bỏ được
-        setForm(f => ({ ...f, groupIds: ctx?.groupId ? [ctx.groupId] : [] }));
+        // Mặc định người giao việc là chính mình, và chọn sẵn nhóm hiện tại (nếu mở từ trong nhóm) —
+        // cả 2 vẫn đổi được, khớp hành vi bên Dashboard.
+        setForm(f => ({ ...f, creatorId: prof.userId, groupIds: ctx?.groupId ? [ctx.groupId] : [] }));
         setInitialized(true);
       } catch (err) {
         console.error('LIFF init error', err);
@@ -214,7 +206,7 @@ export default function LiffTaskPage() {
         assignees: form.assignees,
         assigneeId: form.assignees[0] || '',
         assigneeName: assigneeNameStr,
-        creatorId: profile?.userId || 'unknown',
+        creatorId: form.creatorId || profile?.userId || 'unknown',
         status,
         deadline: form.deadline,
         repeat: form.repeat,
@@ -243,7 +235,7 @@ export default function LiffTaskPage() {
             groupIds: form.groupIds,
             taskName: form.name.trim(),
             taskDescription: form.description.trim(),
-            creatorId: profile?.userId || 'unknown'
+            creatorId: form.creatorId || profile?.userId || 'unknown'
           })
         }).catch(err => console.error('Error notifying', err));
       }
@@ -368,9 +360,14 @@ export default function LiffTaskPage() {
           <div className="space-y-4">
             <div>
               <label className={LABEL_CLS}>Người giao việc</label>
-              <div className="w-full px-3 py-2.5 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-secondary)]">
-                {profile?.displayName || 'Tôi'}
-              </div>
+              <select value={form.creatorId} onChange={e => setForm({...form, creatorId: e.target.value})}
+                className={INPUT_CLS}>
+                <option value={profile?.userId || ''}>{profile?.displayName || 'Tôi'}</option>
+                {usersList.filter(u => u.lineUserId !== profile?.userId).map(u => (
+                  <option key={u.id} value={u.lineUserId}>{u.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1.5">Chọn ai đang thực sự giao việc này, để hiện đúng tên trên thẻ Flex gửi qua LINE.</p>
             </div>
             <div>
               <label className={LABEL_CLS}>Nhóm nhận (có thể chọn nhiều)</label>
