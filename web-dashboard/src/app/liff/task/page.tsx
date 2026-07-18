@@ -33,6 +33,13 @@ const QUICK_TEMPLATES = [
 const QUICK_REMINDER_PRESETS = ['Gửi ngay', '15p', '30p', '10h', '14h', '18h', 'Mai 08:00'];
 const WEEKDAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
+// Class dùng chung, khớp đúng bảng màu/kiểu dáng của Dashboard (globals.css) để 2 giao diện đồng nhất
+const INPUT_CLS = 'w-full px-3 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors';
+const LABEL_CLS = 'block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5';
+const CARD_CLS = 'glass rounded-2xl p-4';
+const CARD_TITLE_CLS = 'text-sm font-bold text-[var(--color-text-primary)] border-l-4 border-[var(--color-accent)] pl-2 mb-4';
+const CHECKBOX_CLS = 'rounded border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]';
+
 /** Quy đổi lựa chọn "Thời gian nhắc" thành mốc gửi thực tế (epoch ms). */
 function computeSendAt(quickReminder: string): number {
   const now = Date.now();
@@ -266,8 +273,8 @@ export default function LiffTaskPage() {
 
   if (!initialized || loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg-primary)]">
+        <div className="w-10 h-10 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -278,11 +285,11 @@ export default function LiffTaskPage() {
 
   if (!isAllowedToAssign) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-50 p-6">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg-primary)] p-6">
         <div className="text-center max-w-sm">
           <div className="text-4xl mb-3">⚠️</div>
-          <h1 className="text-base font-bold text-gray-900 mb-2">Bạn không có quyền giao việc</h1>
-          <p className="text-sm text-gray-500">Vui lòng liên hệ quản trị viên nếu cần được cấp quyền giao việc.</p>
+          <h1 className="text-base font-bold text-[var(--color-text-primary)] mb-2">Bạn không có quyền giao việc</h1>
+          <p className="text-sm text-[var(--color-text-secondary)]">Vui lòng liên hệ quản trị viên nếu cần được cấp quyền giao việc.</p>
         </div>
       </div>
     );
@@ -291,25 +298,25 @@ export default function LiffTaskPage() {
   const isCustomReminder = !QUICK_REMINDER_PRESETS.includes(form.quickReminder);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-800">
+    <div className="min-h-screen bg-[var(--color-bg-primary)] pb-24 font-sans text-[var(--color-text-primary)]">
       {/* Header */}
-      <div className="bg-white px-4 py-3 sticky top-0 z-10 border-b border-gray-200 flex items-center justify-center">
-        <h1 className="text-base font-bold text-gray-900">📝 Giao việc nhanh</h1>
+      <div className="bg-[var(--color-bg-secondary)]/80 backdrop-blur-sm px-4 py-3 sticky top-0 z-10 border-b border-[var(--color-border)] flex items-center justify-center">
+        <h1 className="text-base font-bold text-[var(--color-text-primary)]">📝 Giao việc nhanh</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-4 space-y-4 max-w-md mx-auto">
-        <p className="text-sm text-gray-500 mb-2">Nhập nhanh nội dung, chọn nhóm/người nhận và gửi nhắc việc.</p>
+      <form onSubmit={handleSubmit} className="p-4 space-y-4 max-w-md mx-auto animate-fade-in-up">
+        <p className="text-sm text-[var(--color-text-secondary)] mb-2">Nhập nhanh nội dung, chọn nhóm/người nhận và gửi nhắc việc.</p>
 
         {/* Mẫu nhanh */}
         <div>
-          <h3 className="text-sm font-bold text-gray-800 mb-2">Mẫu nhanh</h3>
+          <h3 className="text-sm font-bold text-[var(--color-text-primary)] mb-2">Mẫu nhanh</h3>
           <div className="flex flex-wrap gap-2">
             {QUICK_TEMPLATES.map((tpl, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => handleQuickTemplate(tpl)}
-                className="px-3 py-1.5 bg-white border border-gray-300 rounded-full text-xs text-gray-600 hover:border-green-500 hover:text-green-600 transition-colors"
+                className="px-3 py-1.5 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-full text-xs text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent-hover)] transition-colors"
               >
                 {tpl.label}
               </button>
@@ -318,24 +325,24 @@ export default function LiffTaskPage() {
         </div>
 
         {/* Thông tin công việc */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <h2 className="text-sm font-bold border-l-4 border-green-500 pl-2 mb-4">Thông tin công việc</h2>
+        <div className={CARD_CLS}>
+          <h2 className={CARD_TITLE_CLS}>Thông tin công việc</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
+              <label className={LABEL_CLS}>Tên sự kiện <span className="text-red-400">*</span></label>
               <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-green-500 outline-none" />
+                className={INPUT_CLS} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Nội dung chi tiết</label>
+              <label className={LABEL_CLS}>Nội dung chi tiết</label>
               <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={3}
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-green-500 outline-none resize-none" />
+                className={`${INPUT_CLS} resize-none`} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Loại công việc</label>
+                <label className={LABEL_CLS}>Loại công việc</label>
                 <select value={form.taskType} onChange={e => setForm({...form, taskType: e.target.value})}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none">
+                  className={INPUT_CLS}>
                   <option>Vận hành</option>
                   <option>Truyền thông</option>
                   <option>Kế toán</option>
@@ -343,9 +350,9 @@ export default function LiffTaskPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Độ ưu tiên</label>
+                <label className={LABEL_CLS}>Độ ưu tiên</label>
                 <select value={form.priority} onChange={e => setForm({...form, priority: e.target.value})}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none">
+                  className={INPUT_CLS}>
                   <option>Bình thường</option>
                   <option>Quan trọng</option>
                   <option>GẤP</option>
@@ -356,22 +363,23 @@ export default function LiffTaskPage() {
         </div>
 
         {/* Người nhận */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <h2 className="text-sm font-bold border-l-4 border-green-500 pl-2 mb-4">Người nhận</h2>
+        <div className={CARD_CLS}>
+          <h2 className={CARD_TITLE_CLS}>Người nhận</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Người giao việc</label>
-              <div className="w-full px-3 py-2.5 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-600">
+              <label className={LABEL_CLS}>Người giao việc</label>
+              <div className="w-full px-3 py-2.5 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-secondary)]">
                 {profile?.displayName || 'Tôi'}
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Nhóm nhận (có thể chọn nhiều)</label>
-              <div className="w-full max-h-32 overflow-y-auto px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+              <label className={LABEL_CLS}>Nhóm nhận (có thể chọn nhiều)</label>
+              <div className="w-full max-h-32 overflow-y-auto px-3 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)]">
                 {groupsList.map(g => (
                   <label key={g.id} className="flex items-center gap-2 py-1 cursor-pointer">
                     <input
                       type="checkbox"
+                      className={CHECKBOX_CLS}
                       checked={form.groupIds.includes(g.lineGroupId)}
                       onChange={e => {
                         const ids = form.groupIds;
@@ -385,24 +393,26 @@ export default function LiffTaskPage() {
                   <label key={id} className="flex items-center gap-2 py-1 cursor-pointer">
                     <input
                       type="checkbox"
+                      className={CHECKBOX_CLS}
                       checked={true}
                       onChange={() => setForm({ ...form, groupIds: form.groupIds.filter(x => x !== id) })}
                     />
-                    <span className="text-gray-400">{id === context?.groupId ? 'Nhóm hiện tại' : id}</span>
+                    <span className="text-[var(--color-text-muted)]">{id === context?.groupId ? 'Nhóm hiện tại' : id}</span>
                   </label>
                 ))}
                 {groupsList.length === 0 && form.groupIds.length === 0 && (
-                  <p className="text-xs text-gray-400 py-1">Chưa có nhóm nào — có thể để trống và giao thẳng cho cá nhân.</p>
+                  <p className="text-xs text-[var(--color-text-muted)] py-1">Chưa có nhóm nào — có thể để trống và giao thẳng cho cá nhân.</p>
                 )}
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Người thực hiện (có thể chọn nhiều) <span className="text-red-500">*</span></label>
-              <div className="w-full max-h-32 overflow-y-auto px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+              <label className={LABEL_CLS}>Người thực hiện (có thể chọn nhiều) <span className="text-red-400">*</span></label>
+              <div className="w-full max-h-32 overflow-y-auto px-3 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)]">
                 {usersList.map(u => (
                   <label key={u.id} className="flex items-center gap-2 py-1 cursor-pointer">
                     <input
                       type="checkbox"
+                      className={CHECKBOX_CLS}
                       checked={form.assignees.includes(u.lineUserId)}
                       onChange={e => {
                         const ids = form.assignees;
@@ -418,40 +428,40 @@ export default function LiffTaskPage() {
         </div>
 
         {/* Thời gian nhắc */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <h2 className="text-sm font-bold border-l-4 border-green-500 pl-2 mb-2">Thời gian nhắc</h2>
-          <p className="text-xs text-gray-400 mb-3">Chọn nhanh thời gian nhắc</p>
+        <div className={CARD_CLS}>
+          <h2 className="text-sm font-bold text-[var(--color-text-primary)] border-l-4 border-[var(--color-accent)] pl-2 mb-2">Thời gian nhắc</h2>
+          <p className="text-xs text-[var(--color-text-muted)] mb-3">Chọn nhanh thời gian nhắc</p>
           <div className="flex flex-wrap gap-2">
             {QUICK_REMINDER_PRESETS.map(time => (
               <button key={time} type="button" onClick={() => setForm({...form, quickReminder: time})}
-                className={`px-3 py-1.5 border rounded-full text-xs transition-colors ${form.quickReminder === time ? 'border-green-500 text-green-600 bg-green-50 font-medium' : 'border-gray-300 text-gray-600 bg-white'}`}>
+                className={`px-3 py-1.5 border rounded-full text-xs transition-colors ${form.quickReminder === time ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent-hover)] border-[var(--color-accent)]/30 font-medium' : 'text-[var(--color-text-muted)] border-[var(--color-border)] hover:border-[var(--color-text-muted)]'}`}>
                 {time}
               </button>
             ))}
             <button type="button" onClick={() => setForm({...form, quickReminder: getDefaultDeadline()})}
-              className={`px-3 py-1.5 border rounded-full text-xs transition-colors ${isCustomReminder ? 'border-green-500 text-green-600 bg-green-50 font-medium' : 'border-gray-300 text-gray-600 bg-white'}`}>
+              className={`px-3 py-1.5 border rounded-full text-xs transition-colors ${isCustomReminder ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent-hover)] border-[var(--color-accent)]/30 font-medium' : 'text-[var(--color-text-muted)] border-[var(--color-border)] hover:border-[var(--color-text-muted)]'}`}>
               Tùy chọn
             </button>
           </div>
           {isCustomReminder && (
             <input type="datetime-local" value={form.quickReminder} onChange={e => setForm({...form, quickReminder: e.target.value})}
-              className="w-full mt-3 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none" />
+              className={`${INPUT_CLS} mt-3 [color-scheme:dark]`} />
           )}
         </div>
 
         {/* Hạn hoàn thành & lặp lại */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <h2 className="text-sm font-bold border-l-4 border-green-500 pl-2 mb-4">Hạn hoàn thành & lặp lại</h2>
+        <div className={CARD_CLS}>
+          <h2 className={CARD_TITLE_CLS}>Hạn hoàn thành &amp; lặp lại</h2>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Hạn hoàn thành (Deadline)</label>
+              <label className={LABEL_CLS}>Hạn hoàn thành (Deadline)</label>
               <input type="datetime-local" value={form.deadline} onChange={e => setForm({...form, deadline: e.target.value})}
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none" />
+                className={`${INPUT_CLS} [color-scheme:dark]`} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Lặp lại</label>
+              <label className={LABEL_CLS}>Lặp lại</label>
               <select value={form.repeat} onChange={e => setForm({...form, repeat: e.target.value})}
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none">
+                className={INPUT_CLS}>
                 <option value="Không">Không</option>
                 <option value="Hàng giờ">Hàng giờ</option>
                 <option value="Hàng ngày">Hàng ngày</option>
@@ -464,19 +474,19 @@ export default function LiffTaskPage() {
               </select>
 
               {form.repeat === 'Hàng giờ' && (
-                <div className="mt-2">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Lặp lại sau mấy giờ</label>
+                <div className="mt-3">
+                  <label className={LABEL_CLS}>Lặp lại sau mấy giờ</label>
                   <input type="number" min="1" value={form.intervalHours} onChange={e => setForm({...form, intervalHours: e.target.value})}
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none" />
+                    className={INPUT_CLS} />
                 </div>
               )}
 
               {form.repeat === 'Hàng ngày' && (
-                <div className="mt-2">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Chọn các ngày trong tuần</label>
-                  <div className="flex flex-wrap gap-1.5">
+                <div className="mt-3">
+                  <label className={LABEL_CLS}>Chọn các ngày trong tuần</label>
+                  <div className="flex flex-wrap gap-2">
                     {WEEKDAYS.map(day => (
-                      <label key={day} className={`px-2.5 py-1 rounded-full text-xs border cursor-pointer ${form.repeatDays.includes(day) ? 'border-green-500 text-green-600 bg-green-50 font-medium' : 'border-gray-300 text-gray-600 bg-white'}`}>
+                      <label key={day} className={`flex items-center gap-2 cursor-pointer text-sm px-3 py-1.5 rounded-lg border transition-colors ${form.repeatDays.includes(day) ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent-hover)] border-[var(--color-accent)]/30 font-medium' : 'text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-[var(--color-text-muted)]'}`}>
                         <input
                           type="checkbox"
                           checked={form.repeatDays.includes(day)}
@@ -494,10 +504,10 @@ export default function LiffTaskPage() {
               )}
 
               {form.repeat === 'Tuỳ chọn' && (
-                <div className="mt-2">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Chu kỳ tuỳ chọn</label>
+                <div className="mt-3">
+                  <label className={LABEL_CLS}>Chu kỳ tuỳ chọn</label>
                   <input type="text" value={form.customRepeat} onChange={e => setForm({...form, customRepeat: e.target.value})} placeholder="VD: Mỗi 3 ngày"
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none" />
+                    className={INPUT_CLS} />
                 </div>
               )}
             </div>
@@ -505,24 +515,24 @@ export default function LiffTaskPage() {
         </div>
 
         {/* Nghiệm thu & nhắc lại */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <h2 className="text-sm font-bold border-l-4 border-green-500 pl-2 mb-4">Nghiệm thu & nhắc lại</h2>
+        <div className={CARD_CLS}>
+          <h2 className={CARD_TITLE_CLS}>Nghiệm thu &amp; nhắc lại</h2>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Yêu cầu nghiệm thu</label>
+              <label className={LABEL_CLS}>Yêu cầu nghiệm thu</label>
               <select value={form.acceptanceType} onChange={e => setForm({...form, acceptanceType: e.target.value})}
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none">
+                className={INPUT_CLS}>
                 <option>Bấm hoàn tất</option>
                 <option>Gửi ảnh chụp</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Tần suất nhắc</label>
+              <label className={LABEL_CLS}>Tần suất nhắc</label>
               <div className="flex gap-2">
                 <input type="number" value={form.reminderFrequency} onChange={e => setForm({...form, reminderFrequency: e.target.value})}
-                  className="w-1/2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none" />
+                  className={`${INPUT_CLS} w-1/2`} />
                 <select value={form.reminderFreqUnit} onChange={e => setForm({...form, reminderFreqUnit: e.target.value})}
-                  className="w-1/2 px-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none">
+                  className={`${INPUT_CLS} w-1/2`}>
                   <option>Phút</option>
                   <option>Giờ</option>
                 </select>
@@ -532,11 +542,11 @@ export default function LiffTaskPage() {
         </div>
 
         {/* Ảnh đính kèm */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <h2 className="text-sm font-bold border-l-4 border-green-500 pl-2 mb-4">Ảnh đính kèm</h2>
+        <div className={CARD_CLS}>
+          <h2 className={CARD_TITLE_CLS}>Ảnh đính kèm</h2>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Ảnh đính kèm gợi ý (Tối đa 1 ảnh hiện tại)</label>
-            <div className="w-full relative px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 flex items-center mb-2 overflow-hidden">
+            <label className={LABEL_CLS}>Ảnh đính kèm gợi ý (Tối đa 1 ảnh hiện tại)</label>
+            <div className="w-full relative px-3 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-secondary)] flex items-center mb-2 overflow-hidden">
               <input
                 type="file"
                 accept="image/*"
@@ -544,7 +554,7 @@ export default function LiffTaskPage() {
                 disabled={uploading}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               />
-              <span className={`px-2 py-1 rounded text-xs mr-2 transition-colors ${uploading ? 'bg-gray-300 text-gray-500' : 'bg-gray-200 text-gray-700'}`}>
+              <span className={`px-2 py-1 rounded text-xs mr-2 transition-colors ${uploading ? 'bg-[var(--color-bg-card-hover)] text-[var(--color-text-muted)]' : 'bg-[var(--color-bg-card)] text-[var(--color-text-secondary)]'}`}>
                 {uploading ? 'Đang tải lên...' : 'Chọn tệp'}
               </span>
               <span className="truncate flex-1">
@@ -553,12 +563,12 @@ export default function LiffTaskPage() {
             </div>
 
             {form.attachmentUrl && (
-              <div className="mb-3 relative inline-block rounded-lg overflow-hidden border border-gray-200">
+              <div className="mb-3 relative inline-block rounded-xl overflow-hidden border border-[var(--color-border)]">
                 <img src={form.attachmentUrl} alt="Preview" className="h-24 w-auto object-cover" />
                 <button
                   type="button"
                   onClick={() => setForm({...form, attachmentUrl: ''})}
-                  className="absolute top-1 right-1 bg-white rounded-full p-1 shadow-sm text-red-500 hover:text-red-700"
+                  className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-lg hover:bg-red-500 transition-colors"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -567,31 +577,31 @@ export default function LiffTaskPage() {
               </div>
             )}
 
-            <label className="block text-xs font-medium text-gray-500 mb-1">Hoặc dán link ảnh</label>
+            <label className={LABEL_CLS}>Hoặc dán link ảnh</label>
             <input type="text" value={form.attachmentUrl} onChange={e => setForm({...form, attachmentUrl: e.target.value})} placeholder="https://example.com/image.jpg"
-              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none" />
+              className={INPUT_CLS} />
           </div>
         </div>
 
         {/* Ghi chú */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <h2 className="text-sm font-bold border-l-4 border-green-500 pl-2 mb-4">Ghi chú</h2>
+        <div className={CARD_CLS}>
+          <h2 className={CARD_TITLE_CLS}>Ghi chú</h2>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Ghi chú thêm</label>
+            <label className={LABEL_CLS}>Ghi chú thêm</label>
             <textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={3} placeholder="Ghi chú thêm cho người thực hiện..."
-              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none resize-none" />
+              className={`${INPUT_CLS} resize-none`} />
           </div>
         </div>
 
         {/* Submit button fixed at bottom */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 z-20 shadow-lg">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm border-t border-[var(--color-border)] z-20">
           <button
             type="submit"
             disabled={submitting}
-            className="w-full max-w-md mx-auto block bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition-colors disabled:opacity-70 flex justify-center"
+            className="w-full max-w-md mx-auto block bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold py-3.5 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center glow-accent"
           >
             {submitting ? (
-              <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : 'Gửi giao việc'}
           </button>
         </div>
