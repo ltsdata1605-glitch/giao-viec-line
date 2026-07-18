@@ -174,6 +174,16 @@ export async function handleLineEvent(event: line.webhook.Event) {
     return;
   }
 
+  // Lệnh /baocao: tóm tắt công việc + tương tác theo nhân viên, dùng được cả 1:1 lẫn trong nhóm
+  if (['/baocao', 'báo cáo', 'bao cao'].includes(text.toLowerCase())) {
+    const { handleBaoCaoCommand } = await import('./report');
+    const client = getLineClient();
+    if (client) {
+      await handleBaoCaoCommand(event as line.webhook.MessageEvent, client);
+    }
+    return;
+  }
+
   if (['/xong', '/huy', '/nhan'].some(cmd => text.toLowerCase().startsWith(cmd + ' '))) {
     const { handleTaskUpdateCommand } = await import('./tasks');
     const client = getLineClient();
