@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react';
 import liff from '@line/liff';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { ADMIN_LINE_IDS } from '@/lib/adminIds';
 
 interface UserData {
   id: string;
   name: string;
   lineUserId: string;
+  role?: string;
 }
 
 const QUICK_TEMPLATES = [
@@ -199,6 +201,22 @@ export default function LiffTaskPage() {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
+
+  // Chỉ admin (hardcode hoặc role="admin" trên Firestore) mới được giao việc
+  const currentUserRole = usersList.find(u => u.lineUserId === profile?.userId)?.role;
+  const isAllowedToAssign = ADMIN_LINE_IDS.includes(profile?.userId || '') || currentUserRole === 'admin';
+
+  if (!isAllowedToAssign) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gray-50 p-6">
+        <div className="text-center max-w-sm">
+          <div className="text-4xl mb-3">⚠️</div>
+          <h1 className="text-base font-bold text-gray-900 mb-2">Bạn không có quyền giao việc</h1>
+          <p className="text-sm text-gray-500">Vui lòng liên hệ quản trị viên nếu cần được cấp quyền giao việc.</p>
+        </div>
       </div>
     );
   }

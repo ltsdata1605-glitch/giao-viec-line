@@ -153,7 +153,10 @@ export async function handleLineEvent(event: line.webhook.Event) {
   }
 
   // 2. Handle Task Commands (Giao việc)
-  if (text.toLowerCase().startsWith('/giao ')) {
+  // Khớp cả "/giao" gõ trơn (không dấu cách, không nội dung) lẫn "/giao <task>" - trước đây chỉ
+  // startsWith('/giao ') nên gõ bare "/giao" không khớp gì cả, bot im lặng hoàn toàn.
+  const textLowerTrimmed = text.toLowerCase().trim();
+  if (textLowerTrimmed === '/giao' || textLowerTrimmed.startsWith('/giao ')) {
     const { handleGiaoCommand } = await import('./tasks');
     const client = getLineClient();
     if (client) {

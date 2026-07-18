@@ -288,6 +288,17 @@ export async function handleGiaoCommand(
   event: line.webhook.MessageEvent,
   client: line.messagingApi.MessagingApiClient
 ) {
+  const requesterId = (event.source as any)?.userId;
+
+  // Chỉ admin (hardcode hoặc role="admin" trên Firestore) mới được giao việc
+  if (!(await isAdmin(requesterId))) {
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{ type: 'text', text: '⚠️ Bạn không có quyền giao việc. Vui lòng liên hệ quản trị viên nếu cần được cấp quyền.' }]
+    });
+    return;
+  }
+
   // Extract task details from text
   const parts = text.split('\n');
   const firstLine = parts[0];
@@ -500,7 +511,7 @@ export async function handleTaskUpdateCommand(
   }
 
   // Chỉ người giao việc hoặc admin mới được hủy công việc (tránh người ngoài cuộc hủy việc của người khác)
-  if (command === '/huy' && clickerId !== creatorId && !isAdmin(clickerId)) {
+  if (command === '/huy' && clickerId !== creatorId && !(await isAdmin(clickerId))) {
     await client.replyMessage({
       replyToken: event.replyToken as string,
       messages: [{ type: 'text', text: `⚠️ Chỉ người giao việc hoặc admin mới được hủy công việc "${taskData.name}".` }]

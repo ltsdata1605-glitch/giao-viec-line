@@ -9,6 +9,9 @@ interface Member {
   name: string;
   lineUserId: string;
   role: string;
+  // Email đăng nhập Dashboard được gắn với thành viên này, để tự động điền "Người giao việc"
+  // khi chính người đó tạo task từ dashboard thay vì phải chọn tay mỗi lần.
+  authEmail?: string;
 }
 
 export default function MembersPage() {
@@ -16,7 +19,7 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', lineUserId: '', role: 'member' });
+  const [form, setForm] = useState({ name: '', lineUserId: '', role: 'member', authEmail: '' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { loadMembers(); }, []);
@@ -35,7 +38,7 @@ export default function MembersPage() {
     if (!form.name.trim()) return;
     setSaving(true);
     try {
-      const payload = { name: form.name.trim(), lineUserId: form.lineUserId.trim(), role: form.role, updatedAt: serverTimestamp() };
+      const payload = { name: form.name.trim(), lineUserId: form.lineUserId.trim(), role: form.role, authEmail: form.authEmail.trim(), updatedAt: serverTimestamp() };
       if (editingId) {
         await updateDoc(doc(db, 'users', editingId), payload);
       } else {
@@ -62,7 +65,7 @@ export default function MembersPage() {
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Thành viên</h1>
           <p className="text-sm text-[var(--color-text-secondary)] mt-1">{members.length} thành viên đã đăng ký</p>
         </div>
-        <button onClick={() => { setEditingId(null); setForm({ name: '', lineUserId: '', role: 'member' }); setShowModal(true); }} className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] glow-accent">
+        <button onClick={() => { setEditingId(null); setForm({ name: '', lineUserId: '', role: 'member', authEmail: '' }); setShowModal(true); }} className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] glow-accent">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
           Thêm thành viên
         </button>
@@ -78,12 +81,19 @@ export default function MembersPage() {
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-[var(--color-text-primary)] truncate">{m.name}</p>
                 <p className="text-xs text-[var(--color-text-muted)] mt-0.5 truncate">ID: {m.lineUserId || 'N/A'}</p>
-                <span className={`inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${m.role === 'admin' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}`}>
-                  {m.role || 'member'}
-                </span>
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${m.role === 'admin' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}`}>
+                    {m.role || 'member'}
+                  </span>
+                  {m.authEmail && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title={m.authEmail}>
+                      🔗 Đã gắn tài khoản
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                <button onClick={() => { setEditingId(m.id); setForm({ name: m.name, lineUserId: m.lineUserId, role: m.role || 'member' }); setShowModal(true); }} className="p-1.5 text-[var(--color-text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors">
+                <button onClick={() => { setEditingId(m.id); setForm({ name: m.name, lineUserId: m.lineUserId, role: m.role || 'member', authEmail: m.authEmail || '' }); setShowModal(true); }} className="p-1.5 text-[var(--color-text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                 </button>
                 <button onClick={() => handleDelete(m.id)} className="p-1.5 text-[var(--color-text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
@@ -119,6 +129,11 @@ export default function MembersPage() {
                   <option value="member">Thành viên</option>
                   <option value="admin">Admin</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Email đăng nhập Dashboard (tuỳ chọn)</label>
+                <input type="email" value={form.authEmail} onChange={(e) => setForm({ ...form, authEmail: e.target.value })} placeholder="ten@congty.com" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
+                <p className="text-xs text-[var(--color-text-muted)] mt-1.5">Nếu điền, khi người này đăng nhập Dashboard bằng email trên, mục &quot;Người giao việc&quot; sẽ tự động điền đúng tên họ.</p>
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">

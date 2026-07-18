@@ -44,7 +44,7 @@ export async function handlePmhAdminCommand(text: string, event: line.webhook.Me
   const userId = source.userId;
 
   // 1. Kiểm tra quyền Admin dựa vào LINE ID
-  if (!isAdmin(userId)) {
+  if (!(await isAdmin(userId))) {
     await client.replyMessage({
       replyToken: event.replyToken,
       messages: [{ type: 'text', text: '❌ Bạn không có quyền sử dụng lệnh này. Vui lòng liên hệ quản trị viên (hoặc thêm ID của bạn vào code).' }]

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Task {
   id: string;
@@ -45,6 +46,7 @@ const priorityStyles: Record<string, string> = {
 };
 
 export default function TasksPage() {
+  const { linkedMember } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [usersList, setUsersList] = useState<UserData[]>([]);
   const [groupsList, setGroupsList] = useState<GroupData[]>([]);
@@ -52,6 +54,8 @@ export default function TasksPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterAssignee, setFilterAssignee] = useState<string>('all');
+  const [filterGroup, setFilterGroup] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -221,7 +225,9 @@ export default function TasksPage() {
 
   function openCreateModal() {
     setEditingId(null);
-    setForm(defaultForm);
+    // Tự động điền "Người giao việc" bằng thành viên LINE gắn với tài khoản đang đăng nhập (nếu có),
+    // vẫn chọn tay lại được trong form nếu cần giao thay người khác.
+    setForm({ ...defaultForm, creatorId: linkedMember?.lineUserId || defaultForm.creatorId });
     setNewUrlInput('');
     setShowModal(true);
   }
@@ -360,7 +366,13 @@ export default function TasksPage() {
     const matchSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.assigneeName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchStatus = filterStatus === 'all' || t.status === filterStatus;
-    return matchSearch && matchStatus;
+    const matchAssignee = filterAssignee === 'all' ||
+      (t.assignees && t.assignees.includes(filterAssignee)) ||
+      t.assigneeId === filterAssignee;
+    const matchGroup = filterGroup === 'all' ||
+      t.groupId === filterGroup ||
+      (t.groupIds && t.groupIds.includes(filterGroup));
+    return matchSearch && matchStatus && matchAssignee && matchGroup;
   });
 
   if (loading) {
@@ -380,7 +392,9 @@ export default function TasksPage() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Quản lý Công việc</h1>
           <p className="text-sm text-[var(--color-text-secondary)] mt-1">
-            {tasks.length} công việc trong hệ thống
+            {filteredTasks.length === tasks.length
+              ? `${tasks.length} công việc trong hệ thống`
+              : `Hiện ${filteredTasks.length} / ${tasks.length} công việc`}
           </p>
         </div>
         <button
@@ -425,6 +439,38 @@ export default function TasksPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Lọc theo người nhận / nhóm */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <select
+          value={filterAssignee}
+          onChange={(e) => setFilterAssignee(e.target.value)}
+          className="flex-1 px-4 py-2.5 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
+        >
+          <option value="all">Tất cả người nhận</option>
+          {usersList.map((u) => (
+            <option key={u.id} value={u.lineUserId}>{u.name}</option>
+          ))}
+        </select>
+        <select
+          value={filterGroup}
+          onChange={(e) => setFilterGroup(e.target.value)}
+          className="flex-1 px-4 py-2.5 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
+        >
+          <option value="all">Tất cả nhóm</option>
+          {groupsList.map((g) => (
+            <option key={g.id} value={g.lineGroupId}>{g.name}</option>
+          ))}
+        </select>
+        {(filterAssignee !== 'all' || filterGroup !== 'all') && (
+          <button
+            onClick={() => { setFilterAssignee('all'); setFilterGroup('all'); }}
+            className="px-4 py-2.5 text-xs font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] border border-[var(--color-border)] rounded-xl hover:border-[var(--color-text-muted)] transition-colors whitespace-nowrap"
+          >
+            Xóa lọc
+          </button>
+        )}
       </div>
 
       {/* Tasks table */}
@@ -609,9 +655,9 @@ export default function TasksPage() {
 
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Người giao việc</label>
-                <select 
-                  value={(form as any).creatorId || 'U5bff120f01066eefca60fd0c8ea3537c'} 
-                  onChange={(e) => setForm({ ...form, creatorId: e.target.value })} 
+                <select
+                  value={(form as any).creatorId || 'U5bff120f01066eefca60fd0c8ea3537c'}
+                  onChange={(e) => setForm({ ...form, creatorId: e.target.value })}
                   className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
                 >
                   <option value="U5bff120f01066eefca60fd0c8ea3537c">Admin (BOT)</option>
@@ -619,6 +665,11 @@ export default function TasksPage() {
                     <option key={u.id} value={u.lineUserId}>{u.name}</option>
                   ))}
                 </select>
+                {linkedMember && form.creatorId === linkedMember.lineUserId ? (
+                  <p className="text-xs text-emerald-400 mt-1.5">✓ Tự động điền theo tài khoản đang đăng nhập ({linkedMember.name})</p>
+                ) : (
+                  <p className="text-xs text-[var(--color-text-muted)] mt-1.5">Chọn ai đang thực sự giao việc này, để hiện đúng tên trên thẻ Flex gửi qua LINE.</p>
+                )}
               </div>
 
               <div>
