@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { ADMIN_LINE_IDS } from '@/lib/adminIds';
 import { QUICK_TEMPLATES } from '@/lib/taskTemplates';
+import { compressImage } from '@/lib/imageCompress';
 
 interface UserData {
   id: string;
@@ -140,8 +141,8 @@ export default function LiffTaskPage() {
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
 
     setUploading(true);
     try {
@@ -152,6 +153,7 @@ export default function LiffTaskPage() {
         return;
       }
 
+      const file = await compressImage(rawFile);
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);

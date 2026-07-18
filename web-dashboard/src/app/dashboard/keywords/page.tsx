@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { compressImage } from '@/lib/imageCompress';
 
 interface Keyword {
   id: string;
@@ -55,6 +56,11 @@ export default function KeywordsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
+
+  function markImageBroken(url: string) {
+    setBrokenImages((prev) => (prev.has(url) ? prev : new Set(prev).add(url)));
+  }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -76,7 +82,7 @@ export default function KeywordsPage() {
       }
 
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+        const file = await compressImage(files[i]);
         const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.readAsDataURL(file);
@@ -329,61 +335,59 @@ export default function KeywordsPage() {
           <p className="text-xs text-[var(--color-text-muted)]">Nhấn &quot;Thêm từ khóa&quot; để tạo từ khóa đầu tiên</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredKeywords.map((kw) => (
-            <div
-              key={kw.id}
-              className="glass rounded-2xl p-5 hover:border-[var(--color-border-active)]/30 transition-all duration-300 group"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <span className="inline-flex items-center px-3 py-1 rounded-lg bg-indigo-500/10 text-indigo-400 text-xs font-semibold border border-indigo-500/20">
-                  #{kw.keyword}
-                </span>
-                <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => openEditModal(kw)}
-                    className="p-1.5 text-[var(--color-text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
-                    title="Sửa"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(kw.id)}
-                    className="p-1.5 text-[var(--color-text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                    title="Xóa"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+          {filteredKeywords.map((kw) => {
+            const rawUrls = kw.image_urls && kw.image_urls.length > 0 ? kw.image_urls : (kw.image_url ? [kw.image_url] : []);
+            const visibleUrls = rawUrls.filter((url): url is string => !!url && !brokenImages.has(url));
+            return (
+              <div
+                key={kw.id}
+                className="glass rounded-xl p-3.5 hover:border-[var(--color-border-active)]/30 transition-all duration-300 group"
+              >
+                <div className="flex items-start justify-between mb-1.5 gap-2">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 text-xs font-semibold border border-indigo-500/20 truncate">
+                    #{kw.keyword}
+                  </span>
+                  <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0">
+                    <button
+                      onClick={() => openEditModal(kw)}
+                      className="p-1 text-[var(--color-text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-md transition-colors"
+                      title="Sửa"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleDelete(kw.id)}
+                      className="p-1 text-[var(--color-text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+                      title="Xóa"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
+
+                <p className="text-xs text-[var(--color-text-secondary)] mb-2 line-clamp-2 leading-relaxed">{kw.reply_text}</p>
+
+                {visibleUrls.length > 0 && (
+                  <div className="flex gap-1.5">
+                    {visibleUrls.map((url, i) => (
+                      <img
+                        key={i}
+                        src={url}
+                        alt={kw.keyword}
+                        className="w-12 h-12 rounded-lg object-cover border border-[var(--color-border)] flex-shrink-0"
+                        onError={() => markImageBroken(url)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-
-              <p className="text-sm text-[var(--color-text-primary)] mb-3 line-clamp-3">{kw.reply_text}</p>
-
-              {/* Hiển thị danh sách ảnh */}
-              {((kw.image_urls && kw.image_urls.length > 0) || kw.image_url) && (
-                <div className={`mt-3 grid gap-2 ${((kw.image_urls?.length || 1) > 1) ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                  {(kw.image_urls && kw.image_urls.length > 0 ? kw.image_urls : [kw.image_url]).map((url, i) => (
-                    url ? (
-                      <div key={i} className="rounded-xl overflow-hidden border border-[var(--color-border)] bg-[var(--color-bg-primary)]">
-                        <img
-                          src={url}
-                          alt={kw.keyword}
-                          className="w-full h-24 object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      </div>
-                    ) : null
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

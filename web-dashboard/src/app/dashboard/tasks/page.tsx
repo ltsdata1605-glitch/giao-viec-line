@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { QUICK_TEMPLATES } from '@/lib/taskTemplates';
+import { compressImage } from '@/lib/imageCompress';
 
 interface Task {
   id: string;
@@ -63,9 +64,9 @@ export default function TasksPage() {
   const [newUrlInput, setNewUrlInput] = useState('');
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
+
     setUploadingImage(true);
     try {
       const imgbbKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
@@ -74,7 +75,8 @@ export default function TasksPage() {
         setUploadingImage(false);
         return;
       }
-      
+
+      const file = await compressImage(rawFile);
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
