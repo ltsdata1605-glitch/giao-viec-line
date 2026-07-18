@@ -28,29 +28,13 @@ interface UserInteraction {
 }
 
 /**
- * Lệnh /baocao [tuần|tháng]: tóm tắt nhanh tình hình công việc + tương tác theo từng nhân viên
- * ngay trên LINE (dùng được cả chat 1:1 lẫn trong nhóm), không cần mở Dashboard. Chỉ admin mới xem được.
- * Không truyền kỳ (mặc định) sẽ tính tổng dồn từ trước đến nay; "tuần"/"tháng" tính theo lịch VN,
+ * Dựng nội dung báo cáo (công việc + tương tác theo từng nhân viên) cho một kỳ, dùng chung cho cả
+ * lệnh /baocao (trả lời trực tiếp) lẫn báo cáo tự động hằng ngày (đẩy chủ động qua cron).
+ * Không truyền kỳ (mặc định "all") sẽ tính tổng dồn từ trước đến nay; "week"/"month" tính theo lịch VN,
  * dùng chung cách xác định tuần/tháng với biểu đồ Ngày/Tuần/Tháng ở trang Dashboard > Báo cáo.
  */
-export async function handleBaoCaoCommand(
-  text: string,
-  event: line.webhook.MessageEvent,
-  client: line.messagingApi.MessagingApiClient
-) {
-  if (!adminDb) return;
-  const source = event.source as any;
-  const requesterId = source?.userId;
-
-  if (!(await isAdmin(requesterId))) {
-    await client.replyMessage({
-      replyToken: event.replyToken as string,
-      messages: [{ type: 'text', text: '⚠️ Bạn không có quyền xem báo cáo. Vui lòng liên hệ quản trị viên nếu cần được cấp quyền.' }]
-    });
-    return;
-  }
-
-  const period = parsePeriod(text);
+export async function buildBaoCaoText(period: Period = 'all'): Promise<string> {
+  if (!adminDb) return 'Chưa cấu hình cơ sở dữ liệu.';
 
   const [tasksSnap, usersSnap] = await Promise.all([
     adminDb.collection('tasks').get(),
@@ -144,6 +128,33 @@ export async function handleBaoCaoCommand(
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://botline-zeta.vercel.app';
   msg += `\n📈 Xem đầy đủ biểu đồ: ${appUrl}/dashboard/reports`;
+
+  return msg;
+}
+
+/**
+ * Lệnh /baocao [tuần|tháng]: tóm tắt nhanh tình hình công việc + tương tác theo từng nhân viên
+ * ngay trên LINE (dùng được cả chat 1:1 lẫn trong nhóm), không cần mở Dashboard. Chỉ admin mới xem được.
+ */
+export async function handleBaoCaoCommand(
+  text: string,
+  event: line.webhook.MessageEvent,
+  client: line.messagingApi.MessagingApiClient
+) {
+  if (!adminDb) return;
+  const source = event.source as any;
+  const requesterId = source?.userId;
+
+  if (!(await isAdmin(requesterId))) {
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{ type: 'text', text: '⚠️ Bạn không có quyền xem báo cáo. Vui lòng liên hệ quản trị viên nếu cần được cấp quyền.' }]
+    });
+    return;
+  }
+
+  const period = parsePeriod(text);
+  const msg = await buildBaoCaoText(period);
 
   await client.replyMessage({
     replyToken: event.replyToken as string,

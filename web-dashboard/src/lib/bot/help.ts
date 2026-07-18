@@ -14,7 +14,8 @@ const HELP_TEXT = `🤖 DANH SÁCH LỆNH BOT
 • /dongbo — Đồng bộ danh sách thành viên trong nhóm (dùng trong nhóm)
 
 💡 Mã việc (VD: a1b2c) hiển thị trên thẻ công việc hoặc trong /vieccuatoi.
-💡 Gõ /help hoặc /trogiup để xem lại danh sách này bất cứ lúc nào.`;
+💡 Gõ /help hoặc /trogiup để xem lại danh sách này bất cứ lúc nào.
+💡 Admin còn tự động nhận báo cáo tóm tắt mỗi sáng qua tin nhắn riêng, không cần gõ lệnh.`;
 
 /**
  * Lệnh /help: liệt kê toàn bộ lệnh bot hỗ trợ, thay thế vai trò "tra cứu nhanh" mà Rich Menu

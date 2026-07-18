@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import * as line from '@line/bot-sdk';
 import { adminDb } from '@/lib/firebase-admin';
 import { buildTaskReminderMessage, buildTaskEscalationMessage, parseReminderMinutes } from '@/lib/bot/tasks';
-import { parseVnDeadline } from '@/lib/dateUtils';
+import { parseVnDeadline, getVnDateKey } from '@/lib/dateUtils';
+import { buildBaoCaoText } from '@/lib/bot/report';
+import { getAllAdminLineIds } from '@/lib/bot/admin';
 
 /**
  * Tìm mốc thời gian kế tiếp rơi vào "ngày thứ N tính từ ngày cuối tháng" (N=0 là chính ngày cuối tháng,
@@ -340,6 +342,38 @@ export async function GET(request: Request) {
       }
     }
 
+    // 3. Báo cáo tự động hằng ngày: đẩy bản tóm tắt /baocao cho toàn bộ admin vào buổi sáng (từ 8h giờ VN).
+    // Cron được gọi nhiều lần/ngày (qua dịch vụ ngoài, vì gói Vercel Hobby chỉ cho cron nội bộ chạy 1 lần/ngày)
+    // nên phải chốt "đã gửi hôm nay chưa" qua systemState/autoReport để không gửi trùng nhiều lần trong ngày.
+    let autoReportSent = false;
+    try {
+      const vnHour = new Date(now + 7 * 60 * 60 * 1000).getUTCHours();
+      if (vnHour >= 8) {
+        const todayKey = getVnDateKey(now);
+        const stateRef = adminDb.collection('systemState').doc('autoReport');
+        const stateSnap = await stateRef.get();
+        const lastSent = stateSnap.exists ? stateSnap.data()?.lastDailyReportDate : null;
+
+        if (lastSent !== todayKey) {
+          await stateRef.set({ lastDailyReportDate: todayKey }, { merge: true });
+          const adminIds = await getAllAdminLineIds();
+          if (adminIds.length > 0) {
+            const reportText = `🔔 Báo cáo tự động mỗi sáng\n\n${await buildBaoCaoText('all')}`;
+            for (const adminId of adminIds) {
+              try {
+                await lineClient.pushMessage({ to: adminId, messages: [{ type: 'text', text: reportText }] });
+                autoReportSent = true;
+              } catch (e) {
+                console.error('Failed to push auto daily report', adminId, e);
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to build/send auto daily report', e);
+    }
+
     return NextResponse.json({
       success: true,
       processedTasks: tasksToNotify.length,
@@ -348,6 +382,7 @@ export async function GET(request: Request) {
       remindedTasks: remindedCount,
       resentTasks: tasksToResend.length,
       processedKeywords: keywordsToNotify.length,
+      autoReportSent,
       timestamp: now
     });
 

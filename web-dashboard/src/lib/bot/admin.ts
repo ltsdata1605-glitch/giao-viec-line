@@ -15,3 +15,19 @@ export async function isAdmin(userId?: string | null): Promise<boolean> {
   if (snap.empty) return false;
   return snap.docs[0].data().role === 'admin';
 }
+
+/**
+ * Toàn bộ LINE ID admin: danh sách hardcode ADMIN_LINE_IDS gộp với các user có role="admin" trên
+ * Firestore. Dùng để chủ động đẩy thông báo (vd báo cáo tự động), không phải phản hồi 1 tin nhắn cụ thể.
+ */
+export async function getAllAdminLineIds(): Promise<string[]> {
+  const ids = new Set(ADMIN_LINE_IDS);
+  if (adminDb) {
+    const snap = await adminDb.collection('users').where('role', '==', 'admin').get();
+    snap.docs.forEach((doc) => {
+      const id = doc.data().lineUserId;
+      if (id) ids.add(id);
+    });
+  }
+  return Array.from(ids);
+}
