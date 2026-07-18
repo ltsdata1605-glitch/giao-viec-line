@@ -3,6 +3,7 @@ import * as line from '@line/bot-sdk';
 import { FieldValue } from 'firebase-admin/firestore';
 import { isAdmin } from './admin';
 import { parseGiaoDeadline, parseGiaoPriority, stripMatchedText } from './giaoParser';
+import { formatVnDateTime } from '@/lib/dateUtils';
 
 // Vòng đời trạng thái task thống nhất giữa bot, dashboard và cron:
 // Chờ gửi (đã tạo, hẹn giờ gửi) -> Chưa làm (đã gửi, chưa ai nhận) -> Đang làm (đã có người nhận)
@@ -35,6 +36,14 @@ export interface Task {
   reminderFrequency?: string;
   // Mốc thời gian (epoch ms) lần nhắc gần nhất, để cron biết đã tới lượt nhắc tiếp theo chưa.
   lastReminderAt?: number;
+  // Ai bấm "Nhận việc" / "Hoàn tất" và lúc nào — dùng để trả lời lại khi bị bấm trùng
+  // (task đã nhận/hoàn tất rồi mà vẫn có người bấm nút).
+  acceptedBy?: string;
+  acceptedByName?: string;
+  acceptedAt?: any;
+  completedBy?: string;
+  completedByName?: string;
+  completedAt?: any;
 }
 
 /**
@@ -502,14 +511,41 @@ export async function handleTaskUpdateCommand(
   const currentStatus: TaskStatus = taskData.status;
   const creatorId = taskData.creatorId || 'unknown';
   const clickerId = (event.source as any)?.userId || '';
+  const assignees: string[] = taskData.assignees || [];
+
+  // "Nhận việc" khi đã Đang làm/Hoàn thành, hoặc "Hoàn tất" khi đã Hoàn thành: không còn gì để đổi,
+  // chỉ trả lời cho biết ai đã làm việc đó và lúc nào (không chặn quyền xem, ai bấm cũng thấy được).
+  if (command === '/nhan' && (currentStatus === 'Đang làm' || currentStatus === 'Hoàn thành')) {
+    const info = currentStatus === 'Hoàn thành' && taskData.completedByName && taskData.completedAt
+      ? `Công việc "${taskData.name}" đã được ${taskData.completedByName} hoàn tất lúc ${formatVnDateTime(taskData.completedAt.toMillis())}.`
+      : taskData.acceptedByName && taskData.acceptedAt
+        ? `Công việc "${taskData.name}" đã được ${taskData.acceptedByName} nhận lúc ${formatVnDateTime(taskData.acceptedAt.toMillis())}.`
+        : `ℹ️ Công việc "${taskData.name}" đã ở trạng thái "${currentStatus}" rồi.`;
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{ type: 'text', text: info }]
+    });
+    return;
+  }
+
+  if (command === '/xong' && currentStatus === 'Hoàn thành') {
+    const info = taskData.completedByName && taskData.completedAt
+      ? `Công việc "${taskData.name}" đã được ${taskData.completedByName} hoàn tất lúc ${formatVnDateTime(taskData.completedAt.toMillis())}.`
+      : `ℹ️ Công việc "${taskData.name}" đã ở trạng thái "Hoàn thành" rồi.`;
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{ type: 'text', text: info }]
+    });
+    return;
+  }
 
   let newStatus = '';
   if (command === '/xong') newStatus = 'Hoàn thành';
   else if (command === '/huy') newStatus = 'Đã hủy';
   else if (command === '/nhan') newStatus = 'Đang làm';
 
-  // Chặn chuyển trạng thái từ các trạng thái đã kết thúc (Hoàn thành/Đã hủy) để tránh
-  // "Nhận việc"/"Hoàn tất" mở lại một việc đã xong hoặc đã bị hủy trước đó.
+  // Chặn chuyển trạng thái từ các trạng thái đã kết thúc (Hoàn thành/Đã hủy) — case "Hoàn thành" cho
+  // /nhan và /xong đã được xử lý riêng ở trên với thông tin chi tiết hơn, ở đây còn lại chủ yếu là "Đã hủy".
   if (FINAL_TASK_STATUSES.includes(currentStatus)) {
     const message = currentStatus === newStatus
       ? `ℹ️ Công việc "${taskData.name}" đã ở trạng thái "${currentStatus}" rồi.`
@@ -530,16 +566,32 @@ export async function handleTaskUpdateCommand(
     return;
   }
 
-  await doc.ref.update({ status: newStatus, updatedAt: FieldValue.serverTimestamp() });
+  // Chỉ người được giao việc mới được bấm "Nhận việc" / "Hoàn tất" (tránh người ngoài cuộc thao tác hộ)
+  if ((command === '/nhan' || command === '/xong') && !assignees.includes(clickerId)) {
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{ type: 'text', text: `⚠️ Chỉ người được giao công việc "${taskData.name}" mới có thể bấm nút này.` }]
+    });
+    return;
+  }
+
+  const updates: Record<string, unknown> = { status: newStatus, updatedAt: FieldValue.serverTimestamp() };
+  const clickerName = await getUserDisplayName(clickerId);
+  if (command === '/nhan') {
+    updates.acceptedBy = clickerId;
+    updates.acceptedByName = clickerName;
+    updates.acceptedAt = FieldValue.serverTimestamp();
+  } else if (command === '/xong') {
+    updates.completedBy = clickerId;
+    updates.completedByName = clickerName;
+    updates.completedAt = FieldValue.serverTimestamp();
+  }
+  await doc.ref.update(updates);
 
   if (command === '/nhan') {
-    const segments: MentionSegment[] = [];
-    if (creatorId !== 'unknown') segments.push({ mentionUserId: creatorId });
-    if (clickerId) {
-      if (segments.length > 0) segments.push({ text: ' ' });
-      segments.push({ mentionUserId: clickerId });
-    }
-    segments.push({ text: ' đã nhận thông tin!' });
+    const segments: MentionSegment[] = [{ mentionUserId: clickerId }, { text: ' đã nhận việc\nThông tin ' }];
+    if (creatorId !== 'unknown' && creatorId.startsWith('U')) segments.push({ mentionUserId: creatorId });
+    segments.push({ text: '!' });
 
     await client.replyMessage({
       replyToken: event.replyToken as string,
@@ -550,13 +602,12 @@ export async function handleTaskUpdateCommand(
 
   if (command === '/xong') {
     const segments: MentionSegment[] = [
-      { text: `✅ Công việc "${taskData.name}" đã được hoàn tất bởi ` }
+      { text: `✅ Công việc "${taskData.name}" đã được hoàn tất bởi ` },
+      { mentionUserId: clickerId },
+      { text: '.\nThông tin ' }
     ];
-    if (clickerId) segments.push({ mentionUserId: clickerId });
-    if (creatorId !== 'unknown') {
-      segments.push({ text: ' và ' });
-      segments.push({ mentionUserId: creatorId });
-    }
+    if (creatorId !== 'unknown' && creatorId.startsWith('U')) segments.push({ mentionUserId: creatorId });
+    segments.push({ text: '!' });
 
     // Trả lời trích dẫn lại đúng thẻ Flex công việc đã gửi trong cuộc trò chuyện này (nếu có)
     const chatKey = getChatKey(event.source as any);

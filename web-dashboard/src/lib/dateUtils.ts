@@ -17,3 +17,13 @@ export function parseVnDeadline(raw: unknown): number | null {
   }
   return null;
 }
+
+/**
+ * Định dạng một epoch ms thành "hh:mm dd/mm/yyyy" theo giờ Việt Nam (UTC+7), bất kể server chạy múi giờ nào
+ * (dịch instant +7 giờ rồi đọc qua getter UTC — cùng kỹ thuật với parseVnDeadline, không cần thư viện timezone).
+ */
+export function formatVnDateTime(ms: number): string {
+  const shifted = new Date(ms + 7 * 60 * 60 * 1000);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())} ${pad(shifted.getUTCDate())}/${pad(shifted.getUTCMonth() + 1)}/${shifted.getUTCFullYear()}`;
+}
