@@ -589,9 +589,11 @@ export async function handleTaskUpdateCommand(
   await doc.ref.update(updates);
 
   if (command === '/nhan') {
-    const segments: MentionSegment[] = [{ mentionUserId: clickerId }, { text: ' đã nhận việc\nThông tin ' }];
-    if (creatorId !== 'unknown' && creatorId.startsWith('U')) segments.push({ mentionUserId: creatorId });
-    segments.push({ text: '!' });
+    // Gọi tên người nhận việc bằng văn bản thường (không tag/ping), chỉ tag người giao để báo tin
+    const segments: MentionSegment[] = [{ text: `${clickerName}, đã nhận việc "${taskData.name}".` }];
+    if (creatorId !== 'unknown' && creatorId.startsWith('U')) {
+      segments.push({ text: ' Thông tin ' }, { mentionUserId: creatorId });
+    }
 
     await client.replyMessage({
       replyToken: event.replyToken as string,
@@ -601,13 +603,11 @@ export async function handleTaskUpdateCommand(
   }
 
   if (command === '/xong') {
-    const segments: MentionSegment[] = [
-      { text: `✅ Công việc "${taskData.name}" đã được hoàn tất bởi ` },
-      { mentionUserId: clickerId },
-      { text: '.\nThông tin ' }
-    ];
-    if (creatorId !== 'unknown' && creatorId.startsWith('U')) segments.push({ mentionUserId: creatorId });
-    segments.push({ text: '!' });
+    // Gọi tên người hoàn tất bằng văn bản thường (không tag/ping), chỉ tag người giao để báo tin
+    const segments: MentionSegment[] = [{ text: `${clickerName}, đã hoàn tất việc "${taskData.name}".` }];
+    if (creatorId !== 'unknown' && creatorId.startsWith('U')) {
+      segments.push({ text: ' Thông tin ' }, { mentionUserId: creatorId });
+    }
 
     // Trả lời trích dẫn lại đúng thẻ Flex công việc đã gửi trong cuộc trò chuyện này (nếu có)
     const chatKey = getChatKey(event.source as any);
