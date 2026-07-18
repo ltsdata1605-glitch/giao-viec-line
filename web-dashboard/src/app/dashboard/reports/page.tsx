@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, Timestamp } from 'firebase/firestore';
-import { parseVnDeadline } from '@/lib/dateUtils';
+import { parseVnDeadline, getVnDateKey } from '@/lib/dateUtils';
 
 interface TaskRow {
   id: string;
@@ -18,7 +18,20 @@ interface TaskRow {
 interface UserRow {
   lineUserId: string;
   name: string;
+  interactionTotal: number;
 }
+
+interface DailyInteraction {
+  date: string;
+  text: number;
+  image: number;
+  sticker: number;
+  other: number;
+  total: number;
+}
+
+// Nhóm các loại tin nhắn ít gặp (video/audio/file/location) chung vào "Khác" cho gọn biểu đồ
+const OTHER_MESSAGE_TYPES = ['video', 'audio', 'file', 'location'];
 
 // Thứ tự vòng đời + màu khớp đúng bảng màu trạng thái đã dùng ở trang Công việc (statusStyles),
 // để một trạng thái luôn cùng một màu xuyên suốt dashboard.
@@ -88,6 +101,7 @@ function TrendChart({ labels, counts }: { labels: string[]; counts: number[] }) 
 export default function ReportsPage() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [interactions, setInteractions] = useState<DailyInteraction[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function loadTasks() {
@@ -114,11 +128,36 @@ export default function ReportsPage() {
   async function loadUsers() {
     try {
       const snap = await getDocs(collection(db, 'users'));
-      const rawUsers = snap.docs.map((d) => d.data() as { lineUserId?: string; name?: string });
+      const rawUsers = snap.docs.map((d) => d.data() as { lineUserId?: string; name?: string; interactionTotal?: number });
       const uniqueUsers = Array.from(new Map(rawUsers.map((u) => [u.lineUserId, u])).values());
-      setUsers(uniqueUsers.map((u) => ({ lineUserId: u.lineUserId || '', name: u.name || u.lineUserId || '' })));
+      setUsers(uniqueUsers.map((u) => ({
+        lineUserId: u.lineUserId || '',
+        name: u.name || u.lineUserId || '',
+        interactionTotal: u.interactionTotal || 0,
+      })));
     } catch (err) {
       console.error('Error loading users for reports:', err);
+    }
+  }
+
+  async function loadInteractions() {
+    try {
+      const snap = await getDocs(collection(db, 'dailyInteractions'));
+      const data = snap.docs.map((d) => {
+        const raw = d.data();
+        const other = OTHER_MESSAGE_TYPES.reduce((sum, t) => sum + (raw[t] || 0), 0);
+        return {
+          date: d.id,
+          text: raw.text || 0,
+          image: raw.image || 0,
+          sticker: raw.sticker || 0,
+          other,
+          total: raw.total || 0,
+        } as DailyInteraction;
+      });
+      setInteractions(data);
+    } catch (err) {
+      console.error('Error loading interactions for reports:', err);
     }
   }
 
@@ -127,7 +166,7 @@ export default function ReportsPage() {
   useEffect(() => {
     // Chốt mốc "hiện tại" tại thời điểm tải dữ liệu (không gọi Date.now() giữa lúc render
     // để tránh vi phạm quy tắc component thuần của React).
-    Promise.all([loadTasks(), loadUsers()]).then(() => {
+    Promise.all([loadTasks(), loadUsers(), loadInteractions()]).then(() => {
       setNow(Date.now());
       setLoading(false);
     });
@@ -220,6 +259,45 @@ export default function ReportsPage() {
     .sort((a, b) => (b.daysOverdue || 0) - (a.daysOverdue || 0))
     .slice(0, 10);
 
+  // Thống kê tương tác: tổng + phân loại theo tin nhắn/hình ảnh/sticker/khác
+  const interactionTotal = interactions.reduce((sum, d) => sum + d.total, 0);
+  const interactionByType = {
+    text: interactions.reduce((sum, d) => sum + d.text, 0),
+    image: interactions.reduce((sum, d) => sum + d.image, 0),
+    sticker: interactions.reduce((sum, d) => sum + d.sticker, 0),
+    other: interactions.reduce((sum, d) => sum + d.other, 0),
+  };
+  const INTERACTION_TYPE_LABELS: Record<keyof typeof interactionByType, string> = {
+    text: 'Tin nhắn văn bản',
+    image: 'Hình ảnh',
+    sticker: 'Sticker',
+    other: 'Khác (video/file/vị trí...)',
+  };
+  const INTERACTION_TYPE_COLORS: Record<keyof typeof interactionByType, string> = {
+    text: '#6366f1',
+    image: '#10b981',
+    sticker: '#f59e0b',
+    other: '#64748b',
+  };
+
+  // Xu hướng tương tác 7 ngày gần nhất (khớp đúng khoá ngày dailyInteractions dùng giờ VN)
+  const interactionByDate = new Map(interactions.map((d) => [d.date, d.total]));
+  const interactionDayLabels: string[] = [];
+  const interactionTrendCounts: number[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const ms = now - i * 86400000;
+    const key = getVnDateKey(ms);
+    const d = new Date(ms);
+    interactionDayLabels.push(`${d.getDate()}/${d.getMonth() + 1}`);
+    interactionTrendCounts.push(interactionByDate.get(key) || 0);
+  }
+
+  // Top người tương tác nhiều nhất
+  const topInteractors = users
+    .filter((u) => u.interactionTotal > 0)
+    .sort((a, b) => b.interactionTotal - a.interactionTotal)
+    .slice(0, 10);
+
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div>
@@ -310,6 +388,63 @@ export default function ReportsPage() {
                     <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border bg-red-500/10 text-red-400 border-red-500/20 flex-shrink-0">
                       Trễ {t.daysOverdue !== null ? `${t.daysOverdue} ngày` : '?'}
                     </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      <div>
+        <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Thống kê tương tác</h2>
+        <p className="text-sm text-[var(--color-text-secondary)] mt-1">Số lượt nhắn tin/hình ảnh/sticker bot ghi nhận được, tính từ khi bật tính năng này.</p>
+      </div>
+
+      {interactionTotal === 0 ? (
+        <div className="glass rounded-2xl p-12 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[var(--color-bg-card)] flex items-center justify-center">
+            <span className="text-3xl">💬</span>
+          </div>
+          <p className="text-[var(--color-text-secondary)]">Chưa có dữ liệu tương tác nào được ghi nhận.</p>
+        </div>
+      ) : (
+        <>
+          <StatTile label="Tổng lượt tương tác" value={String(interactionTotal)} />
+
+          <div className="glass rounded-2xl p-5">
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">Phân loại tương tác</h2>
+            <div className="space-y-3">
+              {(Object.keys(interactionByType) as Array<keyof typeof interactionByType>).map((type) => (
+                <StatusBar
+                  key={type}
+                  label={INTERACTION_TYPE_LABELS[type]}
+                  count={interactionByType[type]}
+                  total={interactionTotal}
+                  color={INTERACTION_TYPE_COLORS[type]}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="glass rounded-2xl p-5">
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">Xu hướng tương tác (7 ngày gần nhất)</h2>
+            <TrendChart labels={interactionDayLabels} counts={interactionTrendCounts} />
+          </div>
+
+          <div className="glass rounded-2xl overflow-hidden">
+            <div className="p-5 border-b border-[var(--color-border)]">
+              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Người tương tác nhiều nhất</h2>
+              <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Top 10 theo tổng số lượt nhắn tin với bot</p>
+            </div>
+            {topInteractors.length === 0 ? (
+              <div className="p-8 text-center text-sm text-[var(--color-text-secondary)]">Chưa có dữ liệu.</div>
+            ) : (
+              <div className="divide-y divide-[var(--color-border)]">
+                {topInteractors.map((u) => (
+                  <div key={u.lineUserId} className="px-5 py-3 flex items-center justify-between gap-4">
+                    <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">{u.name}</p>
+                    <span className="text-sm text-[var(--color-text-secondary)] flex-shrink-0">{u.interactionTotal} lượt</span>
                   </div>
                 ))}
               </div>

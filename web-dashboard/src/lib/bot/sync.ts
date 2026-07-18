@@ -1,10 +1,12 @@
 import * as line from '@line/bot-sdk';
 import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { getVnDateKey } from '@/lib/dateUtils';
 
 /**
  * Thụ động học: Lưu lại thông tin người dùng / nhóm mỗi khi có tin nhắn
  * Hàm này nên chạy ngầm (không await) để không block luồng trả lời chính.
+ * Đồng thời đếm số lượt tương tác theo loại tin nhắn (text/image/sticker/...) cho thống kê Báo cáo.
  */
 export async function captureUserProfile(
   event: line.webhook.MessageEvent,
@@ -14,19 +16,22 @@ export async function captureUserProfile(
   const source = event.source as any;
   const userId = source.userId;
   const groupId = source.type === 'group' ? source.groupId : null;
+  // JoinEvent không có field message -> messageType null, chỉ capture profile, không đếm tương tác
+  const messageType: string | null = (event as any).message?.type || null;
 
   try {
-    // 1. Capture User
+    // 1. Capture User + đếm tương tác theo người
     if (userId) {
-      // Check if user already exists
       const userRef = adminDb.collection('users').where('lineUserId', '==', userId);
       const userSnap = await userRef.limit(1).get();
-      
+
+      let userDocRef = userSnap.empty ? null : userSnap.docs[0].ref;
+
       if (userSnap.empty) {
         // Fetch from LINE
         const profile = await client.getProfile(userId).catch(() => null);
         if (profile) {
-          await adminDb.collection('users').add({
+          userDocRef = await adminDb.collection('users').add({
             lineUserId: userId,
             name: profile.displayName,
             pictureUrl: profile.pictureUrl || '',
@@ -35,21 +40,31 @@ export async function captureUserProfile(
           });
         }
       }
+
+      if (userDocRef && messageType) {
+        await userDocRef.update({
+          [`interactionCounts.${messageType}`]: FieldValue.increment(1),
+          interactionTotal: FieldValue.increment(1),
+          lastInteractionAt: FieldValue.serverTimestamp(),
+        }).catch((err) => console.error('Error updating user interaction counters', err));
+      }
     }
 
-    // 2. Capture Group
+    // 2. Capture Group + đếm tương tác theo nhóm
     if (groupId) {
       const groupRef = adminDb.collection('groups').where('lineGroupId', '==', groupId);
       const groupSnap = await groupRef.limit(1).get();
-      
+
+      let groupDocRef = groupSnap.empty ? null : groupSnap.docs[0].ref;
+
       if (groupSnap.empty) {
         // Fetch from LINE
         const summary = await client.getGroupSummary(groupId).catch(e => {
           console.log('Cannot fetch group summary, using fallback', e);
           return null;
         });
-        
-        await adminDb.collection('groups').add({
+
+        groupDocRef = await adminDb.collection('groups').add({
           lineGroupId: groupId,
           name: summary ? summary.groupName : `Nhóm ${groupId.substring(0, 6)}`,
           pictureUrl: summary ? (summary.pictureUrl || '') : '',
@@ -57,6 +72,21 @@ export async function captureUserProfile(
           createdAt: FieldValue.serverTimestamp(),
         });
       }
+
+      if (groupDocRef && messageType) {
+        await groupDocRef.update({
+          [`interactionCounts.${messageType}`]: FieldValue.increment(1),
+          interactionTotal: FieldValue.increment(1),
+        }).catch((err) => console.error('Error updating group interaction counters', err));
+      }
+    }
+
+    // 3. Gộp thống kê tương tác toàn hệ thống theo ngày, phục vụ biểu đồ xu hướng ở trang Báo cáo
+    if (messageType) {
+      await adminDb.collection('dailyInteractions').doc(getVnDateKey()).set({
+        [messageType]: FieldValue.increment(1),
+        total: FieldValue.increment(1),
+      }, { merge: true }).catch((err) => console.error('Error updating dailyInteractions', err));
     }
   } catch (err) {
     console.error('Error in captureUserProfile:', err);

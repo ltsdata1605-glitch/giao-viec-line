@@ -27,3 +27,13 @@ export function formatVnDateTime(ms: number): string {
   const pad = (n: number) => n.toString().padStart(2, '0');
   return `${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())} ${pad(shifted.getUTCDate())}/${pad(shifted.getUTCMonth() + 1)}/${shifted.getUTCFullYear()}`;
 }
+
+/**
+ * Khoá ngày "YYYY-MM-DD" theo giờ Việt Nam (UTC+7) cho một epoch ms (mặc định là hiện tại).
+ * Dùng để gộp số liệu theo ngày (vd thống kê tương tác) nhất quán giữa nơi ghi và nơi đọc.
+ */
+export function getVnDateKey(ms: number = Date.now()): string {
+  const shifted = new Date(ms + 7 * 60 * 60 * 1000);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}`;
+}
