@@ -13,6 +13,12 @@ interface UserData {
   role?: string;
 }
 
+interface GroupData {
+  id: string;
+  name: string;
+  lineGroupId: string;
+}
+
 const QUICK_TEMPLATES = [
   { label: 'Truyền thông:', title: 'Truyền thông', desc: 'Thực hiện truyền thông về...' },
   { label: 'Online và GHTK', title: 'Xử lý đơn Online', desc: 'Kiểm tra và xử lý các đơn hàng online, đóng gói GHTK.' },
@@ -24,11 +30,38 @@ const QUICK_TEMPLATES = [
   { label: 'Chăm sóc khách sau bán', title: 'Chăm sóc khách hàng', desc: 'Gọi điện hỏi thăm khách hàng sau khi mua hàng.' }
 ];
 
+const QUICK_REMINDER_PRESETS = ['Gửi ngay', '15p', '30p', '10h', '14h', '18h', 'Mai 08:00'];
+const WEEKDAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+
+/** Quy đổi lựa chọn "Thời gian nhắc" thành mốc gửi thực tế (epoch ms). */
+function computeSendAt(quickReminder: string): number {
+  const now = Date.now();
+  if (quickReminder === 'Gửi ngay') return now;
+  if (quickReminder === '15p') return now + 15 * 60000;
+  if (quickReminder === '30p') return now + 30 * 60000;
+  if (quickReminder === '10h' || quickReminder === '14h' || quickReminder === '18h') {
+    const hour = parseInt(quickReminder, 10);
+    const t = new Date();
+    t.setHours(hour, 0, 0, 0);
+    return t.getTime();
+  }
+  if (quickReminder === 'Mai 08:00') {
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    t.setHours(8, 0, 0, 0);
+    return t.getTime();
+  }
+  // "Tùy chọn" -> lúc này quickReminder đã được thay bằng chuỗi datetime-local thật
+  const parsed = new Date(quickReminder).getTime();
+  return isNaN(parsed) ? now : parsed;
+}
+
 export default function LiffTaskPage() {
   const [initialized, setInitialized] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [context, setContext] = useState<any>(null);
   const [usersList, setUsersList] = useState<UserData[]>([]);
+  const [groupsList, setGroupsList] = useState<GroupData[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -45,13 +78,14 @@ export default function LiffTaskPage() {
     description: '',
     taskType: 'Vận hành',
     priority: 'Bình thường',
-    assignerId: '',
-    groupId: '',
-    followerIds: [] as string[],
-    assigneeId: '',
+    groupIds: [] as string[],
+    assignees: [] as string[],
     quickReminder: 'Gửi ngay',
     deadline: getDefaultDeadline(),
     repeat: 'Không',
+    intervalHours: '1',
+    repeatDays: [] as string[],
+    customRepeat: '',
     acceptanceType: 'Bấm hoàn tất',
     reminderFrequency: '15',
     reminderFreqUnit: 'Phút',
@@ -69,9 +103,11 @@ export default function LiffTaskPage() {
           return;
         }
         const prof = await liff.getProfile();
+        const ctx = liff.getContext();
         setProfile(prof);
-        setContext(liff.getContext());
-        setForm(f => ({ ...f, assignerId: prof.userId, groupId: liff.getContext()?.groupId || '' }));
+        setContext(ctx);
+        // Mặc định chọn sẵn nhóm hiện tại (nếu mở từ trong nhóm), vẫn chọn thêm/bỏ được
+        setForm(f => ({ ...f, groupIds: ctx?.groupId ? [ctx.groupId] : [] }));
         setInitialized(true);
       } catch (err) {
         console.error('LIFF init error', err);
@@ -80,19 +116,24 @@ export default function LiffTaskPage() {
     };
     initLiff();
 
-    const fetchUsers = async () => {
+    const fetchUsersAndGroups = async () => {
       try {
-        const snap = await getDocs(collection(db, 'users'));
-        const rawUsers = snap.docs.map(d => ({ id: d.id, ...d.data() } as UserData));
+        const uSnap = await getDocs(collection(db, 'users'));
+        const rawUsers = uSnap.docs.map(d => ({ id: d.id, ...d.data() } as UserData));
         const uniqueUsers = Array.from(new Map(rawUsers.map(u => [u.lineUserId, u])).values());
         setUsersList(uniqueUsers);
+
+        const gSnap = await getDocs(collection(db, 'groups'));
+        const rawGroups = gSnap.docs.map(d => ({ id: d.id, ...d.data() } as GroupData));
+        const uniqueGroups = Array.from(new Map(rawGroups.map(g => [g.lineGroupId, g])).values());
+        setGroupsList(uniqueGroups);
       } catch (e) {
-        console.error('Error fetching users', e);
+        console.error('Error fetching users/groups', e);
       } finally {
         setLoading(false);
       }
     };
-    fetchUsers();
+    fetchUsersAndGroups();
   }, []);
 
   const handleQuickTemplate = (tpl: typeof QUICK_TEMPLATES[0]) => {
@@ -100,15 +141,29 @@ export default function LiffTaskPage() {
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    
+    const file = e.target.files?.[0];
+    if (!file) return;
+
     setUploading(true);
     try {
-      const file = e.target.files[0];
-      const formData = new FormData();
-      formData.append('image', file);
+      const imgbbKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
+      if (!imgbbKey) {
+        alert('Vui lòng cấu hình NEXT_PUBLIC_IMGBB_API_KEY.');
+        setUploading(false);
+        return;
+      }
 
-      const response = await fetch('/api/upload', {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = error => reject(error);
+      });
+
+      const formData = new FormData();
+      formData.append('image', base64);
+
+      const response = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, {
         method: 'POST',
         body: formData,
       });
@@ -120,7 +175,7 @@ export default function LiffTaskPage() {
         throw new Error(data.error?.message || 'Upload failed');
       }
     } catch (err) {
-      console.error('Lỗi upload file:', err);
+      console.error('Lỗi upload ảnh:', err);
       alert('Không thể tải ảnh lên. Vui lòng dán link ảnh hoặc thử lại sau.');
     } finally {
       setUploading(false);
@@ -130,31 +185,37 @@ export default function LiffTaskPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.assigneeId) {
-      alert('Vui lòng nhập tên công việc và chọn người thực hiện.');
+    if (!form.name.trim() || form.assignees.length === 0) {
+      alert('Vui lòng nhập tên công việc và chọn ít nhất 1 người thực hiện.');
       return;
     }
     setSubmitting(true);
 
     try {
-      const assigneeName = usersList.find(u => u.lineUserId === form.assigneeId)?.name || '';
-      const groupId = context?.groupId || 'personal';
+      const assigneeNameStr = form.assignees.map(id => usersList.find(u => u.lineUserId === id)?.name || id).join(', ');
+      const sendAt = computeSendAt(form.quickReminder);
+      const status = form.quickReminder === 'Gửi ngay' ? 'Chưa làm' : 'Chờ gửi';
 
       const docRef = await addDoc(collection(db, 'tasks'), {
         name: form.name.trim(),
         description: form.description.trim(),
         taskType: form.taskType,
         priority: form.priority,
-        groupId: groupId,
-        groupName: '', 
-        assignees: [form.assigneeId],
-        assigneeId: form.assigneeId,
-        assigneeName: assigneeName,
+        groupId: form.groupIds[0] || 'personal',
+        groupIds: form.groupIds,
+        groupName: '',
+        assignees: form.assignees,
+        assigneeId: form.assignees[0] || '',
+        assigneeName: assigneeNameStr,
         creatorId: profile?.userId || 'unknown',
-        status: 'Chưa làm',
+        status,
         deadline: form.deadline,
         repeat: form.repeat,
+        intervalHours: form.intervalHours,
+        repeatDays: form.repeatDays,
+        customRepeat: form.customRepeat,
         quickReminder: form.quickReminder,
+        sendAt,
         acceptanceType: form.acceptanceType,
         reminderFrequency: `${form.reminderFrequency} ${form.reminderFreqUnit}`,
         attachmentUrl: form.attachmentUrl,
@@ -165,24 +226,30 @@ export default function LiffTaskPage() {
       // Lưu ID rút gọn để bot tra cứu nhanh qua /xong, /nhan, /huy thay vì quét toàn bộ collection
       await updateDoc(docRef, { shortId: docRef.id.slice(-5) });
 
-      if (profile?.userId && form.assigneeId !== profile.userId) {
+      if (status === 'Chưa làm') {
         await fetch('/api/notify-task', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             taskId: docRef.id,
-            assigneeId: form.assigneeId,
-            creatorId: profile.userId,
-            taskName: form.name.trim()
+            assignees: form.assignees,
+            groupIds: form.groupIds,
+            taskName: form.name.trim(),
+            taskDescription: form.description.trim(),
+            creatorId: profile?.userId || 'unknown'
           })
         }).catch(err => console.error('Error notifying', err));
       }
+
+      const statusText = status === 'Chưa làm'
+        ? 'đã gửi ngay'
+        : `đã lên lịch gửi lúc ${new Date(sendAt).toLocaleString('vi-VN')}`;
 
       if (liff.isInClient()) {
         await liff.sendMessages([
           {
             type: 'text',
-            text: `✅ Đã tạo công việc mới:\n📌 ${form.name.trim()}\n👤 Người làm: ${assigneeName}\n⏳ Hạn chót: ${form.deadline ? form.deadline.replace('T', ' ') : 'Không có'}`
+            text: `✅ Đã tạo công việc mới (${statusText}):\n📌 ${form.name.trim()}\n👤 Người làm: ${assigneeNameStr || 'Chưa rõ'}\n⏳ Hạn chót: ${form.deadline ? form.deadline.replace('T', ' ') : 'Không có'}`
           }
         ]);
         liff.closeWindow();
@@ -221,6 +288,8 @@ export default function LiffTaskPage() {
     );
   }
 
+  const isCustomReminder = !QUICK_REMINDER_PRESETS.includes(form.quickReminder);
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-800">
       {/* Header */}
@@ -229,15 +298,15 @@ export default function LiffTaskPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="p-4 space-y-4 max-w-md mx-auto">
-        <p className="text-sm text-gray-500 mb-2">Nhập nhanh nội dung, chọn nhóm nhận và gửi nhắc việc.</p>
+        <p className="text-sm text-gray-500 mb-2">Nhập nhanh nội dung, chọn nhóm/người nhận và gửi nhắc việc.</p>
 
         {/* Mẫu nhanh */}
         <div>
           <h3 className="text-sm font-bold text-gray-800 mb-2">Mẫu nhanh</h3>
           <div className="flex flex-wrap gap-2">
             {QUICK_TEMPLATES.map((tpl, i) => (
-              <button 
-                key={i} 
+              <button
+                key={i}
                 type="button"
                 onClick={() => handleQuickTemplate(tpl)}
                 className="px-3 py-1.5 bg-white border border-gray-300 rounded-full text-xs text-gray-600 hover:border-green-500 hover:text-green-600 transition-colors"
@@ -292,30 +361,58 @@ export default function LiffTaskPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Người giao việc</label>
-              <select value={form.assignerId} onChange={e => setForm({...form, assignerId: e.target.value})}
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none">
-                <option value={profile?.userId}>{profile?.displayName || 'Tôi'}</option>
-              </select>
+              <div className="w-full px-3 py-2.5 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-600">
+                {profile?.displayName || 'Tôi'}
+              </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Nhóm nhận <span className="text-red-500">*</span></label>
-              <select value={form.groupId} onChange={e => setForm({...form, groupId: e.target.value})} required
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none">
-                <option value={context?.groupId || 'personal'}>-- Nhóm hiện tại --</option>
-              </select>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Nhóm nhận (có thể chọn nhiều)</label>
+              <div className="w-full max-h-32 overflow-y-auto px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+                {groupsList.map(g => (
+                  <label key={g.id} className="flex items-center gap-2 py-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.groupIds.includes(g.lineGroupId)}
+                      onChange={e => {
+                        const ids = form.groupIds;
+                        setForm({ ...form, groupIds: e.target.checked ? [...ids, g.lineGroupId] : ids.filter(id => id !== g.lineGroupId) });
+                      }}
+                    />
+                    <span>{g.name}</span>
+                  </label>
+                ))}
+                {form.groupIds.filter(id => !groupsList.find(g => g.lineGroupId === id)).map(id => (
+                  <label key={id} className="flex items-center gap-2 py-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={true}
+                      onChange={() => setForm({ ...form, groupIds: form.groupIds.filter(x => x !== id) })}
+                    />
+                    <span className="text-gray-400">{id === context?.groupId ? 'Nhóm hiện tại' : id}</span>
+                  </label>
+                ))}
+                {groupsList.length === 0 && form.groupIds.length === 0 && (
+                  <p className="text-xs text-gray-400 py-1">Chưa có nhóm nào — có thể để trống và giao thẳng cho cá nhân.</p>
+                )}
+              </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Người theo dõi</label>
-              <input type="text" placeholder="Chọn người theo dõi..." disabled
-                className="w-full px-3 py-2.5 bg-gray-100 border border-gray-200 rounded-lg text-sm outline-none text-gray-400" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Người thực hiện <span className="text-red-500">*</span></label>
-              <select value={form.assigneeId} onChange={e => setForm({...form, assigneeId: e.target.value})} required
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none">
-                <option value="">Chọn người thực hiện...</option>
-                {usersList.map(u => <option key={u.id} value={u.lineUserId}>{u.name}</option>)}
-              </select>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Người thực hiện (có thể chọn nhiều) <span className="text-red-500">*</span></label>
+              <div className="w-full max-h-32 overflow-y-auto px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+                {usersList.map(u => (
+                  <label key={u.id} className="flex items-center gap-2 py-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.assignees.includes(u.lineUserId)}
+                      onChange={e => {
+                        const ids = form.assignees;
+                        setForm({ ...form, assignees: e.target.checked ? [...ids, u.lineUserId] : ids.filter(id => id !== u.lineUserId) });
+                      }}
+                    />
+                    <span>{u.name}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -325,19 +422,27 @@ export default function LiffTaskPage() {
           <h2 className="text-sm font-bold border-l-4 border-green-500 pl-2 mb-2">Thời gian nhắc</h2>
           <p className="text-xs text-gray-400 mb-3">Chọn nhanh thời gian nhắc</p>
           <div className="flex flex-wrap gap-2">
-            {['Gửi ngay', '15p', '30p', '10h', '14h', '18h', 'Mai 08:00', 'Tùy chọn'].map(time => (
+            {QUICK_REMINDER_PRESETS.map(time => (
               <button key={time} type="button" onClick={() => setForm({...form, quickReminder: time})}
                 className={`px-3 py-1.5 border rounded-full text-xs transition-colors ${form.quickReminder === time ? 'border-green-500 text-green-600 bg-green-50 font-medium' : 'border-gray-300 text-gray-600 bg-white'}`}>
                 {time}
               </button>
             ))}
+            <button type="button" onClick={() => setForm({...form, quickReminder: getDefaultDeadline()})}
+              className={`px-3 py-1.5 border rounded-full text-xs transition-colors ${isCustomReminder ? 'border-green-500 text-green-600 bg-green-50 font-medium' : 'border-gray-300 text-gray-600 bg-white'}`}>
+              Tùy chọn
+            </button>
           </div>
+          {isCustomReminder && (
+            <input type="datetime-local" value={form.quickReminder} onChange={e => setForm({...form, quickReminder: e.target.value})}
+              className="w-full mt-3 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none" />
+          )}
         </div>
 
         {/* Hạn hoàn thành & lặp lại */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <h2 className="text-sm font-bold border-l-4 border-green-500 pl-2 mb-4">Hạn hoàn thành & lặp lại</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-3">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Hạn hoàn thành (Deadline)</label>
               <input type="datetime-local" value={form.deadline} onChange={e => setForm({...form, deadline: e.target.value})}
@@ -347,10 +452,54 @@ export default function LiffTaskPage() {
               <label className="block text-xs font-medium text-gray-500 mb-1">Lặp lại</label>
               <select value={form.repeat} onChange={e => setForm({...form, repeat: e.target.value})}
                 className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none">
-                <option>Không</option>
-                <option>Hàng ngày</option>
-                <option>Hàng tuần</option>
+                <option value="Không">Không</option>
+                <option value="Hàng giờ">Hàng giờ</option>
+                <option value="Hàng ngày">Hàng ngày</option>
+                <option value="Hàng tuần">Hàng tuần</option>
+                <option value="Hàng tháng">Hàng tháng</option>
+                <option value="Trước ngày cuối tháng 2 ngày">Trước ngày cuối tháng 2 ngày</option>
+                <option value="Trước ngày đầu tháng 1 ngày">Trước ngày đầu tháng 1 ngày</option>
+                <option value="Ngày cuối tháng">Ngày cuối tháng</option>
+                <option value="Tuỳ chọn">Tuỳ chọn</option>
               </select>
+
+              {form.repeat === 'Hàng giờ' && (
+                <div className="mt-2">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Lặp lại sau mấy giờ</label>
+                  <input type="number" min="1" value={form.intervalHours} onChange={e => setForm({...form, intervalHours: e.target.value})}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none" />
+                </div>
+              )}
+
+              {form.repeat === 'Hàng ngày' && (
+                <div className="mt-2">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Chọn các ngày trong tuần</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {WEEKDAYS.map(day => (
+                      <label key={day} className={`px-2.5 py-1 rounded-full text-xs border cursor-pointer ${form.repeatDays.includes(day) ? 'border-green-500 text-green-600 bg-green-50 font-medium' : 'border-gray-300 text-gray-600 bg-white'}`}>
+                        <input
+                          type="checkbox"
+                          checked={form.repeatDays.includes(day)}
+                          onChange={e => {
+                            const days = form.repeatDays;
+                            setForm({ ...form, repeatDays: e.target.checked ? [...days, day] : days.filter(d => d !== day) });
+                          }}
+                          className="hidden"
+                        />
+                        {day}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {form.repeat === 'Tuỳ chọn' && (
+                <div className="mt-2">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Chu kỳ tuỳ chọn</label>
+                  <input type="text" value={form.customRepeat} onChange={e => setForm({...form, customRepeat: e.target.value})} placeholder="VD: Mỗi 3 ngày"
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none" />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -368,7 +517,7 @@ export default function LiffTaskPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Tần suất nhắc (Phút)</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Tần suất nhắc</label>
               <div className="flex gap-2">
                 <input type="number" value={form.reminderFrequency} onChange={e => setForm({...form, reminderFrequency: e.target.value})}
                   className="w-1/2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none" />
@@ -388,26 +537,26 @@ export default function LiffTaskPage() {
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Ảnh đính kèm gợi ý (Tối đa 1 ảnh hiện tại)</label>
             <div className="w-full relative px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 flex items-center mb-2 overflow-hidden">
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={handleFileUpload} 
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
                 disabled={uploading}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" 
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               />
               <span className={`px-2 py-1 rounded text-xs mr-2 transition-colors ${uploading ? 'bg-gray-300 text-gray-500' : 'bg-gray-200 text-gray-700'}`}>
                 {uploading ? 'Đang tải lên...' : 'Chọn tệp'}
-              </span> 
+              </span>
               <span className="truncate flex-1">
                 {form.attachmentUrl ? 'Đã tải lên 1 tệp' : 'Chưa chọn tệp nào'}
               </span>
             </div>
-            
+
             {form.attachmentUrl && (
               <div className="mb-3 relative inline-block rounded-lg overflow-hidden border border-gray-200">
                 <img src={form.attachmentUrl} alt="Preview" className="h-24 w-auto object-cover" />
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setForm({...form, attachmentUrl: ''})}
                   className="absolute top-1 right-1 bg-white rounded-full p-1 shadow-sm text-red-500 hover:text-red-700"
                 >
@@ -417,7 +566,7 @@ export default function LiffTaskPage() {
                 </button>
               </div>
             )}
-            
+
             <label className="block text-xs font-medium text-gray-500 mb-1">Hoặc dán link ảnh</label>
             <input type="text" value={form.attachmentUrl} onChange={e => setForm({...form, attachmentUrl: e.target.value})} placeholder="https://example.com/image.jpg"
               className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none" />
@@ -436,7 +585,7 @@ export default function LiffTaskPage() {
 
         {/* Submit button fixed at bottom */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 z-20 shadow-lg">
-          <button 
+          <button
             type="submit"
             disabled={submitting}
             className="w-full max-w-md mx-auto block bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition-colors disabled:opacity-70 flex justify-center"
