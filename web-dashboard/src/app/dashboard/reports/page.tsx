@@ -3,7 +3,59 @@
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, Timestamp } from 'firebase/firestore';
-import { parseVnDeadline, getVnDateKey } from '@/lib/dateUtils';
+import { parseVnDeadline, getVnDateKey, getVnWeekKey, getVnMonthKey } from '@/lib/dateUtils';
+
+type Period = 'day' | 'week' | 'month';
+
+const PERIOD_BUCKET_COUNT: Record<Period, number> = { day: 7, week: 6, month: 6 };
+const PERIOD_LABELS: Record<Period, string> = { day: 'Ngày', week: 'Tuần', month: 'Tháng' };
+const PERIOD_RANGE_LABELS: Record<Period, string> = { day: '7 ngày gần nhất', week: '6 tuần gần nhất', month: '6 tháng gần nhất' };
+
+// Khoá gộp số liệu theo đơn vị thời gian đang chọn: ngày (VN), tuần (Thứ 2 -> Chủ nhật), tháng (theo lịch, ngày 1 -> cuối tháng).
+function bucketKeyFor(ms: number, period: Period): string {
+  if (period === 'day') return getVnDateKey(ms);
+  if (period === 'week') return getVnWeekKey(ms);
+  return getVnMonthKey(ms);
+}
+
+// Sinh "count" mốc thời gian gần nhất tính đến nowMs theo period, mỗi mốc gồm khoá để gộp số liệu và nhãn ngắn gọn để hiển thị trên biểu đồ.
+function buildBuckets(period: Period, count: number, nowMs: number): { key: string; label: string }[] {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+
+  if (period === 'day') {
+    const buckets = [];
+    for (let i = count - 1; i >= 0; i--) {
+      const ms = nowMs - i * 86400000;
+      const d = new Date(ms);
+      buckets.push({ key: getVnDateKey(ms), label: `${d.getDate()}/${d.getMonth() + 1}` });
+    }
+    return buckets;
+  }
+
+  if (period === 'week') {
+    const [y, m, day] = getVnWeekKey(nowMs).split('-').map(Number);
+    const buckets = [];
+    for (let i = count - 1; i >= 0; i--) {
+      const monday = new Date(Date.UTC(y, m - 1, day - i * 7));
+      buckets.push({
+        key: `${monday.getUTCFullYear()}-${pad(monday.getUTCMonth() + 1)}-${pad(monday.getUTCDate())}`,
+        label: `${monday.getUTCDate()}/${monday.getUTCMonth() + 1}`,
+      });
+    }
+    return buckets;
+  }
+
+  const [y, m] = getVnMonthKey(nowMs).split('-').map(Number);
+  const buckets = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(y, m - 1 - i, 1));
+    buckets.push({
+      key: `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`,
+      label: `T${d.getUTCMonth() + 1}/${String(d.getUTCFullYear()).slice(2)}`,
+    });
+  }
+  return buckets;
+}
 
 interface TaskRow {
   id: string;
@@ -78,12 +130,12 @@ function StatusBar({ label, count, total, color }: { label: string; count: numbe
   );
 }
 
-function TrendChart({ labels, counts }: { labels: string[]; counts: number[] }) {
+function TrendChart({ labels, counts, unit = 'việc' }: { labels: string[]; counts: number[]; unit?: string }) {
   const max = Math.max(1, ...counts);
   return (
     <div className="flex items-end justify-between gap-2 h-32">
       {counts.map((count, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1.5" title={`${labels[i]}: ${count} việc`}>
+        <div key={i} className="flex-1 flex flex-col items-center gap-1.5" title={`${labels[i]}: ${count} ${unit}`}>
           <span className="text-[10px] text-[var(--color-text-muted)]">{count > 0 ? count : ''}</span>
           <div className="w-full flex items-end h-24">
             <div
@@ -98,11 +150,34 @@ function TrendChart({ labels, counts }: { labels: string[]; counts: number[] }) 
   );
 }
 
+function PeriodToggle({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
+  const options: Period[] = ['day', 'week', 'month'];
+  return (
+    <div className="inline-flex rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-card)] p-1 gap-1 self-start">
+      {options.map((p) => (
+        <button
+          key={p}
+          type="button"
+          onClick={() => onChange(p)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            value === p
+              ? 'bg-[var(--color-accent)] text-white'
+              : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+          }`}
+        >
+          {PERIOD_LABELS[p]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function ReportsPage() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [interactions, setInteractions] = useState<DailyInteraction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState<Period>('day');
 
   async function loadTasks() {
     try {
@@ -235,16 +310,11 @@ export default function ReportsPage() {
     .sort((a, b) => b.total - a.total)
     .slice(0, 10);
 
-  // Xu hướng tạo việc 7 ngày gần nhất
-  const dayKeys: string[] = [];
-  const dayLabels: string[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now - i * 86400000);
-    dayKeys.push(d.toISOString().slice(0, 10));
-    dayLabels.push(`${d.getDate()}/${d.getMonth() + 1}`);
-  }
-  const trendCounts = dayKeys.map((key) =>
-    tasks.filter((t) => t.createdAtMs !== null && new Date(t.createdAtMs).toISOString().slice(0, 10) === key).length
+  // Xu hướng tạo việc theo đơn vị thời gian đang chọn (ngày/tuần/tháng)
+  const trendBuckets = buildBuckets(period, PERIOD_BUCKET_COUNT[period], now);
+  const dayLabels = trendBuckets.map((b) => b.label);
+  const trendCounts = trendBuckets.map((b) =>
+    tasks.filter((t) => t.createdAtMs !== null && bucketKeyFor(t.createdAtMs, period) === b.key).length
   );
 
   // Danh sách quá hạn, trễ nhiều nhất lên đầu
@@ -280,17 +350,14 @@ export default function ReportsPage() {
     other: '#64748b',
   };
 
-  // Xu hướng tương tác 7 ngày gần nhất (khớp đúng khoá ngày dailyInteractions dùng giờ VN)
-  const interactionByDate = new Map(interactions.map((d) => [d.date, d.total]));
-  const interactionDayLabels: string[] = [];
-  const interactionTrendCounts: number[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const ms = now - i * 86400000;
-    const key = getVnDateKey(ms);
-    const d = new Date(ms);
-    interactionDayLabels.push(`${d.getDate()}/${d.getMonth() + 1}`);
-    interactionTrendCounts.push(interactionByDate.get(key) || 0);
-  }
+  // Xu hướng tương tác theo đơn vị thời gian đang chọn (ngày/tuần/tháng); mỗi doc dailyInteractions
+  // được gộp vào đúng khoảng (ngày/tuần/tháng) chứa ngày đó, dùng chung khung bucket với xu hướng tạo việc.
+  const interactionDayLabels = trendBuckets.map((b) => b.label);
+  const interactionTrendCounts = trendBuckets.map((b) =>
+    interactions
+      .filter((d) => bucketKeyFor(new Date(`${d.date}T00:00:00Z`).getTime(), period) === b.key)
+      .reduce((sum, d) => sum + d.total, 0)
+  );
 
   // Top người tương tác nhiều nhất
   const topInteractors = users
@@ -300,9 +367,12 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Báo cáo & Thống kê</h1>
-        <p className="text-sm text-[var(--color-text-secondary)] mt-1">Số liệu thực tế từ hệ thống công việc.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Báo cáo & Thống kê</h1>
+          <p className="text-sm text-[var(--color-text-secondary)] mt-1">Số liệu thực tế từ hệ thống công việc.</p>
+        </div>
+        <PeriodToggle value={period} onChange={setPeriod} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -331,7 +401,7 @@ export default function ReportsPage() {
           </div>
 
           <div className="glass rounded-2xl p-5">
-            <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">Công việc mới tạo (7 ngày gần nhất)</h2>
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">Công việc mới tạo ({PERIOD_RANGE_LABELS[period]})</h2>
             <TrendChart labels={dayLabels} counts={trendCounts} />
           </div>
 
@@ -428,8 +498,8 @@ export default function ReportsPage() {
           </div>
 
           <div className="glass rounded-2xl p-5">
-            <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">Xu hướng tương tác (7 ngày gần nhất)</h2>
-            <TrendChart labels={interactionDayLabels} counts={interactionTrendCounts} />
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">Xu hướng tương tác ({PERIOD_RANGE_LABELS[period]})</h2>
+            <TrendChart labels={interactionDayLabels} counts={interactionTrendCounts} unit="lượt" />
           </div>
 
           <div className="glass rounded-2xl overflow-hidden">

@@ -37,3 +37,30 @@ export function getVnDateKey(ms: number = Date.now()): string {
   const pad = (n: number) => n.toString().padStart(2, '0');
   return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}`;
 }
+
+/**
+ * Khoá tuần "YYYY-MM-DD" (ngày Thứ Hai của tuần chứa epoch ms đó) theo giờ Việt Nam.
+ * Một tuần được tính từ Thứ Hai đến Chủ Nhật.
+ */
+export function getVnWeekKey(ms: number = Date.now()): string {
+  const shifted = new Date(ms + 7 * 60 * 60 * 1000);
+  const weekday = shifted.getUTCDay(); // 0 = Chủ nhật .. 6 = Thứ bảy
+  const isoWeekday = weekday === 0 ? 7 : weekday; // Thứ 2 = 1 .. Chủ nhật = 7
+  const monday = new Date(Date.UTC(
+    shifted.getUTCFullYear(),
+    shifted.getUTCMonth(),
+    shifted.getUTCDate() - (isoWeekday - 1)
+  ));
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${monday.getUTCFullYear()}-${pad(monday.getUTCMonth() + 1)}-${pad(monday.getUTCDate())}`;
+}
+
+/**
+ * Khoá tháng "YYYY-MM" theo giờ Việt Nam cho một epoch ms (mặc định là hiện tại).
+ * Một tháng được tính theo lịch (ngày 1 đến ngày cuối tháng, 28-31 tuỳ tháng).
+ */
+export function getVnMonthKey(ms: number = Date.now()): string {
+  const shifted = new Date(ms + 7 * 60 * 60 * 1000);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}`;
+}
