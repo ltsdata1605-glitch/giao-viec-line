@@ -88,6 +88,17 @@ export async function captureUserProfile(
         total: FieldValue.increment(1),
       }, { merge: true }).catch((err) => console.error('Error updating dailyInteractions', err));
     }
+
+    // 4. Đếm tương tác theo ngày cho từng người, phục vụ lệnh /baocao xem theo tuần/tháng
+    // (interactionTotal ở bước 1 chỉ là tổng dồn từ trước đến nay, không tách được theo kỳ).
+    if (userId && messageType) {
+      const dateKey = getVnDateKey();
+      await adminDb.collection('userDailyInteractions').doc(`${userId}_${dateKey}`).set({
+        lineUserId: userId,
+        date: dateKey,
+        total: FieldValue.increment(1),
+      }, { merge: true }).catch((err) => console.error('Error updating userDailyInteractions', err));
+    }
   } catch (err) {
     console.error('Error in captureUserProfile:', err);
   }

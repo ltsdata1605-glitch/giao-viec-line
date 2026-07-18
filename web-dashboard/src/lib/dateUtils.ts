@@ -64,3 +64,28 @@ export function getVnMonthKey(ms: number = Date.now()): string {
   const pad = (n: number) => n.toString().padStart(2, '0');
   return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}`;
 }
+
+/**
+ * Khoảng ngày "YYYY-MM-DD" (đầu-cuối, bao gồm cả 2 đầu) của tuần chứa epoch ms đó, theo giờ VN:
+ * từ Thứ Hai đến Chủ Nhật. Dùng để truy vấn range theo field ngày dạng chuỗi (so sánh chuỗi ISO
+ * tương đương so sánh thời gian vì đã zero-pad).
+ */
+export function getVnWeekRange(ms: number = Date.now()): { startKey: string; endKey: string } {
+  const startKey = getVnWeekKey(ms);
+  const [y, m, d] = startKey.split('-').map(Number);
+  const end = new Date(Date.UTC(y, m - 1, d + 6));
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return { startKey, endKey: `${end.getUTCFullYear()}-${pad(end.getUTCMonth() + 1)}-${pad(end.getUTCDate())}` };
+}
+
+/**
+ * Khoảng ngày "YYYY-MM-DD" (đầu-cuối, bao gồm cả 2 đầu) của tháng chứa epoch ms đó, theo giờ VN:
+ * từ ngày 1 đến ngày cuối tháng thực tế (28-31 tuỳ tháng).
+ */
+export function getVnMonthRange(ms: number = Date.now()): { startKey: string; endKey: string } {
+  const monthKey = getVnMonthKey(ms);
+  const [y, m] = monthKey.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return { startKey: `${monthKey}-01`, endKey: `${monthKey}-${pad(lastDay)}` };
+}

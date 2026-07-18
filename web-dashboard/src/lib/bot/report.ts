@@ -1,21 +1,40 @@
 import * as line from '@line/bot-sdk';
 import { adminDb } from '@/lib/firebase-admin';
 import { isAdmin } from './admin';
-import { parseVnDeadline, formatVnDateTime } from '@/lib/dateUtils';
+import { parseVnDeadline, formatVnDateTime, getVnWeekRange, getVnMonthRange } from '@/lib/dateUtils';
 
 const IN_PROGRESS_STATUSES = ['Chưa làm', 'Đang làm'];
 const MAX_LISTED = 15;
 
+type Period = 'all' | 'week' | 'month';
+
+const PERIOD_TITLES: Record<Period, string> = {
+  all: 'TỪ TRƯỚC ĐẾN NAY',
+  week: 'TUẦN NÀY, Thứ 2 - Chủ nhật',
+  month: 'THÁNG NÀY',
+};
+
+function parsePeriod(text: string): Period {
+  const arg = text.trim().split(/\s+/)[1]?.toLowerCase() || '';
+  if (['tuần', 'tuan', 'week'].includes(arg)) return 'week';
+  if (['tháng', 'thang', 'month'].includes(arg)) return 'month';
+  return 'all';
+}
+
 interface UserInteraction {
+  lineUserId: string;
   name: string;
-  interactionTotal: number;
+  total: number;
 }
 
 /**
- * Lệnh /baocao: tóm tắt nhanh tình hình công việc + tương tác theo từng nhân viên ngay trên LINE
- * (dùng được cả chat 1:1 lẫn trong nhóm), không cần mở Dashboard. Chỉ admin mới xem được.
+ * Lệnh /baocao [tuần|tháng]: tóm tắt nhanh tình hình công việc + tương tác theo từng nhân viên
+ * ngay trên LINE (dùng được cả chat 1:1 lẫn trong nhóm), không cần mở Dashboard. Chỉ admin mới xem được.
+ * Không truyền kỳ (mặc định) sẽ tính tổng dồn từ trước đến nay; "tuần"/"tháng" tính theo lịch VN,
+ * dùng chung cách xác định tuần/tháng với biểu đồ Ngày/Tuần/Tháng ở trang Dashboard > Báo cáo.
  */
 export async function handleBaoCaoCommand(
+  text: string,
   event: line.webhook.MessageEvent,
   client: line.messagingApi.MessagingApiClient
 ) {
@@ -30,6 +49,8 @@ export async function handleBaoCaoCommand(
     });
     return;
   }
+
+  const period = parsePeriod(text);
 
   const [tasksSnap, usersSnap] = await Promise.all([
     adminDb.collection('tasks').get(),
@@ -55,51 +76,77 @@ export async function handleBaoCaoCommand(
   });
   const onTimeRate = completedWithDeadline > 0 ? Math.round((onTimeCompleted / completedWithDeadline) * 100) : null;
 
-  // Tương tác theo nhân viên (dedupe theo lineUserId, đề phòng dữ liệu trùng)
-  const uniqueUsers = new Map<string, UserInteraction>();
+  // Danh sách nhân viên (dedupe theo lineUserId, đề phòng dữ liệu trùng)
+  const userNames = new Map<string, string>();
   usersSnap.docs.forEach((doc) => {
     const u = doc.data();
     if (!u.lineUserId) return;
-    uniqueUsers.set(u.lineUserId, {
-      name: u.name || u.lineUserId,
-      interactionTotal: u.interactionTotal || 0,
-    });
+    userNames.set(u.lineUserId, u.name || u.lineUserId);
   });
 
-  const allUsers = Array.from(uniqueUsers.values());
-  const interacted = allUsers
-    .filter((u) => u.interactionTotal > 0)
-    .sort((a, b) => b.interactionTotal - a.interactionTotal);
-  const neverInteracted = allUsers.filter((u) => u.interactionTotal === 0);
-
-  let text = `📊 BÁO CÁO NHANH\n🕐 ${formatVnDateTime(Date.now())}\n\n`;
-  text += `📋 CÔNG VIỆC\n`;
-  text += `• Tổng: ${total} | Đang xử lý: ${inProgress} | Quá hạn: ${overdue}\n`;
-  text += `• Hoàn thành đúng hạn: ${onTimeRate !== null ? onTimeRate + '%' : 'Chưa có dữ liệu'}\n\n`;
-
-  text += `💬 TƯƠNG TÁC THEO NHÂN VIÊN (tổng từ trước đến nay)\n`;
-  if (interacted.length === 0) {
-    text += `Chưa có ai tương tác.\n`;
-  } else {
-    interacted.slice(0, MAX_LISTED).forEach((u, i) => {
-      text += `${i + 1}. ${u.name} — ${u.interactionTotal} lượt\n`;
+  // Tổng lượt tương tác theo từng người, đúng theo kỳ đang chọn:
+  // - "all": dùng luôn interactionTotal (đã cộng dồn sẵn trên doc user).
+  // - "week"/"month": cộng từ userDailyInteractions trong đúng khoảng ngày của kỳ đó.
+  const totalsByUser = new Map<string, number>();
+  if (period === 'all') {
+    usersSnap.docs.forEach((doc) => {
+      const u = doc.data();
+      if (!u.lineUserId) return;
+      totalsByUser.set(u.lineUserId, (totalsByUser.get(u.lineUserId) || 0) + (u.interactionTotal || 0));
     });
-    if (interacted.length > MAX_LISTED) text += `...và ${interacted.length - MAX_LISTED} người khác\n`;
+  } else {
+    const { startKey, endKey } = period === 'week' ? getVnWeekRange() : getVnMonthRange();
+    const periodSnap = await adminDb.collection('userDailyInteractions')
+      .where('date', '>=', startKey)
+      .where('date', '<=', endKey)
+      .get();
+    periodSnap.docs.forEach((doc) => {
+      const d = doc.data();
+      if (!d.lineUserId) return;
+      totalsByUser.set(d.lineUserId, (totalsByUser.get(d.lineUserId) || 0) + (d.total || 0));
+    });
   }
 
-  text += `\n❌ CHƯA TỪNG TƯƠNG TÁC (${neverInteracted.length})\n`;
-  if (neverInteracted.length === 0) {
-    text += `🎉 Tất cả đều đã tương tác!\n`;
+  const allUsers: UserInteraction[] = Array.from(userNames.entries()).map(([lineUserId, name]) => ({
+    lineUserId,
+    name,
+    total: totalsByUser.get(lineUserId) || 0,
+  }));
+  const interacted = allUsers.filter((u) => u.total > 0).sort((a, b) => b.total - a.total);
+  const notInteracted = allUsers.filter((u) => u.total === 0);
+
+  let msg = `📊 BÁO CÁO NHANH\n🕐 ${formatVnDateTime(Date.now())}\n\n`;
+  msg += `📋 CÔNG VIỆC\n`;
+  msg += `• Tổng: ${total} | Đang xử lý: ${inProgress} | Quá hạn: ${overdue}\n`;
+  msg += `• Hoàn thành đúng hạn: ${onTimeRate !== null ? onTimeRate + '%' : 'Chưa có dữ liệu'}\n\n`;
+
+  msg += `💬 TƯƠNG TÁC THEO NHÂN VIÊN (${PERIOD_TITLES[period]})\n`;
+  if (interacted.length === 0) {
+    msg += `Chưa có ai tương tác.\n`;
   } else {
-    neverInteracted.slice(0, MAX_LISTED).forEach((u) => { text += `• ${u.name}\n`; });
-    if (neverInteracted.length > MAX_LISTED) text += `...và ${neverInteracted.length - MAX_LISTED} người khác\n`;
+    interacted.slice(0, MAX_LISTED).forEach((u, i) => {
+      msg += `${i + 1}. ${u.name} — ${u.total} lượt\n`;
+    });
+    if (interacted.length > MAX_LISTED) msg += `...và ${interacted.length - MAX_LISTED} người khác\n`;
+  }
+
+  msg += `\n❌ KHÔNG TƯƠNG TÁC (${notInteracted.length})\n`;
+  if (notInteracted.length === 0) {
+    msg += `🎉 Tất cả đều đã tương tác!\n`;
+  } else {
+    notInteracted.slice(0, MAX_LISTED).forEach((u) => { msg += `• ${u.name}\n`; });
+    if (notInteracted.length > MAX_LISTED) msg += `...và ${notInteracted.length - MAX_LISTED} người khác\n`;
+  }
+
+  if (period === 'all') {
+    msg += `\n💡 Xem theo kỳ: /baocao tuần hoặc /baocao tháng`;
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://botline-zeta.vercel.app';
-  text += `\n📈 Xem đầy đủ biểu đồ: ${appUrl}/dashboard/reports`;
+  msg += `\n📈 Xem đầy đủ biểu đồ: ${appUrl}/dashboard/reports`;
 
   await client.replyMessage({
     replyToken: event.replyToken as string,
-    messages: [{ type: 'text', text }]
+    messages: [{ type: 'text', text: msg }]
   });
 }

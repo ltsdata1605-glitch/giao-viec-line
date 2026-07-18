@@ -114,6 +114,16 @@ export async function handleLineEvent(event: line.webhook.Event) {
     return;
   }
 
+  // 1.5 Lệnh /help: liệt kê toàn bộ lệnh bot hỗ trợ
+  if (['/help', '/trogiup', 'trợ giúp'].includes(text.toLowerCase())) {
+    const { handleHelpCommand } = await import('./help');
+    const client = getLineClient();
+    if (client) {
+      await handleHelpCommand(event as line.webhook.MessageEvent, client);
+    }
+    return;
+  }
+
   // 2. Check for Keyword replies first
   const keywordReply = await getReplyFromFirebase(text);
   
@@ -174,12 +184,12 @@ export async function handleLineEvent(event: line.webhook.Event) {
     return;
   }
 
-  // Lệnh /baocao: tóm tắt công việc + tương tác theo nhân viên, dùng được cả 1:1 lẫn trong nhóm
-  if (['/baocao', 'báo cáo', 'bao cao'].includes(text.toLowerCase())) {
+  // Lệnh /baocao [tuần|tháng]: tóm tắt công việc + tương tác theo nhân viên, dùng được cả 1:1 lẫn trong nhóm
+  if (textLowerTrimmed === '/baocao' || textLowerTrimmed.startsWith('/baocao ') || ['báo cáo', 'bao cao'].includes(textLowerTrimmed)) {
     const { handleBaoCaoCommand } = await import('./report');
     const client = getLineClient();
     if (client) {
-      await handleBaoCaoCommand(event as line.webhook.MessageEvent, client);
+      await handleBaoCaoCommand(text, event as line.webhook.MessageEvent, client);
     }
     return;
   }
