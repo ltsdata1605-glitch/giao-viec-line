@@ -27,21 +27,18 @@ interface UserInteraction {
   total: number;
 }
 
+const APP_URL = () => process.env.NEXT_PUBLIC_APP_URL || 'https://botline-zeta.vercel.app';
+
 /**
- * Dựng nội dung báo cáo (công việc + tương tác theo từng nhân viên) cho một kỳ, dùng chung cho cả
- * lệnh /baocao (trả lời trực tiếp) lẫn báo cáo tự động hằng ngày (đẩy chủ động qua cron).
- * Không truyền kỳ (mặc định "all") sẽ tính tổng dồn từ trước đến nay; "week"/"month" tính theo lịch VN,
- * dùng chung cách xác định tuần/tháng với biểu đồ Ngày/Tuần/Tháng ở trang Dashboard > Báo cáo.
+ * Dựng nội dung báo cáo CÔNG VIỆC (tổng/đang xử lý/quá hạn/% đúng hạn) — trạng thái hiện tại,
+ * không tách theo kỳ vì đây là snapshot tức thời, không phải số liệu tích luỹ theo ngày.
+ * Dùng chung cho lệnh /baocao và báo cáo tự động hằng ngày.
  */
-export async function buildBaoCaoText(period: Period = 'all'): Promise<string> {
+export async function buildTaskReportText(): Promise<string> {
   if (!adminDb) return 'Chưa cấu hình cơ sở dữ liệu.';
 
-  const [tasksSnap, usersSnap] = await Promise.all([
-    adminDb.collection('tasks').get(),
-    adminDb.collection('users').get(),
-  ]);
+  const tasksSnap = await adminDb.collection('tasks').get();
 
-  // Thống kê công việc
   let total = 0, inProgress = 0, overdue = 0;
   let completedWithDeadline = 0, onTimeCompleted = 0;
   tasksSnap.docs.forEach((doc) => {
@@ -60,7 +57,24 @@ export async function buildBaoCaoText(period: Period = 'all'): Promise<string> {
   });
   const onTimeRate = completedWithDeadline > 0 ? Math.round((onTimeCompleted / completedWithDeadline) * 100) : null;
 
-  // Danh sách nhân viên (dedupe theo lineUserId, đề phòng dữ liệu trùng)
+  let msg = `📋 BÁO CÁO CÔNG VIỆC\n🕐 ${formatVnDateTime(Date.now())}\n\n`;
+  msg += `• Tổng: ${total} | Đang xử lý: ${inProgress} | Quá hạn: ${overdue}\n`;
+  msg += `• Hoàn thành đúng hạn: ${onTimeRate !== null ? onTimeRate + '%' : 'Chưa có dữ liệu'}\n`;
+  msg += `\n📈 Xem đầy đủ: ${APP_URL()}/dashboard/reports`;
+
+  return msg;
+}
+
+/**
+ * Dựng nội dung báo cáo TƯƠNG TÁC theo từng nhân viên cho một kỳ — dùng chung cho lệnh /tuongtac
+ * và báo cáo tự động hằng ngày. Không truyền kỳ (mặc định "all") tính tổng dồn từ trước đến nay;
+ * "week"/"month" tính theo lịch VN, dùng chung cách xác định tuần/tháng với biểu đồ Dashboard > Báo cáo.
+ */
+export async function buildInteractionReportText(period: Period = 'all'): Promise<string> {
+  if (!adminDb) return 'Chưa cấu hình cơ sở dữ liệu.';
+
+  const usersSnap = await adminDb.collection('users').get();
+
   const userNames = new Map<string, string>();
   usersSnap.docs.forEach((doc) => {
     const u = doc.data();
@@ -68,9 +82,6 @@ export async function buildBaoCaoText(period: Period = 'all'): Promise<string> {
     userNames.set(u.lineUserId, u.name || u.lineUserId);
   });
 
-  // Tổng lượt tương tác theo từng người, đúng theo kỳ đang chọn:
-  // - "all": dùng luôn interactionTotal (đã cộng dồn sẵn trên doc user).
-  // - "week"/"month": cộng từ userDailyInteractions trong đúng khoảng ngày của kỳ đó.
   const totalsByUser = new Map<string, number>();
   if (period === 'all') {
     usersSnap.docs.forEach((doc) => {
@@ -99,12 +110,8 @@ export async function buildBaoCaoText(period: Period = 'all'): Promise<string> {
   const interacted = allUsers.filter((u) => u.total > 0).sort((a, b) => b.total - a.total);
   const notInteracted = allUsers.filter((u) => u.total === 0);
 
-  let msg = `📊 BÁO CÁO NHANH\n🕐 ${formatVnDateTime(Date.now())}\n\n`;
-  msg += `📋 CÔNG VIỆC\n`;
-  msg += `• Tổng: ${total} | Đang xử lý: ${inProgress} | Quá hạn: ${overdue}\n`;
-  msg += `• Hoàn thành đúng hạn: ${onTimeRate !== null ? onTimeRate + '%' : 'Chưa có dữ liệu'}\n\n`;
-
-  msg += `💬 TƯƠNG TÁC THEO NHÂN VIÊN (${PERIOD_TITLES[period]})\n`;
+  let msg = `💬 BÁO CÁO TƯƠNG TÁC\n🕐 ${formatVnDateTime(Date.now())}\n\n`;
+  msg += `THEO NHÂN VIÊN (${PERIOD_TITLES[period]})\n`;
   if (interacted.length === 0) {
     msg += `Chưa có ai tương tác.\n`;
   } else {
@@ -123,39 +130,56 @@ export async function buildBaoCaoText(period: Period = 'all'): Promise<string> {
   }
 
   if (period === 'all') {
-    msg += `\n💡 Xem theo kỳ: /baocao tuần hoặc /baocao tháng`;
+    msg += `\n💡 Xem theo kỳ: /tuongtac tuần hoặc /tuongtac tháng`;
   }
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://botline-zeta.vercel.app';
-  msg += `\n📈 Xem đầy đủ biểu đồ: ${appUrl}/dashboard/reports`;
+  msg += `\n📈 Xem đầy đủ biểu đồ: ${APP_URL()}/dashboard/reports`;
 
   return msg;
 }
 
+async function requireAdmin(event: line.webhook.MessageEvent, client: line.messagingApi.MessagingApiClient): Promise<boolean> {
+  const source = event.source as any;
+  const requesterId = source?.userId;
+  if (await isAdmin(requesterId)) return true;
+  await client.replyMessage({
+    replyToken: event.replyToken as string,
+    messages: [{ type: 'text', text: '⚠️ Bạn không có quyền xem báo cáo. Vui lòng liên hệ quản trị viên nếu cần được cấp quyền.' }]
+  });
+  return false;
+}
+
 /**
- * Lệnh /baocao [tuần|tháng]: tóm tắt nhanh tình hình công việc + tương tác theo từng nhân viên
- * ngay trên LINE (dùng được cả chat 1:1 lẫn trong nhóm), không cần mở Dashboard. Chỉ admin mới xem được.
+ * Lệnh /baocao: tóm tắt nhanh tình hình công việc (không gồm tương tác — xem /tuongtac) ngay trên
+ * LINE, dùng được cả chat 1:1 lẫn trong nhóm. Chỉ admin mới xem được.
  */
 export async function handleBaoCaoCommand(
+  event: line.webhook.MessageEvent,
+  client: line.messagingApi.MessagingApiClient
+) {
+  if (!adminDb) return;
+  if (!(await requireAdmin(event, client))) return;
+
+  const msg = await buildTaskReportText();
+  await client.replyMessage({
+    replyToken: event.replyToken as string,
+    messages: [{ type: 'text', text: msg }]
+  });
+}
+
+/**
+ * Lệnh /tuongtac [tuần|tháng]: báo cáo tương tác theo từng nhân viên, tách riêng khỏi báo cáo
+ * công việc. Dùng được cả chat 1:1 lẫn trong nhóm. Chỉ admin mới xem được.
+ */
+export async function handleTuongTacCommand(
   text: string,
   event: line.webhook.MessageEvent,
   client: line.messagingApi.MessagingApiClient
 ) {
   if (!adminDb) return;
-  const source = event.source as any;
-  const requesterId = source?.userId;
-
-  if (!(await isAdmin(requesterId))) {
-    await client.replyMessage({
-      replyToken: event.replyToken as string,
-      messages: [{ type: 'text', text: '⚠️ Bạn không có quyền xem báo cáo. Vui lòng liên hệ quản trị viên nếu cần được cấp quyền.' }]
-    });
-    return;
-  }
+  if (!(await requireAdmin(event, client))) return;
 
   const period = parsePeriod(text);
-  const msg = await buildBaoCaoText(period);
-
+  const msg = await buildInteractionReportText(period);
   await client.replyMessage({
     replyToken: event.replyToken as string,
     messages: [{ type: 'text', text: msg }]

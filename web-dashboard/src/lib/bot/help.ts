@@ -10,7 +10,8 @@ const HELP_TEXT = `🤖 DANH SÁCH LỆNH BOT
 
 👑 Dành cho quản trị viên:
 • /giao <nội dung việc> — Giao việc mới (chỉ dùng khi chat riêng 1:1 với bot)
-• /baocao [tuần|tháng] — Báo cáo nhanh công việc + tương tác theo nhân viên
+• /baocao — Báo cáo nhanh tình hình công việc
+• /tuongtac [tuần|tháng] — Báo cáo tương tác theo từng nhân viên (tách riêng khỏi /baocao)
 • /dongbo — Đồng bộ danh sách thành viên trong nhóm (dùng trong nhóm)
 
 💡 Mã việc (VD: a1b2c) hiển thị trên thẻ công việc hoặc trong /vieccuatoi.

@@ -184,12 +184,22 @@ export async function handleLineEvent(event: line.webhook.Event) {
     return;
   }
 
-  // Lệnh /baocao [tuần|tháng]: tóm tắt công việc + tương tác theo nhân viên, dùng được cả 1:1 lẫn trong nhóm
-  if (textLowerTrimmed === '/baocao' || textLowerTrimmed.startsWith('/baocao ') || ['báo cáo', 'bao cao'].includes(textLowerTrimmed)) {
+  // Lệnh /baocao: tóm tắt tình hình công việc, dùng được cả 1:1 lẫn trong nhóm
+  if (textLowerTrimmed === '/baocao' || ['báo cáo', 'bao cao'].includes(textLowerTrimmed)) {
     const { handleBaoCaoCommand } = await import('./report');
     const client = getLineClient();
     if (client) {
-      await handleBaoCaoCommand(text, event as line.webhook.MessageEvent, client);
+      await handleBaoCaoCommand(event as line.webhook.MessageEvent, client);
+    }
+    return;
+  }
+
+  // Lệnh /tuongtac [tuần|tháng]: báo cáo tương tác theo từng nhân viên, tách riêng khỏi /baocao
+  if (textLowerTrimmed === '/tuongtac' || textLowerTrimmed.startsWith('/tuongtac ') || ['báo cáo tương tác', 'bao cao tuong tac'].includes(textLowerTrimmed)) {
+    const { handleTuongTacCommand } = await import('./report');
+    const client = getLineClient();
+    if (client) {
+      await handleTuongTacCommand(text, event as line.webhook.MessageEvent, client);
     }
     return;
   }

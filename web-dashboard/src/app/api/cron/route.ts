@@ -3,7 +3,7 @@ import * as line from '@line/bot-sdk';
 import { adminDb } from '@/lib/firebase-admin';
 import { buildTaskReminderMessage, buildTaskEscalationMessage, parseReminderMinutes } from '@/lib/bot/tasks';
 import { parseVnDeadline, getVnDateKey } from '@/lib/dateUtils';
-import { buildBaoCaoText } from '@/lib/bot/report';
+import { buildTaskReportText, buildInteractionReportText } from '@/lib/bot/report';
 import { getAllAdminLineIds } from '@/lib/bot/admin';
 import { sendGroupProgressReports, type ProgressSlot } from '@/lib/bot/progressReport';
 
@@ -343,7 +343,8 @@ export async function GET(request: Request) {
       }
     }
 
-    // 3. Báo cáo tự động hằng ngày: đẩy bản tóm tắt /baocao cho toàn bộ admin vào buổi sáng (từ 8h giờ VN).
+    // 3. Báo cáo tự động hằng ngày: đẩy 2 báo cáo TÁCH RIÊNG (công việc + tương tác) cho toàn bộ admin
+    // vào buổi sáng (từ 8h giờ VN), dưới dạng 2 tin nhắn riêng biệt trong cùng 1 lượt gửi.
     // Cron được gọi nhiều lần/ngày (qua dịch vụ ngoài, vì gói Vercel Hobby chỉ cho cron nội bộ chạy 1 lần/ngày)
     // nên phải chốt "đã gửi hôm nay chưa" qua systemState/autoReport để không gửi trùng nhiều lần trong ngày.
     let autoReportSent = false;
@@ -359,10 +360,17 @@ export async function GET(request: Request) {
           await stateRef.set({ lastDailyReportDate: todayKey }, { merge: true });
           const adminIds = await getAllAdminLineIds();
           if (adminIds.length > 0) {
-            const reportText = `🔔 Báo cáo tự động mỗi sáng\n\n${await buildBaoCaoText('all')}`;
+            const [taskText, interactionText] = await Promise.all([
+              buildTaskReportText(),
+              buildInteractionReportText('all'),
+            ]);
+            const messages: line.messagingApi.Message[] = [
+              { type: 'text', text: `🔔 Báo cáo tự động mỗi sáng\n\n${taskText}` },
+              { type: 'text', text: interactionText },
+            ];
             for (const adminId of adminIds) {
               try {
-                await lineClient.pushMessage({ to: adminId, messages: [{ type: 'text', text: reportText }] });
+                await lineClient.pushMessage({ to: adminId, messages });
                 autoReportSent = true;
               } catch (e) {
                 console.error('Failed to push auto daily report', adminId, e);
