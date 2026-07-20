@@ -94,9 +94,10 @@ function buildGroupProgressFlex(params: {
 }
 
 /**
- * Gửi báo cáo tiến độ công việc (Flex card) cho từng nhóm LINE, chỉ tính các công việc được TẠO
- * TRONG HÔM NAY (giờ VN) thuộc nhóm đó — mỗi nhóm chỉ thấy tiến độ của riêng nhóm mình, không gộp
- * chung toàn hệ thống. Nhóm không có việc nào hôm nay thì bỏ qua, không gửi báo cáo rỗng.
+ * Gửi báo cáo tiến độ công việc (Flex card) cho từng nhóm LINE đã bật "Nhận báo cáo tiến độ tự động"
+ * (field groups.progressReportEnabled, mặc định tắt — bật thủ công ở Dashboard > Nhóm). Chỉ tính các
+ * công việc được TẠO TRONG HÔM NAY (giờ VN) thuộc nhóm đó — mỗi nhóm chỉ thấy tiến độ của riêng nhóm
+ * mình, không gộp chung toàn hệ thống. Nhóm không có việc nào hôm nay thì bỏ qua, không gửi báo cáo rỗng.
  * Trả về số nhóm đã gửi thành công.
  */
 export async function sendGroupProgressReports(
@@ -120,9 +121,12 @@ export async function sendGroupProgressReports(
   });
 
   const groupNameById = new Map<string, string>();
+  const enabledGroupIds = new Set<string>();
   groupsSnap.docs.forEach((doc) => {
     const g = doc.data();
-    if (g.lineGroupId) groupNameById.set(g.lineGroupId, g.name || 'Nhóm');
+    if (!g.lineGroupId) return;
+    groupNameById.set(g.lineGroupId, g.name || 'Nhóm');
+    if (g.progressReportEnabled) enabledGroupIds.add(g.lineGroupId);
   });
 
   // Gom việc theo từng nhóm (1 việc có thể thuộc nhiều nhóm nếu groupIds > 1 phần tử);
@@ -145,6 +149,7 @@ export async function sendGroupProgressReports(
 
   for (const [groupId, tasks] of tasksByGroup.entries()) {
     if (tasks.length === 0) continue;
+    if (!enabledGroupIds.has(groupId)) continue; // nhóm chưa được bật nhận báo cáo tiến độ (mặc định tắt)
     const groupName = groupNameById.get(groupId) || 'Nhóm';
 
     const total = tasks.length;

@@ -10,6 +10,7 @@ interface Group {
   lineGroupId: string;
   isMuted: boolean;
   muteUntil?: Date;
+  progressReportEnabled?: boolean;
 }
 
 export default function GroupsPage() {
@@ -17,7 +18,7 @@ export default function GroupsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', lineGroupId: '', isMuted: false });
+  const [form, setForm] = useState({ name: '', lineGroupId: '', isMuted: false, progressReportEnabled: false });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { loadGroups(); }, []);
@@ -36,7 +37,7 @@ export default function GroupsPage() {
     if (!form.name.trim()) return;
     setSaving(true);
     try {
-      const payload = { name: form.name.trim(), lineGroupId: form.lineGroupId.trim(), isMuted: form.isMuted, updatedAt: serverTimestamp() };
+      const payload = { name: form.name.trim(), lineGroupId: form.lineGroupId.trim(), isMuted: form.isMuted, progressReportEnabled: form.progressReportEnabled, updatedAt: serverTimestamp() };
       if (editingId) {
         await updateDoc(doc(db, 'groups', editingId), payload);
       } else {
@@ -63,7 +64,7 @@ export default function GroupsPage() {
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Nhóm LINE</h1>
           <p className="text-sm text-[var(--color-text-secondary)] mt-1">{groups.length} nhóm Bot đang hoạt động</p>
         </div>
-        <button onClick={() => { setEditingId(null); setForm({ name: '', lineGroupId: '', isMuted: false }); setShowModal(true); }} className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] glow-accent">
+        <button onClick={() => { setEditingId(null); setForm({ name: '', lineGroupId: '', isMuted: false, progressReportEnabled: false }); setShowModal(true); }} className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] glow-accent">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
           Thêm nhóm thủ công
         </button>
@@ -79,19 +80,26 @@ export default function GroupsPage() {
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-[var(--color-text-primary)] truncate">{g.name}</p>
                 <p className="text-xs text-[var(--color-text-muted)] mt-0.5 truncate">ID: {g.lineGroupId || 'N/A'}</p>
-                {g.isMuted ? (
-                  <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
-                    Đang im lặng
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    Bật thông báo
-                  </span>
-                )}
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                  {g.isMuted ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+                      Đang im lặng
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      Bật thông báo
+                    </span>
+                  )}
+                  {g.progressReportEnabled && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                      📊 Nhận báo cáo tiến độ
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                <button onClick={() => { setEditingId(g.id); setForm({ name: g.name, lineGroupId: g.lineGroupId, isMuted: g.isMuted }); setShowModal(true); }} className="p-1.5 text-[var(--color-text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors">
+                <button onClick={() => { setEditingId(g.id); setForm({ name: g.name, lineGroupId: g.lineGroupId, isMuted: g.isMuted, progressReportEnabled: g.progressReportEnabled || false }); setShowModal(true); }} className="p-1.5 text-[var(--color-text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                 </button>
                 <button onClick={() => handleDelete(g.id)} className="p-1.5 text-[var(--color-text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
@@ -126,6 +134,13 @@ export default function GroupsPage() {
                 <div>
                   <p className="text-sm font-medium text-[var(--color-text-primary)]">Tắt thông báo Bot (Im lặng)</p>
                   <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Bot sẽ không gửi tin nhắn tự động vào nhóm này</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 p-4 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl cursor-pointer hover:border-[var(--color-border-active)] transition-colors">
+                <input type="checkbox" checked={form.progressReportEnabled} onChange={(e) => setForm({ ...form, progressReportEnabled: e.target.checked })} className="w-5 h-5 rounded border-[var(--color-border)] text-indigo-500 focus:ring-indigo-500 bg-transparent" />
+                <div>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">📊 Nhận báo cáo tiến độ tự động</p>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Gửi thẻ tổng hợp tiến độ công việc trong ngày vào nhóm này lúc 14h và 20h30</p>
                 </div>
               </label>
             </div>
