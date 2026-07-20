@@ -5,6 +5,7 @@ import { buildTaskReminderMessage, buildTaskEscalationMessage, parseReminderMinu
 import { parseVnDeadline, getVnDateKey } from '@/lib/dateUtils';
 import { buildBaoCaoText } from '@/lib/bot/report';
 import { getAllAdminLineIds } from '@/lib/bot/admin';
+import { sendGroupProgressReports, type ProgressSlot } from '@/lib/bot/progressReport';
 
 /**
  * Tìm mốc thời gian kế tiếp rơi vào "ngày thứ N tính từ ngày cuối tháng" (N=0 là chính ngày cuối tháng,
@@ -374,6 +375,34 @@ export async function GET(request: Request) {
       console.error('Failed to build/send auto daily report', e);
     }
 
+    // 4. Báo cáo tiến độ công việc theo từng nhóm, 2 lần/ngày lúc 14h và 20h30 giờ VN (chỉ tính việc
+    // tạo trong hôm nay). Dùng cùng cơ chế chốt "đã gửi slot này hôm nay chưa" như báo cáo hằng ngày ở trên.
+    let groupReportsSent = 0;
+    try {
+      const vnDate = new Date(now + 7 * 60 * 60 * 1000);
+      const vnHour = vnDate.getUTCHours();
+      const vnMinute = vnDate.getUTCMinutes();
+      const todayKey = getVnDateKey(now);
+
+      let slot: ProgressSlot | null = null;
+      if (vnHour === 14) slot = 'noon';
+      else if (vnHour === 20 && vnMinute >= 30) slot = 'evening';
+
+      if (slot) {
+        const stateRef = adminDb.collection('systemState').doc('groupProgressReport');
+        const stateSnap = await stateRef.get();
+        const fieldName = slot === 'noon' ? 'lastNoonDate' : 'lastEveningDate';
+        const lastSent = stateSnap.exists ? stateSnap.data()?.[fieldName] : null;
+
+        if (lastSent !== todayKey) {
+          await stateRef.set({ [fieldName]: todayKey }, { merge: true });
+          groupReportsSent = await sendGroupProgressReports(adminDb, lineClient, slot, now);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to send group progress reports', e);
+    }
+
     return NextResponse.json({
       success: true,
       processedTasks: tasksToNotify.length,
@@ -383,6 +412,7 @@ export async function GET(request: Request) {
       resentTasks: tasksToResend.length,
       processedKeywords: keywordsToNotify.length,
       autoReportSent,
+      groupReportsSent,
       timestamp: now
     });
 

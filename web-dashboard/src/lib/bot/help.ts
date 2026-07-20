@@ -15,7 +15,8 @@ const HELP_TEXT = `🤖 DANH SÁCH LỆNH BOT
 
 💡 Mã việc (VD: a1b2c) hiển thị trên thẻ công việc hoặc trong /vieccuatoi.
 💡 Gõ /help hoặc /trogiup để xem lại danh sách này bất cứ lúc nào.
-💡 Admin còn tự động nhận báo cáo tóm tắt mỗi sáng qua tin nhắn riêng, không cần gõ lệnh.`;
+💡 Admin còn tự động nhận báo cáo tóm tắt mỗi sáng qua tin nhắn riêng, không cần gõ lệnh.
+💡 Mỗi nhóm còn tự động nhận thẻ báo cáo tiến độ công việc trong ngày vào 14h và 20h30.`;
 
 /**
  * Lệnh /help: liệt kê toàn bộ lệnh bot hỗ trợ, thay thế vai trò "tra cứu nhanh" mà Rich Menu

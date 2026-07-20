@@ -39,6 +39,15 @@ export function getVnDateKey(ms: number = Date.now()): string {
 }
 
 /**
+ * Mốc epoch ms 00:00 giờ Việt Nam của ngày chứa `ms` (mặc định hiện tại). Dùng để truy vấn
+ * "các bản ghi tạo trong hôm nay giờ VN" trên field lưu Timestamp/epoch thực (vd createdAt).
+ */
+export function getVnStartOfDayMs(ms: number = Date.now()): number {
+  const [y, m, d] = getVnDateKey(ms).split('-').map(Number);
+  return Date.UTC(y, m - 1, d, 0, 0, 0, 0) - 7 * 60 * 60 * 1000;
+}
+
+/**
  * Khoá tuần "YYYY-MM-DD" (ngày Thứ Hai của tuần chứa epoch ms đó) theo giờ Việt Nam.
  * Một tuần được tính từ Thứ Hai đến Chủ Nhật.
  */
