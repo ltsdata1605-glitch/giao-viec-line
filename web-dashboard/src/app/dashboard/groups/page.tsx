@@ -70,40 +70,38 @@ export default function GroupsPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
         {groups.map((g) => (
-          <div key={g.id} className="glass rounded-2xl p-5 hover:border-[var(--color-border-active)]/30 transition-all duration-300 group">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[var(--color-bg-card)] flex items-center justify-center text-xl flex-shrink-0">
+          <div key={g.id} className="glass rounded-xl p-3 hover:border-[var(--color-border-active)]/30 transition-all duration-300 group">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-[var(--color-bg-card)] flex items-center justify-center text-base flex-shrink-0">
                 👥
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-[var(--color-text-primary)] truncate">{g.name}</p>
-                <p className="text-xs text-[var(--color-text-muted)] mt-0.5 truncate">ID: {g.lineGroupId || 'N/A'}</p>
-                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">{g.name}</p>
+                <div className="flex flex-wrap items-center gap-1 mt-1">
                   {g.isMuted ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
-                      Đang im lặng
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">
+                      Im lặng
                     </span>
                   ) : (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                       Bật thông báo
                     </span>
                   )}
                   {g.progressReportEnabled && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                      📊 Nhận báo cáo tiến độ
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                      📊 Tiến độ
                     </span>
                   )}
                 </div>
               </div>
-              <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                <button onClick={() => { setEditingId(g.id); setForm({ name: g.name, lineGroupId: g.lineGroupId, isMuted: g.isMuted, progressReportEnabled: g.progressReportEnabled || false }); setShowModal(true); }} className="p-1.5 text-[var(--color-text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+              <div className="flex gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0">
+                <button onClick={() => { setEditingId(g.id); setForm({ name: g.name, lineGroupId: g.lineGroupId, isMuted: g.isMuted, progressReportEnabled: g.progressReportEnabled || false }); setShowModal(true); }} className="p-1 text-[var(--color-text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-md transition-colors">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                 </button>
-                <button onClick={() => handleDelete(g.id)} className="p-1.5 text-[var(--color-text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                <button onClick={() => handleDelete(g.id)} className="p-1 text-[var(--color-text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
               </div>
             </div>
