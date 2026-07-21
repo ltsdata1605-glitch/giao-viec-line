@@ -366,8 +366,15 @@ export default function TasksPage() {
   }
 
   const filteredTasks = tasks.filter((t) => {
-    const matchSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.assigneeName.toLowerCase().includes(searchTerm.toLowerCase());
+    // Việc tạo qua lệnh /giao trên LINE không lưu sẵn t.assigneeName (field chỉ Dashboard mới ghi khi
+    // tạo/sửa) nên phải tự tra tên qua usersList từ t.assignees, không thì tìm theo tên người nhận
+    // sẽ luôn trống với các việc đó.
+    const resolvedAssigneeNames = ((t.assignees && t.assignees.length > 0
+      ? t.assignees.map((id) => usersList.find((u) => u.lineUserId === id)?.name || id)
+      : [t.assigneeName]
+    ).join(' ')).toLowerCase();
+    const term = searchTerm.toLowerCase();
+    const matchSearch = t.name.toLowerCase().includes(term) || resolvedAssigneeNames.includes(term);
     const matchStatus = filterStatus === 'all' || t.status === filterStatus;
     const matchAssignee = filterAssignee === 'all' ||
       (t.assignees && t.assignees.includes(filterAssignee)) ||
