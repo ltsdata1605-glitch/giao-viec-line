@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import * as line from '@line/bot-sdk';
 import { adminDb } from '@/lib/firebase-admin';
-import { buildTaskReminderMessage, buildTaskEscalationMessage, parseReminderMinutes } from '@/lib/bot/tasks';
+import { buildTaskReminderMessage, buildTaskEscalationMessage, buildDeadlineWarningMessage, parseReminderMinutes } from '@/lib/bot/tasks';
 import { parseVnDeadline, getVnDateKey } from '@/lib/dateUtils';
 import { buildTaskReportText, buildInteractionReportText } from '@/lib/bot/report';
 import { getAllAdminLineIds } from '@/lib/bot/admin';
@@ -133,9 +133,53 @@ export async function GET(request: Request) {
       }
     }
 
+    const justEscalatedIds = new Set(tasksToEscalate.map(t => t.id));
+
+    // 1.55. Cảnh báo SẮP TỚI HẠN: gửi đúng 1 lần cho task còn hạn, sắp hết hạn trong vòng
+    // DEADLINE_WARNING_MINUTES tới (chủ động cảnh báo trước, khác với leo thang ở bước 1.5 vốn chỉ
+    // báo SAU khi đã trễ). Chốt bằng deadlineWarningSent để không gửi lặp lại các lần cron sau.
+    const DEADLINE_WARNING_MINUTES = 30;
+    const warningBatch = adminDb.batch();
+    let warnedCount = 0;
+
+    for (const doc of activeTasksSnap.docs) {
+      if (justEscalatedIds.has(doc.id)) continue; // vừa quá hạn ở bước trên, không còn "sắp tới hạn" nữa
+      const data = doc.data();
+      if (data.repeat && data.repeat !== 'Không') continue; // task lặp lại không có 1 deadline cố định
+      if (data.deadlineWarningSent) continue;
+
+      const deadlineMs = parseVnDeadline(data.deadline);
+      if (deadlineMs === null) continue;
+      const minutesLeft = (deadlineMs - now) / 60000;
+      if (minutesLeft <= 0 || minutesLeft > DEADLINE_WARNING_MINUTES) continue; // chưa tới cửa sổ cảnh báo
+
+      const quoteTokens: Record<string, string> = data.flexQuoteTokens || {};
+      const chatKeys = Object.keys(quoteTokens);
+      const targets = chatKeys.length > 0 ? chatKeys : (data.assignees || []).filter((id: string) => id.startsWith('U'));
+
+      let sentAny = false;
+      for (const target of targets) {
+        try {
+          await lineClient.pushMessage({
+            to: target,
+            messages: [buildDeadlineWarningMessage(data.name || '', data.assignees || [], Math.max(1, Math.round(minutesLeft)), quoteTokens[target])]
+          });
+          sentAny = true;
+        } catch (e) {
+          console.error('Failed to send deadline warning', doc.id, target, e);
+        }
+      }
+
+      if (sentAny) {
+        warningBatch.update(doc.ref, { deadlineWarningSent: true });
+        warnedCount++;
+      }
+    }
+
+    if (warnedCount > 0) await warningBatch.commit();
+
     // 1.6. Nhắc việc định kỳ cho task còn hạn nhưng chưa xong, theo reminderFrequency của từng task.
     // Gửi tới đúng nơi (nhóm/phòng/cá nhân) đã nhận thẻ Flex gốc, kèm quoteToken trích dẫn nếu có.
-    const justEscalatedIds = new Set(tasksToEscalate.map(t => t.id));
     const reminderBatch = adminDb.batch();
     let remindedCount = 0;
 
@@ -416,6 +460,7 @@ export async function GET(request: Request) {
       processedTasks: tasksToNotify.length,
       overdueTasks: tasksToEscalate.length,
       escalatedTasks: escalatedCount,
+      warnedTasks: warnedCount,
       remindedTasks: remindedCount,
       resentTasks: tasksToResend.length,
       processedKeywords: keywordsToNotify.length,

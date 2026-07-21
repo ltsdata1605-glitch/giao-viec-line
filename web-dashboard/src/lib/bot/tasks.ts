@@ -36,6 +36,9 @@ export interface Task {
   reminderFrequency?: string;
   // Mốc thời gian (epoch ms) lần nhắc gần nhất, để cron biết đã tới lượt nhắc tiếp theo chưa.
   lastReminderAt?: number;
+  // Đã gửi cảnh báo "sắp tới hạn" (trước deadline ~30 phút) hay chưa — chỉ gửi đúng 1 lần/task,
+  // khác với reminderFrequency (nhắc lặp lại định kỳ trong suốt vòng đời task).
+  deadlineWarningSent?: boolean;
   // Ai bấm "Nhận việc" / "Hoàn tất" và lúc nào — dùng để trả lời lại khi bị bấm trùng
   // (task đã nhận/hoàn tất rồi mà vẫn có người bấm nút).
   acceptedBy?: string;
@@ -123,6 +126,19 @@ export function buildTaskReminderMessage(taskName: string, assignees: string[], 
   const validIds = assignees.filter(id => id.startsWith('U'));
   const segments: MentionSegment[] = validIds.map(userId => ({ mentionUserId: userId }));
   segments.push({ text: ` ⏰ Nhắc nhở: công việc "${taskName}" vẫn chưa hoàn thành, vui lòng xử lý sớm!` });
+  return buildMentionText(segments, quoteToken);
+}
+
+/**
+ * Dựng tin nhắn cảnh báo SẮP TỚI HẠN, tag người nhận việc, kèm trích dẫn thẻ Flex gốc nếu có.
+ * Khác với buildTaskReminderMessage (nhắc lặp lại định kỳ suốt vòng đời task), tin này chỉ gửi
+ * đúng 1 lần duy nhất khi còn khoảng thời gian ngắn trước deadline, để chủ động cảnh báo trước
+ * thay vì chỉ báo sau khi đã trễ (xem buildTaskEscalationMessage).
+ */
+export function buildDeadlineWarningMessage(taskName: string, assignees: string[], minutesLeft: number, quoteToken?: string): line.messagingApi.TextMessageV2 {
+  const validIds = assignees.filter(id => id.startsWith('U'));
+  const segments: MentionSegment[] = validIds.map(userId => ({ mentionUserId: userId }));
+  segments.push({ text: ` ⏰ Sắp tới hạn: công việc "${taskName}" còn khoảng ${minutesLeft} phút nữa là hết hạn, vui lòng hoàn tất kịp thời!` });
   return buildMentionText(segments, quoteToken);
 }
 
