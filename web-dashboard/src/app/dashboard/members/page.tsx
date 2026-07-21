@@ -21,6 +21,7 @@ export default function MembersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', lineUserId: '', role: 'member', authEmail: '' });
   const [saving, setSaving] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => { loadMembers(); }, []);
 
@@ -58,21 +59,43 @@ export default function MembersPage() {
 
   if (loading) return <div className="space-y-4"><div className="skeleton h-12 w-64 rounded-xl" /><div className="skeleton h-96 rounded-2xl" /></div>;
 
+  const filteredMembers = members.filter((m) => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return true;
+    return (m.name || '').toLowerCase().includes(term) || (m.lineUserId || '').toLowerCase().includes(term);
+  });
+
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Thành viên</h1>
-          <p className="text-sm text-[var(--color-text-secondary)] mt-1">{members.length} thành viên đã đăng ký</p>
+          <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+            {searchTerm ? `${filteredMembers.length}/${members.length}` : members.length} thành viên đã đăng ký
+          </p>
         </div>
-        <button onClick={() => { setEditingId(null); setForm({ name: '', lineUserId: '', role: 'member', authEmail: '' }); setShowModal(true); }} className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] glow-accent">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-          Thêm thành viên
-        </button>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Tìm kiếm thành viên..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
+            />
+          </div>
+          <button onClick={() => { setEditingId(null); setForm({ name: '', lineUserId: '', role: 'member', authEmail: '' }); setShowModal(true); }} className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] glow-accent flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            <span className="hidden sm:inline">Thêm thành viên</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
-        {members.map((m) => (
+        {filteredMembers.map((m) => (
           <div key={m.id} className="glass rounded-xl p-3 hover:border-[var(--color-border-active)]/30 transition-all duration-300 group">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -102,9 +125,13 @@ export default function MembersPage() {
             </div>
           </div>
         ))}
-        {members.length === 0 && (
+        {filteredMembers.length === 0 && (
           <div className="md:col-span-3 glass rounded-2xl p-12 text-center">
-            <p className="text-[var(--color-text-secondary)]">Chưa có thành viên nào. Bot sẽ tự thêm khi có người chat.</p>
+            <p className="text-[var(--color-text-secondary)]">
+              {members.length === 0
+                ? 'Chưa có thành viên nào. Bot sẽ tự thêm khi có người chat.'
+                : 'Không tìm thấy thành viên phù hợp.'}
+            </p>
           </div>
         )}
       </div>
