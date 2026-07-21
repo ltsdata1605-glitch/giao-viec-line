@@ -1,3 +1,4 @@
+import * as line from '@line/bot-sdk';
 import { adminDb } from '@/lib/firebase-admin';
 // Fallback to client sdk if admin is not configured yet (during development)
 import { db } from '@/lib/firebase';
@@ -51,4 +52,46 @@ export async function getReplyFromFirebase(keyword: string) {
     console.error('Error fetching keyword from Firebase:', error);
   }
   return null;
+}
+
+/**
+ * Lệnh /tukhoa: liệt kê toàn bộ từ khoá đã cấu hình trong Dashboard > Từ khoá Bot, kèm xem trước
+ * nội dung phản hồi, để người dùng biết có thể gõ gì để nhận thông tin tự động. Không giới hạn
+ * admin vì từ khoá vốn để tra cứu thông tin chung (khuyến mãi, hướng dẫn...) trong nhóm.
+ */
+export async function handleTuKhoaCommand(
+  event: line.webhook.MessageEvent,
+  client: line.messagingApi.MessagingApiClient
+) {
+  let text = '🏷️ DANH SÁCH TỪ KHOÁ BOT\n\nGõ đúng từ khoá để nhận phản hồi tự động:\n\n';
+
+  try {
+    if (!adminDb) {
+      text += 'Chưa cấu hình cơ sở dữ liệu.';
+    } else {
+      const snap = await adminDb.collection('keywords').get();
+      if (snap.empty) {
+        text += 'Chưa có từ khoá nào được cấu hình.';
+      } else {
+        snap.docs
+          .map((doc) => doc.data())
+          .sort((a, b) => (a.keyword || '').localeCompare(b.keyword || ''))
+          .forEach((kw) => {
+            const preview = (kw.reply_text || '').replace(/\s+/g, ' ').trim();
+            const truncated = preview.length > 40 ? preview.slice(0, 40) + '...' : preview;
+            text += `#${kw.keyword} — ${truncated}\n`;
+          });
+      }
+    }
+  } catch (error) {
+    console.error('Error listing keywords:', error);
+    text += 'Không thể tải danh sách lúc này, vui lòng thử lại sau.';
+  }
+
+  text += '\n💡 Gõ /help để xem các lệnh khác của Bot.';
+
+  await client.replyMessage({
+    replyToken: event.replyToken as string,
+    messages: [{ type: 'text', text }]
+  });
 }

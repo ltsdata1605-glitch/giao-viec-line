@@ -7,6 +7,7 @@ const USER_HELP_TEXT = `🤖 DANH SÁCH LỆNH BOT
 • /nhan <mã việc> — Nhận một công việc (hoặc bấm nút "Nhận việc" trên thẻ công việc)
 • /xong <mã việc> — Báo hoàn tất công việc (hoặc bấm nút "✅ Hoàn tất")
 • /huy <mã việc> — Huỷ công việc do chính bạn giao (nếu có)
+• /tukhoa — Xem danh sách từ khoá Bot đang hỗ trợ
 
 💡 Mã việc (VD: a1b2c) hiển thị trên thẻ công việc hoặc trong /vieccuatoi.
 💡 Gõ đúng từ khoá đã được cấu hình sẵn (vd tên chương trình khuyến mãi...) để nhận phản hồi tự động.
@@ -20,6 +21,7 @@ const ADMIN_HELP_TEXT = `🤖 DANH SÁCH LỆNH BOT (Quản trị viên)
 • /nhan <mã việc> — Nhận một công việc (hoặc bấm nút "Nhận việc" trên thẻ công việc)
 • /xong <mã việc> — Báo hoàn tất công việc (hoặc bấm nút "✅ Hoàn tất")
 • /huy <mã việc> — Huỷ công việc (chỉ người giao việc hoặc admin)
+• /tukhoa — Xem danh sách từ khoá Bot đang hỗ trợ
 
 👑 Dành riêng cho quản trị viên:
 • /giao <nội dung việc> — Giao việc mới (chỉ dùng khi chat riêng 1:1 với bot)

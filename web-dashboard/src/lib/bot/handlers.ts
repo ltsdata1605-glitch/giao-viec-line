@@ -124,6 +124,17 @@ export async function handleLineEvent(event: line.webhook.Event) {
     return;
   }
 
+  // 1.6 Lệnh /tukhoa: liệt kê toàn bộ từ khoá Bot đang hỗ trợ (đặt trước bước tra cứu từ khoá bên dưới
+  // để không bị một từ khoá thật trùng tên "tukhoa" nào đó che mất lệnh này)
+  if (['/tukhoa', 'từ khóa', 'tu khoa'].includes(text.toLowerCase())) {
+    const { handleTuKhoaCommand } = await import('./keywords');
+    const client = getLineClient();
+    if (client) {
+      await handleTuKhoaCommand(event as line.webhook.MessageEvent, client);
+    }
+    return;
+  }
+
   // 2. Check for Keyword replies first
   const keywordReply = await getReplyFromFirebase(text);
   
