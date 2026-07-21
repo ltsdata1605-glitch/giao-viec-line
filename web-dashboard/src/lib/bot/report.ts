@@ -1,21 +1,23 @@
 import * as line from '@line/bot-sdk';
 import { adminDb } from '@/lib/firebase-admin';
 import { isAdmin } from './admin';
-import { parseVnDeadline, formatVnDateTime, getVnWeekRange, getVnMonthRange } from '@/lib/dateUtils';
+import { parseVnDeadline, formatVnDateTime, getVnDateKey, getVnWeekRange, getVnMonthRange } from '@/lib/dateUtils';
 
 const IN_PROGRESS_STATUSES = ['Chưa làm', 'Đang làm'];
 const MAX_LISTED = 15;
 
-type Period = 'all' | 'week' | 'month';
+type Period = 'all' | 'day' | 'week' | 'month';
 
 const PERIOD_TITLES: Record<Period, string> = {
   all: 'TỪ TRƯỚC ĐẾN NAY',
+  day: 'HÔM NAY',
   week: 'TUẦN NÀY, Thứ 2 - Chủ nhật',
   month: 'THÁNG NÀY',
 };
 
 function parsePeriod(text: string): Period {
   const arg = text.trim().split(/\s+/)[1]?.toLowerCase() || '';
+  if (['ngày', 'ngay', 'day'].includes(arg)) return 'day';
   if (['tuần', 'tuan', 'week'].includes(arg)) return 'week';
   if (['tháng', 'thang', 'month'].includes(arg)) return 'month';
   return 'all';
@@ -68,7 +70,8 @@ export async function buildTaskReportText(): Promise<string> {
 /**
  * Dựng nội dung báo cáo TƯƠNG TÁC theo từng nhân viên cho một kỳ — dùng chung cho lệnh /tuongtac
  * và báo cáo tự động hằng ngày. Không truyền kỳ (mặc định "all") tính tổng dồn từ trước đến nay;
- * "week"/"month" tính theo lịch VN, dùng chung cách xác định tuần/tháng với biểu đồ Dashboard > Báo cáo.
+ * "day"/"week"/"month" tính theo lịch VN, dùng chung cách xác định ngày/tuần/tháng với biểu đồ
+ * Dashboard > Báo cáo.
  */
 export async function buildInteractionReportText(period: Period = 'all'): Promise<string> {
   if (!adminDb) return 'Chưa cấu hình cơ sở dữ liệu.';
@@ -90,11 +93,13 @@ export async function buildInteractionReportText(period: Period = 'all'): Promis
       totalsByUser.set(u.lineUserId, (totalsByUser.get(u.lineUserId) || 0) + (u.interactionTotal || 0));
     });
   } else {
-    const { startKey, endKey } = period === 'week' ? getVnWeekRange() : getVnMonthRange();
-    const periodSnap = await adminDb.collection('userDailyInteractions')
-      .where('date', '>=', startKey)
-      .where('date', '<=', endKey)
-      .get();
+    let periodSnap;
+    if (period === 'day') {
+      periodSnap = await adminDb.collection('userDailyInteractions').where('date', '==', getVnDateKey()).get();
+    } else {
+      const { startKey, endKey } = period === 'week' ? getVnWeekRange() : getVnMonthRange();
+      periodSnap = await adminDb.collection('userDailyInteractions').where('date', '>=', startKey).where('date', '<=', endKey).get();
+    }
     periodSnap.docs.forEach((doc) => {
       const d = doc.data();
       if (!d.lineUserId) return;
@@ -130,7 +135,7 @@ export async function buildInteractionReportText(period: Period = 'all'): Promis
   }
 
   if (period === 'all') {
-    msg += `\n💡 Xem theo kỳ: /tuongtac tuần hoặc /tuongtac tháng`;
+    msg += `\n💡 Xem theo kỳ: /tuongtac ngày, /tuongtac tuần, hoặc /tuongtac tháng`;
   }
   msg += `\n📈 Xem đầy đủ biểu đồ: ${APP_URL()}/dashboard/reports`;
 
@@ -167,7 +172,7 @@ export async function handleBaoCaoCommand(
 }
 
 /**
- * Lệnh /tuongtac [tuần|tháng]: báo cáo tương tác theo từng nhân viên, tách riêng khỏi báo cáo
+ * Lệnh /tuongtac [ngày|tuần|tháng]: báo cáo tương tác theo từng nhân viên, tách riêng khỏi báo cáo
  * công việc. Dùng được cả chat 1:1 lẫn trong nhóm. Chỉ admin mới xem được.
  */
 export async function handleTuongTacCommand(

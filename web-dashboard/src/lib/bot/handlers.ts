@@ -205,7 +205,7 @@ export async function handleLineEvent(event: line.webhook.Event) {
     return;
   }
 
-  // Lệnh /tuongtac [tuần|tháng]: báo cáo tương tác theo từng nhân viên, tách riêng khỏi /baocao
+  // Lệnh /tuongtac [ngày|tuần|tháng]: báo cáo tương tác theo từng nhân viên, tách riêng khỏi /baocao
   if (textLowerTrimmed === '/tuongtac' || textLowerTrimmed.startsWith('/tuongtac ') || ['báo cáo tương tác', 'bao cao tuong tac'].includes(textLowerTrimmed)) {
     const { handleTuongTacCommand } = await import('./report');
     const client = getLineClient();

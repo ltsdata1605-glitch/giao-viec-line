@@ -4,9 +4,6 @@ import { isAdmin } from './admin';
 const USER_HELP_TEXT = `🤖 DANH SÁCH LỆNH BOT
 
 • /vieccuatoi — Xem việc bạn đang được giao, chưa hoàn thành
-• /nhan <mã việc> — Nhận một công việc (hoặc bấm nút "Nhận việc" trên thẻ công việc)
-• /xong <mã việc> — Báo hoàn tất công việc (hoặc bấm nút "✅ Hoàn tất")
-• /huy <mã việc> — Huỷ công việc do chính bạn giao (nếu có)
 • /tukhoa — Xem danh sách từ khoá Bot đang hỗ trợ
 
 💡 Mã việc (VD: a1b2c) hiển thị trên thẻ công việc hoặc trong /vieccuatoi.
@@ -18,15 +15,12 @@ const ADMIN_HELP_TEXT = `🤖 DANH SÁCH LỆNH BOT (Quản trị viên)
 
 👤 Dành cho tất cả:
 • /vieccuatoi — Xem việc bạn đang được giao, chưa hoàn thành
-• /nhan <mã việc> — Nhận một công việc (hoặc bấm nút "Nhận việc" trên thẻ công việc)
-• /xong <mã việc> — Báo hoàn tất công việc (hoặc bấm nút "✅ Hoàn tất")
-• /huy <mã việc> — Huỷ công việc (chỉ người giao việc hoặc admin)
 • /tukhoa — Xem danh sách từ khoá Bot đang hỗ trợ
 
 👑 Dành riêng cho quản trị viên:
 • /giao <nội dung việc> — Giao việc mới (chỉ dùng khi chat riêng 1:1 với bot)
 • /baocao — Báo cáo nhanh tình hình công việc
-• /tuongtac [tuần|tháng] — Báo cáo tương tác theo từng nhân viên (tách riêng khỏi /baocao)
+• /tuongtac [ngày|tuần|tháng] — Báo cáo tương tác theo từng nhân viên (tách riêng khỏi /baocao)
 • /dongbo — Đồng bộ danh sách thành viên trong nhóm (dùng trong nhóm)
 
 🔑 Cấp quyền admin cho người khác:
