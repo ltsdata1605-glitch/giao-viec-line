@@ -71,33 +71,32 @@ export default function MembersPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
         {members.map((m) => (
-          <div key={m.id} className="glass rounded-2xl p-5 hover:border-[var(--color-border-active)]/30 transition-all duration-300 group">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+          <div key={m.id} className="glass rounded-xl p-3 hover:border-[var(--color-border-active)]/30 transition-all duration-300 group">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                 {m.name?.charAt(0)?.toUpperCase() || '?'}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-[var(--color-text-primary)] truncate">{m.name}</p>
-                <p className="text-xs text-[var(--color-text-muted)] mt-0.5 truncate">ID: {m.lineUserId || 'N/A'}</p>
-                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${m.role === 'admin' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}`}>
+                <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">{m.name}</p>
+                <div className="flex items-center gap-1 mt-1 flex-wrap">
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider ${m.role === 'admin' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}`}>
                     {m.role || 'member'}
                   </span>
                   {m.authEmail && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title={m.authEmail}>
-                      🔗 Đã gắn tài khoản
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title={m.authEmail}>
+                      🔗
                     </span>
                   )}
                 </div>
               </div>
-              <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                <button onClick={() => { setEditingId(m.id); setForm({ name: m.name, lineUserId: m.lineUserId, role: m.role || 'member', authEmail: m.authEmail || '' }); setShowModal(true); }} className="p-1.5 text-[var(--color-text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+              <div className="flex gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0">
+                <button onClick={() => { setEditingId(m.id); setForm({ name: m.name, lineUserId: m.lineUserId, role: m.role || 'member', authEmail: m.authEmail || '' }); setShowModal(true); }} className="p-1 text-[var(--color-text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-md transition-colors">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                 </button>
-                <button onClick={() => handleDelete(m.id)} className="p-1.5 text-[var(--color-text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                <button onClick={() => handleDelete(m.id)} className="p-1 text-[var(--color-text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
               </div>
             </div>

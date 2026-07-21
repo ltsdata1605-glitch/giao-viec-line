@@ -16,6 +16,7 @@ export async function captureUserProfile(
   const source = event.source as any;
   const userId = source.userId;
   const groupId = source.type === 'group' ? source.groupId : null;
+  const roomId = source.type === 'room' ? source.roomId : null;
   // JoinEvent không có field message -> messageType null, chỉ capture profile, không đếm tương tác
   const messageType: string | null = (event as any).message?.type || null;
 
@@ -28,8 +29,14 @@ export async function captureUserProfile(
       let userDocRef = userSnap.empty ? null : userSnap.docs[0].ref;
 
       if (userSnap.empty) {
-        // Fetch from LINE
-        const profile = await client.getProfile(userId).catch(() => null);
+        // Trong nhóm/phòng chat PHẢI dùng getGroupMemberProfile/getRoomMemberProfile — getProfile()
+        // chỉ trả về hồ sơ nếu người đó đã kết bạn 1:1 với bot, nên trước đây bỏ sót gần hết thành
+        // viên chỉ tương tác trong nhóm mà chưa từng chat riêng với bot (getProfile() âm thầm lỗi 403).
+        const profile = await (
+          groupId ? client.getGroupMemberProfile(groupId, userId)
+          : roomId ? client.getRoomMemberProfile(roomId, userId)
+          : client.getProfile(userId)
+        ).catch(() => null);
         if (profile) {
           userDocRef = await adminDb.collection('users').add({
             lineUserId: userId,
