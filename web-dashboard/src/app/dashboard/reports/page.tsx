@@ -150,6 +150,28 @@ function TrendChart({ labels, counts, unit = 'việc' }: { labels: string[]; cou
   );
 }
 
+// Escape 1 giá trị cho đúng chuẩn CSV: bọc dấu ngoặc kép nếu chứa dấu phẩy/ngoặc kép/xuống dòng.
+function csvEscape(value: string | number): string {
+  const str = String(value);
+  return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+}
+
+// Tải 1 file CSV về máy, kèm BOM UTF-8 để Excel đọc đúng tiếng Việt có dấu (không có BOM, Excel trên
+// Windows thường hiển thị sai ký tự có dấu dù nội dung vẫn là UTF-8 hợp lệ).
+function downloadCsv(filename: string, rows: (string | number)[][]) {
+  const csvContent = rows.map((row) => row.map(csvEscape).join(',')).join('\r\n');
+  const BOM = '﻿';
+  const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function PeriodToggle({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
   const options: Period[] = ['day', 'week', 'month'];
   return (
@@ -300,15 +322,15 @@ export default function ReportsPage() {
   });
 
   const userNameMap = new Map(users.map((u) => [u.lineUserId, u.name]));
-  const assigneeStats = Array.from(assigneeMap.entries())
+  const assigneeStatsAll = Array.from(assigneeMap.entries())
     .map(([uid, stats]) => ({
       uid,
       name: userNameMap.get(uid) || uid.slice(0, 8),
       ...stats,
       onTimeRate: stats.completedWithDeadline > 0 ? Math.round((stats.onTimeCompleted / stats.completedWithDeadline) * 100) : null,
     }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 10);
+    .sort((a, b) => b.total - a.total);
+  const assigneeStats = assigneeStatsAll.slice(0, 10);
 
   // Xu hướng tạo việc theo đơn vị thời gian đang chọn (ngày/tuần/tháng)
   const trendBuckets = buildBuckets(period, PERIOD_BUCKET_COUNT[period], now);
@@ -318,7 +340,7 @@ export default function ReportsPage() {
   );
 
   // Danh sách quá hạn, trễ nhiều nhất lên đầu
-  const overdueList = tasks
+  const overdueListAll = tasks
     .filter((t) => t.status === 'Quá hạn')
     .map((t) => {
       const deadlineMs = parseVnDeadline(t.deadline);
@@ -326,8 +348,8 @@ export default function ReportsPage() {
       const assigneeNames = t.assignees.map((uid) => userNameMap.get(uid) || uid.slice(0, 8)).join(', ');
       return { ...t, daysOverdue, assigneeNames };
     })
-    .sort((a, b) => (b.daysOverdue || 0) - (a.daysOverdue || 0))
-    .slice(0, 10);
+    .sort((a, b) => (b.daysOverdue || 0) - (a.daysOverdue || 0));
+  const overdueList = overdueListAll.slice(0, 10);
 
   // Thống kê tương tác: tổng + phân loại theo tin nhắn/hình ảnh/sticker/khác
   const interactionTotal = interactions.reduce((sum, d) => sum + d.total, 0);
@@ -360,10 +382,52 @@ export default function ReportsPage() {
   );
 
   // Top người tương tác nhiều nhất
-  const topInteractors = users
+  const topInteractorsAll = users
     .filter((u) => u.interactionTotal > 0)
-    .sort((a, b) => b.interactionTotal - a.interactionTotal)
-    .slice(0, 10);
+    .sort((a, b) => b.interactionTotal - a.interactionTotal);
+  const topInteractors = topInteractorsAll.slice(0, 10);
+
+  function handleExportCsv() {
+    const rows: (string | number)[][] = [];
+    rows.push(['BÁO CÁO CÔNG VIỆC & TƯƠNG TÁC']);
+    rows.push([`Xuất lúc: ${new Date(now).toLocaleString('vi-VN')}`]);
+    rows.push([]);
+
+    rows.push(['TỔNG QUAN']);
+    rows.push(['Tổng công việc', totalTasks]);
+    rows.push(['Hoàn thành đúng hạn', onTimeRate !== null ? `${onTimeRate}%` : 'Chưa có dữ liệu']);
+    rows.push(['Đang quá hạn', overdueCount]);
+    rows.push(['Thời gian xử lý TB (ngày)', avgTurnaroundDays !== null ? avgTurnaroundDays.toFixed(1) : 'Chưa có dữ liệu']);
+    rows.push([]);
+
+    rows.push(['PHÂN BỐ TRẠNG THÁI']);
+    rows.push(['Trạng thái', 'Số lượng']);
+    STATUS_ORDER.forEach((s) => rows.push([s, statusCounts[s]]));
+    rows.push([]);
+
+    rows.push(['HIỆU SUẤT THEO NGƯỜI NHẬN VIỆC']);
+    rows.push(['Người nhận', 'Tổng việc', 'Hoàn thành', 'Quá hạn', 'Đúng hạn (%)']);
+    assigneeStatsAll.forEach((a) => rows.push([a.name, a.total, a.completed, a.overdue, a.onTimeRate !== null ? a.onTimeRate : '']));
+    rows.push([]);
+
+    rows.push(['CÔNG VIỆC ĐANG QUÁ HẠN']);
+    rows.push(['Tên việc', 'Người nhận', 'Số ngày trễ']);
+    overdueListAll.forEach((t) => rows.push([t.name, t.assigneeNames || '', t.daysOverdue !== null ? t.daysOverdue : '']));
+    rows.push([]);
+
+    rows.push(['THỐNG KÊ TƯƠNG TÁC']);
+    rows.push(['Tổng lượt tương tác', interactionTotal]);
+    (Object.keys(interactionByType) as Array<keyof typeof interactionByType>).forEach((type) => {
+      rows.push([INTERACTION_TYPE_LABELS[type], interactionByType[type]]);
+    });
+    rows.push([]);
+
+    rows.push(['NGƯỜI TƯƠNG TÁC NHIỀU NHẤT']);
+    rows.push(['Tên', 'Số lượt']);
+    topInteractorsAll.forEach((u) => rows.push([u.name, u.interactionTotal]));
+
+    downloadCsv(`bao-cao-${getVnDateKey(now)}.csv`, rows);
+  }
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -372,7 +436,18 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Báo cáo & Thống kê</h1>
           <p className="text-sm text-[var(--color-text-secondary)] mt-1">Số liệu thực tế từ hệ thống công việc.</p>
         </div>
-        <PeriodToggle value={period} onChange={setPeriod} />
+        <div className="flex items-center gap-3">
+          <PeriodToggle value={period} onChange={setPeriod} />
+          <button
+            onClick={handleExportCsv}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[var(--color-bg-card)] border border-[var(--color-border)] hover:border-[var(--color-border-active)] rounded-xl text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Xuất CSV
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
