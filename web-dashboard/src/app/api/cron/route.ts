@@ -191,7 +191,7 @@ export async function GET(request: Request) {
       'GẤP': 15,
       'Quan trọng': 60,
     };
-    const MAX_REMINDERS_PER_TASK = 5;
+    const MAX_REMINDERS_PER_TASK = 2;
     const reminderBatch = adminDb.batch();
     let remindedCount = 0;
 
