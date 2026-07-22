@@ -179,15 +179,21 @@ export async function GET(request: Request) {
     if (warnedCount > 0) await warningBatch.commit();
 
     // 1.6. Nhắc việc định kỳ cho task còn hạn nhưng chưa xong, theo reminderFrequency của từng task.
+    // Nếu admin không tự đặt tần suất, tự động áp mặc định theo độ ưu tiên (GẤP nhắc dày hơn Quan
+    // trọng, Bình thường không tự nhắc) để không phải nhớ đặt tay cho từng việc gấp.
     // Gửi tới đúng nơi (nhóm/phòng/cá nhân) đã nhận thẻ Flex gốc, kèm quoteToken trích dẫn nếu có.
+    const DEFAULT_REMINDER_MINUTES_BY_PRIORITY: Record<string, number> = {
+      'GẤP': 15,
+      'Quan trọng': 60,
+    };
     const reminderBatch = adminDb.batch();
     let remindedCount = 0;
 
     for (const doc of activeTasksSnap.docs) {
       if (justEscalatedIds.has(doc.id)) continue; // vừa chuyển Quá hạn ở bước trên, không nhắc nữa
       const data = doc.data();
-      const freqMinutes = parseReminderMinutes(data.reminderFrequency);
-      if (!freqMinutes) continue; // không cấu hình nhắc lại
+      const freqMinutes = parseReminderMinutes(data.reminderFrequency) || DEFAULT_REMINDER_MINUTES_BY_PRIORITY[data.priority] || 0;
+      if (!freqMinutes) continue; // không cấu hình nhắc lại và không có mặc định theo độ ưu tiên
 
       const lastAt = data.lastReminderAt || data.sendAt || now;
       if (now - lastAt < freqMinutes * 60000) continue; // chưa tới giờ nhắc tiếp theo
