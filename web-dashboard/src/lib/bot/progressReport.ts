@@ -3,12 +3,9 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getVnStartOfDayMs } from '@/lib/dateUtils';
 
-export type ProgressSlot = 'noon' | 'evening';
-
-const SLOT_TITLES: Record<ProgressSlot, string> = {
-  noon: 'BÁO CÁO TIẾN ĐỘ GIỮA NGÀY',
-  evening: 'BÁO CÁO TIẾN ĐỘ CUỐI NGÀY',
-};
+// Chỉ còn 1 khung giờ/ngày (20h30) để tiết kiệm quota tin nhắn chủ động (push) của gói LINE OA —
+// trước đây có thêm khung 14h (giữa ngày) nhưng đã bỏ theo yêu cầu giảm tải quota.
+const REPORT_TITLE = 'BÁO CÁO TIẾN ĐỘ CUỐI NGÀY';
 
 function statRow(icon: string, label: string, value: number, color: string) {
   return {
@@ -103,7 +100,6 @@ function buildGroupProgressFlex(params: {
 export async function sendGroupProgressReports(
   adminDb: Firestore,
   lineClient: line.messagingApi.MessagingApiClient,
-  slot: ProgressSlot,
   now: number
 ): Promise<number> {
   const startOfTodayMs = getVnStartOfDayMs(now);
@@ -144,7 +140,7 @@ export async function sendGroupProgressReports(
     });
   });
 
-  const title = SLOT_TITLES[slot];
+  const title = REPORT_TITLE;
   let sentCount = 0;
 
   for (const [groupId, tasks] of tasksByGroup.entries()) {

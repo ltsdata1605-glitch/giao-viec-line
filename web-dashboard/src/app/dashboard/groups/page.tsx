@@ -57,12 +57,19 @@ export default function GroupsPage() {
 
   if (loading) return <div className="space-y-4"><div className="skeleton h-12 w-64 rounded-xl" /><div className="skeleton h-96 rounded-2xl" /></div>;
 
+  const progressReportEnabledCount = groups.filter((g) => g.progressReportEnabled).length;
+
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Nhóm LINE</h1>
-          <p className="text-sm text-[var(--color-text-secondary)] mt-1">{groups.length} nhóm Bot đang hoạt động</p>
+          <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+            {groups.length} nhóm Bot đang hoạt động
+            {progressReportEnabledCount > 0 && (
+              <span className="text-indigo-400"> · 📊 {progressReportEnabledCount} nhóm đang nhận báo cáo tiến độ (mỗi nhóm tốn 1 tin push/ngày)</span>
+            )}
+          </p>
         </div>
         <button onClick={() => { setEditingId(null); setForm({ name: '', lineGroupId: '', isMuted: false, progressReportEnabled: false }); setShowModal(true); }} className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] glow-accent">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
@@ -138,7 +145,7 @@ export default function GroupsPage() {
                 <input type="checkbox" checked={form.progressReportEnabled} onChange={(e) => setForm({ ...form, progressReportEnabled: e.target.checked })} className="w-5 h-5 rounded border-[var(--color-border)] text-indigo-500 focus:ring-indigo-500 bg-transparent" />
                 <div>
                   <p className="text-sm font-medium text-[var(--color-text-primary)]">📊 Nhận báo cáo tiến độ tự động</p>
-                  <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Gửi thẻ tổng hợp tiến độ công việc trong ngày vào nhóm này lúc 14h và 20h30</p>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Gửi thẻ tổng hợp tiến độ công việc trong ngày vào nhóm này lúc 20h30</p>
                 </div>
               </label>
             </div>

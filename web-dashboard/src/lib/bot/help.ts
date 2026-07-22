@@ -32,7 +32,7 @@ Người đó sẽ dùng được /giao, /baocao, /tuongtac, /dongbo ngay sau kh
 💡 Mã việc (VD: a1b2c) hiển thị trên thẻ công việc hoặc trong /vieccuatoi.
 💡 Gõ /help hoặc /trogiup để xem lại danh sách này bất cứ lúc nào.
 💡 Bạn tự động nhận báo cáo công việc + tương tác mỗi sáng (từ 8h) qua tin nhắn riêng, không cần gõ lệnh.
-💡 Nhóm được bật "Nhận báo cáo tiến độ" (Dashboard > Nhóm) sẽ tự nhận thẻ báo cáo tiến độ công việc trong ngày vào 14h và 20h30.`;
+💡 Nhóm được bật "Nhận báo cáo tiến độ" (Dashboard > Nhóm) sẽ tự nhận thẻ báo cáo tiến độ công việc trong ngày vào 20h30.`;
 
 /**
  * Lệnh /help: liệt kê toàn bộ lệnh bot hỗ trợ, thay thế vai trò "tra cứu nhanh" mà Rich Menu

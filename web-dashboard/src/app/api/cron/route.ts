@@ -5,7 +5,7 @@ import { buildTaskReminderMessage, buildTaskEscalationMessage, buildDeadlineWarn
 import { parseVnDeadline, getVnDateKey } from '@/lib/dateUtils';
 import { buildTaskReportText, buildInteractionReportText } from '@/lib/bot/report';
 import { getAllAdminLineIds } from '@/lib/bot/admin';
-import { sendGroupProgressReports, type ProgressSlot } from '@/lib/bot/progressReport';
+import { sendGroupProgressReports } from '@/lib/bot/progressReport';
 import { sendCheckinReminders } from '@/lib/bot/checkin';
 
 /**
@@ -394,8 +394,9 @@ export async function GET(request: Request) {
       }
     }
 
-    // 3. Báo cáo tự động hằng ngày: đẩy 2 báo cáo TÁCH RIÊNG (công việc + tương tác) cho toàn bộ admin
-    // vào buổi sáng (từ 8h giờ VN), dưới dạng 2 tin nhắn riêng biệt trong cùng 1 lượt gửi.
+    // 3. Báo cáo tự động hằng ngày: đẩy 1 tin GỘP (công việc + tương tác) cho toàn bộ admin vào buổi
+    // sáng (từ 8h giờ VN). Trước đây tách 2 tin riêng nhưng đã gộp lại còn 1 để giảm tải quota tin
+    // nhắn chủ động (push) của gói LINE OA (mỗi tin tính 1 đơn vị quota bất kể có gộp API call hay không).
     // Cron được gọi nhiều lần/ngày (qua dịch vụ ngoài, vì gói Vercel Hobby chỉ cho cron nội bộ chạy 1 lần/ngày)
     // nên phải chốt "đã gửi hôm nay chưa" qua systemState/autoReport để không gửi trùng nhiều lần trong ngày.
     let autoReportSent = false;
@@ -415,10 +416,8 @@ export async function GET(request: Request) {
               buildTaskReportText(),
               buildInteractionReportText('all'),
             ]);
-            const messages: line.messagingApi.Message[] = [
-              { type: 'text', text: `🔔 Báo cáo tự động mỗi sáng\n\n${taskText}` },
-              { type: 'text', text: interactionText },
-            ];
+            const combinedText = `🔔 Báo cáo tự động mỗi sáng\n\n${taskText}\n\n${interactionText}`;
+            const messages: line.messagingApi.Message[] = [{ type: 'text', text: combinedText }];
             for (const adminId of adminIds) {
               try {
                 await lineClient.pushMessage({ to: adminId, messages });
@@ -434,8 +433,9 @@ export async function GET(request: Request) {
       console.error('Failed to build/send auto daily report', e);
     }
 
-    // 4. Báo cáo tiến độ công việc theo từng nhóm, 2 lần/ngày lúc 14h và 20h30 giờ VN (chỉ tính việc
-    // tạo trong hôm nay). Dùng cùng cơ chế chốt "đã gửi slot này hôm nay chưa" như báo cáo hằng ngày ở trên.
+    // 4. Báo cáo tiến độ công việc theo từng nhóm, 1 lần/ngày lúc 20h30 giờ VN (chỉ tính việc tạo
+    // trong hôm nay). Trước đây có thêm khung 14h nhưng đã bỏ để giảm tải quota tin nhắn chủ động
+    // (push) của gói LINE OA — mỗi nhóm bật tính năng này tốn 1 tin/ngày thay vì 2.
     let groupReportsSent = 0;
     try {
       const vnDate = new Date(now + 7 * 60 * 60 * 1000);
@@ -443,19 +443,14 @@ export async function GET(request: Request) {
       const vnMinute = vnDate.getUTCMinutes();
       const todayKey = getVnDateKey(now);
 
-      let slot: ProgressSlot | null = null;
-      if (vnHour === 14) slot = 'noon';
-      else if (vnHour === 20 && vnMinute >= 30) slot = 'evening';
-
-      if (slot) {
+      if (vnHour === 20 && vnMinute >= 30) {
         const stateRef = adminDb.collection('systemState').doc('groupProgressReport');
         const stateSnap = await stateRef.get();
-        const fieldName = slot === 'noon' ? 'lastNoonDate' : 'lastEveningDate';
-        const lastSent = stateSnap.exists ? stateSnap.data()?.[fieldName] : null;
+        const lastSent = stateSnap.exists ? stateSnap.data()?.lastEveningDate : null;
 
         if (lastSent !== todayKey) {
-          await stateRef.set({ [fieldName]: todayKey }, { merge: true });
-          groupReportsSent = await sendGroupProgressReports(adminDb, lineClient, slot, now);
+          await stateRef.set({ lastEveningDate: todayKey }, { merge: true });
+          groupReportsSent = await sendGroupProgressReports(adminDb, lineClient, now);
         }
       }
     } catch (e) {
