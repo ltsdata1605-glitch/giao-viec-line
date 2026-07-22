@@ -62,6 +62,8 @@ export default function TasksPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [newUrlInput, setNewUrlInput] = useState('');
+  const [modalGroupSearch, setModalGroupSearch] = useState('');
+  const [modalAssigneeSearch, setModalAssigneeSearch] = useState('');
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const rawFile = e.target.files?.[0];
@@ -232,6 +234,8 @@ export default function TasksPage() {
     // vẫn chọn tay lại được trong form nếu cần giao thay người khác.
     setForm({ ...defaultForm, creatorId: linkedMember?.lineUserId || defaultForm.creatorId });
     setNewUrlInput('');
+    setModalGroupSearch('');
+    setModalAssigneeSearch('');
     setShowModal(true);
   }
 
@@ -262,6 +266,8 @@ export default function TasksPage() {
       customRepeat: (task as any).customRepeat || '',
     });
     setNewUrlInput('');
+    setModalGroupSearch('');
+    setModalAssigneeSearch('');
     setShowModal(true);
   }
 
@@ -590,8 +596,17 @@ export default function TasksPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Nhóm (Có thể chọn nhiều)</label>
+                {groupsList.length > 5 && (
+                  <input
+                    type="text"
+                    value={modalGroupSearch}
+                    onChange={(e) => setModalGroupSearch(e.target.value)}
+                    placeholder="Tìm tên nhóm..."
+                    className="w-full mb-2 px-4 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
+                  />
+                )}
                 <div className="w-full max-h-40 overflow-y-auto px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus-within:border-[var(--color-border-active)] transition-colors">
-                  {groupsList.map(g => (
+                  {groupsList.filter(g => g.name.toLowerCase().includes(modalGroupSearch.trim().toLowerCase())).map(g => (
                     <label key={g.id} className="flex items-center space-x-2 py-1 cursor-pointer">
                       <input 
                         type="checkbox" 
@@ -643,8 +658,17 @@ export default function TasksPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Người nhận (Có thể chọn nhiều)</label>
+                {usersList.length > 5 && (
+                  <input
+                    type="text"
+                    value={modalAssigneeSearch}
+                    onChange={(e) => setModalAssigneeSearch(e.target.value)}
+                    placeholder="Tìm tên người nhận..."
+                    className="w-full mb-2 px-4 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
+                  />
+                )}
                 <div className="w-full max-h-40 overflow-y-auto px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus-within:border-[var(--color-border-active)] transition-colors">
-                  {usersList.map(u => (
+                  {usersList.filter(u => u.name.toLowerCase().includes(modalAssigneeSearch.trim().toLowerCase())).map(u => (
                     <label key={u.id} className="flex items-center space-x-2 py-1 cursor-pointer">
                       <input 
                         type="checkbox" 
@@ -706,7 +730,7 @@ export default function TasksPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Hạn chót (Deadline)</label>
-                <input type="datetime-local" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors [color-scheme:dark]" />
+                <input type="datetime-local" step={300} value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors [color-scheme:dark]" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Thời gian gửi</label>
@@ -730,11 +754,12 @@ export default function TasksPage() {
                     <option value="Tùy chọn">Tùy chọn</option>
                   </select>
                   {!['Gửi ngay', '15 Phút', '30 Phút', '1 Giờ', 'Mai 08:00'].includes(form.quickReminder) && (
-                    <input 
-                      type="datetime-local" 
-                      value={form.quickReminder} 
-                      onChange={(e) => setForm({ ...form, quickReminder: e.target.value })} 
-                      className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors [color-scheme:dark]" 
+                    <input
+                      type="datetime-local"
+                      step={300}
+                      value={form.quickReminder}
+                      onChange={(e) => setForm({ ...form, quickReminder: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors [color-scheme:dark]"
                     />
                   )}
                 </div>

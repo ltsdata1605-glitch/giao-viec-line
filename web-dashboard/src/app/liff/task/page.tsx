@@ -63,6 +63,8 @@ export default function LiffTaskPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [groupSearch, setGroupSearch] = useState('');
+  const [assigneeSearch, setAssigneeSearch] = useState('');
 
   const getDefaultDeadline = () => {
     const d = new Date();
@@ -246,16 +248,25 @@ export default function LiffTaskPage() {
         ? 'đã gửi ngay'
         : `đã lên lịch gửi lúc ${new Date(sendAt).toLocaleString('vi-VN')}`;
 
-      if (liff.isInClient()) {
-        await liff.sendMessages([
-          {
-            type: 'text',
-            text: `✅ Đã tạo công việc mới (${statusText}):\n📌 ${form.name.trim()}\n👤 Người làm: ${assigneeNameStr || 'Chưa rõ'}\n⏳ Hạn chót: ${form.deadline ? form.deadline.replace('T', ' ') : 'Không có'}`
-          }
-        ]);
-        liff.closeWindow();
-      } else {
-        alert('Tạo công việc thành công!');
+      // Công việc đã tạo thành công tại đây (addDoc/updateDoc/notify-task ở trên đều đã qua). Bước
+      // gửi tin nhắn xác nhận + đóng cửa sổ qua LIFF SDK tách riêng try/catch — 2 lệnh này chỉ hoạt
+      // động khi mở đúng từ trong 1 cuộc trò chuyện LINE thật, nếu thất bại (vd mở bằng trình duyệt
+      // thường, hoặc mở không từ trong chat) sẽ KHÔNG được báo nhầm thành "lỗi tạo công việc".
+      try {
+        if (liff.isInClient()) {
+          await liff.sendMessages([
+            {
+              type: 'text',
+              text: `✅ Đã tạo công việc mới (${statusText}):\n📌 ${form.name.trim()}\n👤 Người làm: ${assigneeNameStr || 'Chưa rõ'}\n⏳ Hạn chót: ${form.deadline ? form.deadline.replace('T', ' ') : 'Không có'}`
+            }
+          ]);
+          liff.closeWindow();
+        } else {
+          alert('Tạo công việc thành công!');
+        }
+      } catch (liffErr) {
+        console.error('LIFF sendMessages/closeWindow error (không ảnh hưởng việc đã tạo):', liffErr);
+        alert('✅ Đã tạo công việc thành công! (Không tự đóng được cửa sổ này, bạn có thể đóng tay.)');
       }
     } catch (err) {
       console.error(err);
@@ -373,8 +384,17 @@ export default function LiffTaskPage() {
             </div>
             <div>
               <label className={LABEL_CLS}>Nhóm nhận (có thể chọn nhiều)</label>
+              {groupsList.length > 5 && (
+                <input
+                  type="text"
+                  value={groupSearch}
+                  onChange={e => setGroupSearch(e.target.value)}
+                  placeholder="Tìm tên nhóm..."
+                  className={`${INPUT_CLS} mb-2`}
+                />
+              )}
               <div className="w-full max-h-32 overflow-y-auto px-3 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)]">
-                {groupsList.map(g => (
+                {groupsList.filter(g => g.name.toLowerCase().includes(groupSearch.trim().toLowerCase())).map(g => (
                   <label key={g.id} className="flex items-center gap-2 py-1 cursor-pointer">
                     <input
                       type="checkbox"
@@ -406,8 +426,17 @@ export default function LiffTaskPage() {
             </div>
             <div>
               <label className={LABEL_CLS}>Người thực hiện (có thể chọn nhiều) <span className="text-red-400">*</span></label>
+              {usersList.length > 5 && (
+                <input
+                  type="text"
+                  value={assigneeSearch}
+                  onChange={e => setAssigneeSearch(e.target.value)}
+                  placeholder="Tìm tên người thực hiện..."
+                  className={`${INPUT_CLS} mb-2`}
+                />
+              )}
               <div className="w-full max-h-32 overflow-y-auto px-3 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)]">
-                {usersList.map(u => (
+                {usersList.filter(u => u.name.toLowerCase().includes(assigneeSearch.trim().toLowerCase())).map(u => (
                   <label key={u.id} className="flex items-center gap-2 py-1 cursor-pointer">
                     <input
                       type="checkbox"
@@ -443,7 +472,7 @@ export default function LiffTaskPage() {
             </button>
           </div>
           {isCustomReminder && (
-            <input type="datetime-local" value={form.quickReminder} onChange={e => setForm({...form, quickReminder: e.target.value})}
+            <input type="datetime-local" step={300} value={form.quickReminder} onChange={e => setForm({...form, quickReminder: e.target.value})}
               className={`${INPUT_CLS} mt-3 [color-scheme:dark]`} />
           )}
         </div>
@@ -454,7 +483,7 @@ export default function LiffTaskPage() {
           <div className="space-y-3">
             <div>
               <label className={LABEL_CLS}>Hạn hoàn thành (Deadline)</label>
-              <input type="datetime-local" value={form.deadline} onChange={e => setForm({...form, deadline: e.target.value})}
+              <input type="datetime-local" step={300} value={form.deadline} onChange={e => setForm({...form, deadline: e.target.value})}
                 className={`${INPUT_CLS} [color-scheme:dark]`} />
             </div>
             <div>
