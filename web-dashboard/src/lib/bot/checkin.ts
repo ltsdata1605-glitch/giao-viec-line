@@ -313,13 +313,9 @@ export async function handleCheckinPostback(
       return;
     }
 
-    // Đã điểm danh trước đó rồi: chỉ báo ngắn gọn, KHÔNG gửi lại toàn bộ danh sách — tránh mỗi lần
-    // bấm lại (vô tình bấm trùng) lại spam thêm 1 tin đầy đủ danh sách vào nhóm.
+    // Đã điểm danh trước đó rồi: im lặng bỏ qua, không phản hồi gì — tránh mỗi lần bấm lại (vô tình
+    // bấm trùng) lại gửi thêm tin vào nhóm.
     if (checkin.participants.some((p) => p.userId === clickerId)) {
-      await client.replyMessage({
-        replyToken: event.replyToken as string,
-        messages: [{ type: 'text', text: `ℹ️ Bạn đã điểm danh công việc "${checkin.title}" rồi.` }],
-      });
       return;
     }
 
