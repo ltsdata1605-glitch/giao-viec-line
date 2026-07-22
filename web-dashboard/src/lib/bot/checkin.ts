@@ -313,17 +313,24 @@ export async function handleCheckinPostback(
       return;
     }
 
-    let checkin2 = checkin;
-    if (!checkin.participants.some((p) => p.userId === clickerId)) {
-      const name = await resolveDisplayName(clickerId, checkin.chatType, checkin.chatKey, client);
-      const participants = [...checkin.participants, { userId: clickerId, name }];
-      await doc.ref.update({ participants, updatedAt: FieldValue.serverTimestamp() });
-      checkin2 = { ...checkin, participants };
+    // Đã điểm danh trước đó rồi: chỉ báo ngắn gọn, KHÔNG gửi lại toàn bộ danh sách — tránh mỗi lần
+    // bấm lại (vô tình bấm trùng) lại spam thêm 1 tin đầy đủ danh sách vào nhóm.
+    if (checkin.participants.some((p) => p.userId === clickerId)) {
+      await client.replyMessage({
+        replyToken: event.replyToken as string,
+        messages: [{ type: 'text', text: `ℹ️ Bạn đã điểm danh công việc "${checkin.title}" rồi.` }],
+      });
+      return;
     }
+
+    const name = await resolveDisplayName(clickerId, checkin.chatType, checkin.chatKey, client);
+    const participants = [...checkin.participants, { userId: clickerId, name }];
+    await doc.ref.update({ participants, updatedAt: FieldValue.serverTimestamp() });
+    const updatedCheckin = { ...checkin, participants };
 
     await client.replyMessage({
       replyToken: event.replyToken as string,
-      messages: [buildMentionText([{ text: buildRosterText(checkin2) }], checkin.flexQuoteToken)],
+      messages: [buildMentionText([{ text: buildRosterText(updatedCheckin) }], checkin.flexQuoteToken)],
     });
   }
 }
