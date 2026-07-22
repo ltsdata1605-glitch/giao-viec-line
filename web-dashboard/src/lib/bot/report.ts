@@ -219,9 +219,10 @@ export async function handleBaoCaoCommand(
 }
 
 /**
- * Lệnh /tuongtac [ngày|tuần|tháng]: báo cáo tương tác theo từng nhân viên, tách riêng khỏi báo cáo
- * công việc. Gõ trong 1 nhóm cụ thể sẽ chỉ báo cáo tương tác trong đúng nhóm đó (tiêu đề kèm tên
- * nhóm); gõ trong chat 1:1 thì báo cáo toàn hệ thống như trước. Chỉ admin mới xem được.
+ * Lệnh /tuongtac [ngày|tuần|tháng]: báo cáo tương tác theo từng nhân viên trong ĐÚNG nhóm đã gõ
+ * lệnh (tiêu đề kèm tên nhóm), tách riêng khỏi báo cáo công việc. Chỉ dùng được trong nhóm — gõ ở
+ * chat 1:1 với bot sẽ không có hiệu lực (không phản hồi gì), vì không có "nhóm" nào để báo cáo.
+ * Chỉ admin mới xem được.
  */
 export async function handleTuongTacCommand(
   text: string,
@@ -229,17 +230,16 @@ export async function handleTuongTacCommand(
   client: line.messagingApi.MessagingApiClient
 ) {
   if (!adminDb) return;
+
+  const source = event.source as any;
+  if (source?.type !== 'group' || !source.groupId) return; // 1:1/room: không có hiệu lực
+
   if (!(await requireAdmin(event, client))) return;
 
   const period = parsePeriod(text);
-
-  const source = event.source as any;
-  let groupScope: GroupScope | undefined;
-  if (source?.type === 'group' && source.groupId) {
-    const groupSnap = await adminDb.collection('groups').where('lineGroupId', '==', source.groupId).limit(1).get();
-    const groupName = groupSnap.empty ? 'Nhóm này' : (groupSnap.docs[0].data().name || 'Nhóm này');
-    groupScope = { groupId: source.groupId, groupName };
-  }
+  const groupSnap = await adminDb.collection('groups').where('lineGroupId', '==', source.groupId).limit(1).get();
+  const groupName = groupSnap.empty ? 'Nhóm này' : (groupSnap.docs[0].data().name || 'Nhóm này');
+  const groupScope: GroupScope = { groupId: source.groupId, groupName };
 
   const msg = await buildInteractionReportText(period, groupScope);
   await client.replyMessage({

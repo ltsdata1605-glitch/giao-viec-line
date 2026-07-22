@@ -22,7 +22,7 @@ const ADMIN_HELP_TEXT = `🤖 DANH SÁCH LỆNH BOT (Quản trị viên)
 👑 Dành riêng cho quản trị viên:
 • /giao <nội dung việc> — Giao việc mới (chỉ dùng khi chat riêng 1:1 với bot)
 • /baocao — Báo cáo nhanh tình hình công việc
-• /tuongtac [ngày|tuần|tháng] — Báo cáo tương tác theo từng nhân viên (tách riêng khỏi /baocao)
+• /tuongtac [ngày|tuần|tháng] — Báo cáo tương tác theo từng nhân viên TRONG NHÓM đang chat (chỉ dùng được trong nhóm, không có tác dụng ở chat riêng)
 • /dongbo — Đồng bộ danh sách thành viên trong nhóm (dùng trong nhóm)
 
 🔑 Cấp quyền admin cho người khác:
