@@ -6,6 +6,7 @@ import { parseVnDeadline, getVnDateKey } from '@/lib/dateUtils';
 import { buildTaskReportText, buildInteractionReportText } from '@/lib/bot/report';
 import { getAllAdminLineIds } from '@/lib/bot/admin';
 import { sendGroupProgressReports, type ProgressSlot } from '@/lib/bot/progressReport';
+import { sendCheckinReminders } from '@/lib/bot/checkin';
 
 /**
  * Tìm mốc thời gian kế tiếp rơi vào "ngày thứ N tính từ ngày cuối tháng" (N=0 là chính ngày cuối tháng,
@@ -461,6 +462,15 @@ export async function GET(request: Request) {
       console.error('Failed to send group progress reports', e);
     }
 
+    // 5. Cảnh báo sắp tới hạn cho các đợt điểm danh (/diemdanh) còn mở, 2 lần trước deadline
+    // (còn ~60 phút và ~30 phút), tag @all trong đúng nhóm/phòng đã tạo điểm danh.
+    let checkinRemindersSent = 0;
+    try {
+      checkinRemindersSent = await sendCheckinReminders(lineClient, now);
+    } catch (e) {
+      console.error('Failed to send checkin reminders', e);
+    }
+
     return NextResponse.json({
       success: true,
       processedTasks: tasksToNotify.length,
@@ -472,6 +482,7 @@ export async function GET(request: Request) {
       processedKeywords: keywordsToNotify.length,
       autoReportSent,
       groupReportsSent,
+      checkinRemindersSent,
       timestamp: now
     });
 

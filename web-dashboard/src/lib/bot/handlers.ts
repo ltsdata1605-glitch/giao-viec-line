@@ -33,12 +33,18 @@ export async function handleLineEvent(event: line.webhook.Event) {
       const params = new URLSearchParams(data);
       const action = params.get('action');
       const taskId = params.get('taskId');
+      const checkinId = params.get('cid');
+      const client = getLineClient();
       if (action && taskId) {
         const text = `/${action} ${taskId}`;
         const { handleTaskUpdateCommand } = await import('./tasks');
-        const client = getLineClient();
         if (client) {
           await handleTaskUpdateCommand(text, event as any, client);
+        }
+      } else if (action && checkinId) {
+        const { handleCheckinPostback } = await import('./checkin');
+        if (client) {
+          await handleCheckinPostback(action, checkinId, event as any, client);
         }
       }
     }
@@ -220,6 +226,16 @@ export async function handleLineEvent(event: line.webhook.Event) {
     const client = getLineClient();
     if (client) {
       await handleTaskUpdateCommand(text, event as line.webhook.MessageEvent, client);
+    }
+    return;
+  }
+
+  // Lệnh /diemdanh <tiêu đề> /deadline <giờ>: bất kỳ ai cũng tạo được, không giới hạn admin
+  if (textLowerTrimmed === '/diemdanh' || textLowerTrimmed.startsWith('/diemdanh ')) {
+    const { handleDiemDanhCommand } = await import('./checkin');
+    const client = getLineClient();
+    if (client) {
+      await handleDiemDanhCommand(text, event as line.webhook.MessageEvent, client);
     }
     return;
   }

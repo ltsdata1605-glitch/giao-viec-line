@@ -4,6 +4,8 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { isAdmin } from './admin';
 import { parseGiaoDeadline, parseGiaoPriority, stripMatchedText } from './giaoParser';
 import { formatVnDateTime } from '@/lib/dateUtils';
+import { buildMentionText, type MentionSegment } from './mentions';
+import { getChatKey } from './chatUtils';
 
 // Vòng đời trạng thái task thống nhất giữa bot, dashboard và cron:
 // Chờ gửi (đã tạo, hẹn giờ gửi) -> Chưa làm (đã gửi, chưa ai nhận) -> Đang làm (đã có người nhận)
@@ -47,49 +49,6 @@ export interface Task {
   completedBy?: string;
   completedByName?: string;
   completedAt?: any;
-}
-
-/**
- * Đoạn nội dung tin nhắn textV2: hoặc văn bản thường, hoặc một lượt tag (mention) một user.
- */
-type MentionSegment = { text: string } | { mentionUserId: string };
-
-/**
- * Dựng tin nhắn textV2 từ danh sách đoạn văn bản/tag, dùng chung cho mọi luồng cần tag người dùng.
- * LINE chỉ hỗ trợ tag (mention) chủ động qua type "textV2" + substitution, không phải type "text".
- */
-function buildMentionText(segments: MentionSegment[], quoteToken?: string): line.messagingApi.TextMessageV2 {
-  let text = '';
-  const substitution: Record<string, line.messagingApi.MentionSubstitutionObject> = {};
-  let counter = 0;
-
-  for (const seg of segments) {
-    if ('mentionUserId' in seg) {
-      const key = `m${counter++}`;
-      substitution[key] = { type: 'mention', mentionee: { type: 'user', userId: seg.mentionUserId } };
-      text += `{${key}}`;
-    } else {
-      text += seg.text;
-    }
-  }
-
-  return {
-    type: 'textV2',
-    text,
-    substitution,
-    ...(quoteToken ? { quoteToken } : {})
-  };
-}
-
-/**
- * Xác định "nơi chat" (group/room/user) từ event.source, dùng làm key lưu quoteToken theo từng cuộc trò chuyện
- * vì quoteToken chỉ dùng trích dẫn được trong đúng cuộc trò chuyện đã nhận tin nhắn đó.
- */
-function getChatKey(source: any): string {
-  if (!source) return 'unknown';
-  if (source.type === 'group') return source.groupId;
-  if (source.type === 'room') return source.roomId;
-  return source.userId || 'unknown';
 }
 
 /**
