@@ -106,6 +106,18 @@ export async function captureUserProfile(
         total: FieldValue.increment(1),
       }, { merge: true }).catch((err) => console.error('Error updating userDailyInteractions', err));
     }
+
+    // 5. Đếm tương tác theo ngày cho từng người TRONG TỪNG NHÓM riêng biệt, phục vụ /tuongtac khi gõ
+    // trong 1 nhóm cụ thể chỉ báo cáo đúng nhóm đó (thay vì gộp toàn hệ thống như userDailyInteractions).
+    if (userId && groupId && messageType) {
+      const dateKey = getVnDateKey();
+      await adminDb.collection('groupUserDailyInteractions').doc(`${groupId}_${userId}_${dateKey}`).set({
+        groupId,
+        lineUserId: userId,
+        date: dateKey,
+        total: FieldValue.increment(1),
+      }, { merge: true }).catch((err) => console.error('Error updating groupUserDailyInteractions', err));
+    }
   } catch (err) {
     console.error('Error in captureUserProfile:', err);
   }

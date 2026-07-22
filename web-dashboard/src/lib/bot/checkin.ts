@@ -145,7 +145,7 @@ function buildRosterText(checkin: Checkin, prefix?: string): string {
   let text = prefix ? `${prefix}\n\n` : '';
   text += `${checkin.title}\n`;
   text += `Deadline: ${formatDeadlineHM(checkin.deadline)}\n`;
-  text += `Hoàn tất: ${checkin.participants.length} người đã nhấn "Điểm danh"\n\n`;
+  text += `Hoàn tất: ${checkin.participants.length}\n\n`;
   text += `Đã hoàn tất:\n`;
   if (checkin.participants.length === 0) {
     text += 'Chưa có ai điểm danh.';
@@ -358,7 +358,7 @@ export async function sendCheckinReminders(
 
     const segments: MentionSegment[] = [];
     if (checkin.chatType !== 'user') segments.push({ mentionAll: true });
-    segments.push({ text: ` ⏰ Còn khoảng ${Math.max(1, Math.round(minutesLeft))} phút nữa là tới hạn điểm danh "${checkin.title}"! Ai chưa điểm danh vui lòng bấm nút "Điểm danh" ngay.` });
+    segments.push({ text: ` ⏰ Còn khoảng ${Math.max(1, Math.round(minutesLeft))} phút nữa là tới hạn điểm danh "${checkin.title}"!\nAi chưa điểm danh vui lòng bấm nút "Điểm danh" ngay.` });
 
     try {
       await client.pushMessage({

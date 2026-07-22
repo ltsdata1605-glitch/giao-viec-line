@@ -29,6 +29,11 @@ interface UserInteraction {
   total: number;
 }
 
+interface GroupScope {
+  groupId: string;
+  groupName: string;
+}
+
 const APP_URL = () => process.env.NEXT_PUBLIC_APP_URL || 'https://botline-zeta.vercel.app';
 
 /**
@@ -71,9 +76,10 @@ export async function buildTaskReportText(): Promise<string> {
  * Dựng nội dung báo cáo TƯƠNG TÁC theo từng nhân viên cho một kỳ — dùng chung cho lệnh /tuongtac
  * và báo cáo tự động hằng ngày. Không truyền kỳ (mặc định "all") tính tổng dồn từ trước đến nay;
  * "day"/"week"/"month" tính theo lịch VN, dùng chung cách xác định ngày/tuần/tháng với biểu đồ
- * Dashboard > Báo cáo.
+ * Dashboard > Báo cáo. Truyền groupScope để giới hạn báo cáo trong đúng 1 nhóm (dùng khi gõ lệnh
+ * ngay trong nhóm đó) — chỉ tính tương tác xảy ra trong nhóm này, tiêu đề kèm tên nhóm.
  */
-export async function buildInteractionReportText(period: Period = 'all'): Promise<string> {
+export async function buildInteractionReportText(period: Period = 'all', groupScope?: GroupScope): Promise<string> {
   if (!adminDb) return 'Chưa cấu hình cơ sở dữ liệu.';
 
   const usersSnap = await adminDb.collection('users').get();
@@ -85,37 +91,78 @@ export async function buildInteractionReportText(period: Period = 'all'): Promis
     userNames.set(u.lineUserId, u.name || u.lineUserId);
   });
 
-  const totalsByUser = new Map<string, number>();
-  if (period === 'all') {
-    usersSnap.docs.forEach((doc) => {
-      const u = doc.data();
-      if (!u.lineUserId) return;
-      totalsByUser.set(u.lineUserId, (totalsByUser.get(u.lineUserId) || 0) + (u.interactionTotal || 0));
+  let allUsers: UserInteraction[];
+
+  if (groupScope) {
+    // Lọc theo groupId (1 field, không cần composite index), rồi lọc tiếp theo ngày ở phía JS —
+    // tránh phải tạo composite index thủ công cho (groupId + date) trên Firestore.
+    const groupDocsSnap = await adminDb.collection('groupUserDailyInteractions').where('groupId', '==', groupScope.groupId).get();
+    const knownUserIds = new Set<string>();
+    groupDocsSnap.docs.forEach((d) => {
+      const uid = d.data().lineUserId;
+      if (uid) knownUserIds.add(uid);
     });
-  } else {
-    let periodSnap;
+
+    let relevantDocs = groupDocsSnap.docs;
     if (period === 'day') {
-      periodSnap = await adminDb.collection('userDailyInteractions').where('date', '==', getVnDateKey()).get();
-    } else {
+      const todayKey = getVnDateKey();
+      relevantDocs = relevantDocs.filter((d) => d.data().date === todayKey);
+    } else if (period === 'week' || period === 'month') {
       const { startKey, endKey } = period === 'week' ? getVnWeekRange() : getVnMonthRange();
-      periodSnap = await adminDb.collection('userDailyInteractions').where('date', '>=', startKey).where('date', '<=', endKey).get();
+      relevantDocs = relevantDocs.filter((d) => {
+        const date = d.data().date;
+        return date >= startKey && date <= endKey;
+      });
     }
-    periodSnap.docs.forEach((doc) => {
-      const d = doc.data();
-      if (!d.lineUserId) return;
-      totalsByUser.set(d.lineUserId, (totalsByUser.get(d.lineUserId) || 0) + (d.total || 0));
+
+    const totalsByUser = new Map<string, number>();
+    relevantDocs.forEach((d) => {
+      const data = d.data();
+      if (!data.lineUserId) return;
+      totalsByUser.set(data.lineUserId, (totalsByUser.get(data.lineUserId) || 0) + (data.total || 0));
     });
+
+    allUsers = Array.from(knownUserIds).map((uid) => ({
+      lineUserId: uid,
+      name: userNames.get(uid) || uid.slice(0, 8),
+      total: totalsByUser.get(uid) || 0,
+    }));
+  } else {
+    const totalsByUser = new Map<string, number>();
+    if (period === 'all') {
+      usersSnap.docs.forEach((doc) => {
+        const u = doc.data();
+        if (!u.lineUserId) return;
+        totalsByUser.set(u.lineUserId, (totalsByUser.get(u.lineUserId) || 0) + (u.interactionTotal || 0));
+      });
+    } else {
+      let periodSnap;
+      if (period === 'day') {
+        periodSnap = await adminDb.collection('userDailyInteractions').where('date', '==', getVnDateKey()).get();
+      } else {
+        const { startKey, endKey } = period === 'week' ? getVnWeekRange() : getVnMonthRange();
+        periodSnap = await adminDb.collection('userDailyInteractions').where('date', '>=', startKey).where('date', '<=', endKey).get();
+      }
+      periodSnap.docs.forEach((doc) => {
+        const d = doc.data();
+        if (!d.lineUserId) return;
+        totalsByUser.set(d.lineUserId, (totalsByUser.get(d.lineUserId) || 0) + (d.total || 0));
+      });
+    }
+
+    allUsers = Array.from(userNames.entries()).map(([lineUserId, name]) => ({
+      lineUserId,
+      name,
+      total: totalsByUser.get(lineUserId) || 0,
+    }));
   }
 
-  const allUsers: UserInteraction[] = Array.from(userNames.entries()).map(([lineUserId, name]) => ({
-    lineUserId,
-    name,
-    total: totalsByUser.get(lineUserId) || 0,
-  }));
   const interacted = allUsers.filter((u) => u.total > 0).sort((a, b) => b.total - a.total);
   const notInteracted = allUsers.filter((u) => u.total === 0);
 
-  let msg = `💬 BÁO CÁO TƯƠNG TÁC\n🕐 ${formatVnDateTime(Date.now())}\n\n`;
+  let msg = groupScope
+    ? `💬 BÁO CÁO TƯƠNG TÁC — ${groupScope.groupName}\n🕐 ${formatVnDateTime(Date.now())}\n\n`
+    : `💬 BÁO CÁO TƯƠNG TÁC\n🕐 ${formatVnDateTime(Date.now())}\n\n`;
   msg += `THEO NHÂN VIÊN (${PERIOD_TITLES[period]})\n`;
   if (interacted.length === 0) {
     msg += `Chưa có ai tương tác.\n`;
@@ -173,7 +220,8 @@ export async function handleBaoCaoCommand(
 
 /**
  * Lệnh /tuongtac [ngày|tuần|tháng]: báo cáo tương tác theo từng nhân viên, tách riêng khỏi báo cáo
- * công việc. Dùng được cả chat 1:1 lẫn trong nhóm. Chỉ admin mới xem được.
+ * công việc. Gõ trong 1 nhóm cụ thể sẽ chỉ báo cáo tương tác trong đúng nhóm đó (tiêu đề kèm tên
+ * nhóm); gõ trong chat 1:1 thì báo cáo toàn hệ thống như trước. Chỉ admin mới xem được.
  */
 export async function handleTuongTacCommand(
   text: string,
@@ -184,7 +232,16 @@ export async function handleTuongTacCommand(
   if (!(await requireAdmin(event, client))) return;
 
   const period = parsePeriod(text);
-  const msg = await buildInteractionReportText(period);
+
+  const source = event.source as any;
+  let groupScope: GroupScope | undefined;
+  if (source?.type === 'group' && source.groupId) {
+    const groupSnap = await adminDb.collection('groups').where('lineGroupId', '==', source.groupId).limit(1).get();
+    const groupName = groupSnap.empty ? 'Nhóm này' : (groupSnap.docs[0].data().name || 'Nhóm này');
+    groupScope = { groupId: source.groupId, groupName };
+  }
+
+  const msg = await buildInteractionReportText(period, groupScope);
   await client.replyMessage({
     replyToken: event.replyToken as string,
     messages: [{ type: 'text', text: msg }]
