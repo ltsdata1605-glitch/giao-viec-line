@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import * as line from '@line/bot-sdk';
+import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
 import { buildTaskReminderMessage, buildTaskEscalationMessage, buildDeadlineWarningMessage, parseReminderMinutes } from '@/lib/bot/tasks';
 import { parseVnDeadline, getVnDateKey } from '@/lib/dateUtils';
@@ -182,11 +183,15 @@ export async function GET(request: Request) {
     // 1.6. Nhắc việc định kỳ cho task còn hạn nhưng chưa xong, theo reminderFrequency của từng task.
     // Nếu admin không tự đặt tần suất, tự động áp mặc định theo độ ưu tiên (GẤP nhắc dày hơn Quan
     // trọng, Bình thường không tự nhắc) để không phải nhớ đặt tay cho từng việc gấp.
+    // Giới hạn tối đa MAX_REMINDERS_PER_TASK lần nhắc/việc — tránh 1 việc bị bỏ quên nhắc mãi, tốn
+    // quota tin nhắn chủ động (push) của gói LINE OA vô hạn; quá số lần này thì thôi, chờ escalation
+    // khi quá hạn (mục 1.5) đảm nhiệm tiếp.
     // Gửi tới đúng nơi (nhóm/phòng/cá nhân) đã nhận thẻ Flex gốc, kèm quoteToken trích dẫn nếu có.
     const DEFAULT_REMINDER_MINUTES_BY_PRIORITY: Record<string, number> = {
       'GẤP': 15,
       'Quan trọng': 60,
     };
+    const MAX_REMINDERS_PER_TASK = 5;
     const reminderBatch = adminDb.batch();
     let remindedCount = 0;
 
@@ -195,6 +200,7 @@ export async function GET(request: Request) {
       const data = doc.data();
       const freqMinutes = parseReminderMinutes(data.reminderFrequency) || DEFAULT_REMINDER_MINUTES_BY_PRIORITY[data.priority] || 0;
       if (!freqMinutes) continue; // không cấu hình nhắc lại và không có mặc định theo độ ưu tiên
+      if ((data.reminderCount || 0) >= MAX_REMINDERS_PER_TASK) continue; // đã nhắc đủ số lần tối đa
 
       const lastAt = data.lastReminderAt || data.sendAt || now;
       if (now - lastAt < freqMinutes * 60000) continue; // chưa tới giờ nhắc tiếp theo
@@ -218,7 +224,7 @@ export async function GET(request: Request) {
       }
 
       if (sentAny) {
-        reminderBatch.update(doc.ref, { lastReminderAt: now });
+        reminderBatch.update(doc.ref, { lastReminderAt: now, reminderCount: FieldValue.increment(1) });
         remindedCount++;
       }
     }

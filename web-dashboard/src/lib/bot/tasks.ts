@@ -38,6 +38,9 @@ export interface Task {
   reminderFrequency?: string;
   // Mốc thời gian (epoch ms) lần nhắc gần nhất, để cron biết đã tới lượt nhắc tiếp theo chưa.
   lastReminderAt?: number;
+  // Số lần đã nhắc định kỳ (reminderFrequency) — cron dừng nhắc khi đạt MAX_REMINDERS_PER_TASK,
+  // tránh 1 việc bị bỏ quên tốn quota tin nhắn chủ động (push) vô hạn.
+  reminderCount?: number;
   // Đã gửi cảnh báo "sắp tới hạn" (trước deadline ~30 phút) hay chưa — chỉ gửi đúng 1 lần/task,
   // khác với reminderFrequency (nhắc lặp lại định kỳ trong suốt vòng đời task).
   deadlineWarningSent?: boolean;
