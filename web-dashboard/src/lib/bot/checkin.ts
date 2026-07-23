@@ -22,6 +22,9 @@ export interface Checkin {
   shortId: string;
   participants: CheckinParticipant[];
   status: 'open' | 'closed';
+  // Nội dung chi tiết tuỳ chọn (VD: danh sách link cần like/share) — gửi kèm 1 tin nhắn văn bản riêng
+  // (không phải thẻ Flex) để LINE tự nhận diện link thành dạng bấm mở được.
+  content?: string;
   flexQuoteToken?: string;
   // Đã gửi cảnh báo sắp tới hạn (mốc còn ~60 phút / ~30 phút) hay chưa — mỗi mốc chỉ gửi đúng 1 lần.
   reminder60Sent?: boolean;
@@ -31,11 +34,14 @@ export interface Checkin {
 }
 
 /**
- * Phân tích cú pháp "/diemdanh <tiêu đề> /deadline <giờ>" (vd "21h00", "21h", "21:00").
+ * Phân tích cú pháp "/diemdanh <tiêu đề> [/noidung <nội dung>] /deadline <giờ>" (vd "21h00", "21h",
+ * "21:00"). Phần "/noidung" tuỳ chọn, có thể xuống dòng nhiều lần (VD danh sách link) — tách theo vị
+ * trí "/noidung"/"/deadline" trong toàn bộ chuỗi (không bắt buộc mỗi lệnh phải nằm riêng 1 dòng) nên
+ * vẫn tương thích với cú pháp cũ gõ gọn trên 1 dòng "/diemdanh <tiêu đề> /deadline <giờ>".
  * Deadline luôn hiểu là HÔM NAY theo giờ VN — trả về null nếu không tìm thấy "/deadline" hợp lệ
  * hoặc tiêu đề rỗng.
  */
-export function parseDiemDanhCommand(text: string): { title: string; deadline: string } | null {
+export function parseDiemDanhCommand(text: string): { title: string; content: string; deadline: string } | null {
   const deadlineMatch = /\/deadline\s+(\d{1,2})[h:](\d{2})?/i.exec(text);
   if (!deadlineMatch) return null;
 
@@ -43,12 +49,22 @@ export function parseDiemDanhCommand(text: string): { title: string; deadline: s
   const minute = deadlineMatch[2] ? parseInt(deadlineMatch[2], 10) : 0;
   if (hour > 23 || minute > 59) return null;
 
-  const title = text.slice(0, deadlineMatch.index).replace(/^\/diemdanh\s*/i, '').trim();
+  const beforeDeadline = text.slice(0, deadlineMatch.index);
+  const noidungMatch = /\/noidung\s*/i.exec(beforeDeadline);
+
+  let title: string;
+  let content = '';
+  if (noidungMatch) {
+    title = beforeDeadline.slice(0, noidungMatch.index).replace(/^\/diemdanh\s*/i, '').trim();
+    content = beforeDeadline.slice(noidungMatch.index + noidungMatch[0].length).trim();
+  } else {
+    title = beforeDeadline.replace(/^\/diemdanh\s*/i, '').trim();
+  }
   if (!title) return null;
 
   const pad = (n: number) => n.toString().padStart(2, '0');
   const deadline = `${getVnDateKey()}T${pad(hour)}:${pad(minute)}`;
-  return { title, deadline };
+  return { title, content, deadline };
 }
 
 /** "2026-07-22T21:00" -> "21h00", để hiển thị đúng kiểu người dùng đã gõ. */
@@ -210,7 +226,10 @@ export async function handleDiemDanhCommand(
   if (!parsed) {
     await client.replyMessage({
       replyToken: event.replyToken as string,
-      messages: [{ type: 'text', text: '⚠️ Cú pháp: /diemdanh <tiêu đề> /deadline <giờ>\nVD: /diemdanh HOÀN TẤT BÀI TEST /deadline 21h00' }],
+      messages: [{
+        type: 'text',
+        text: '⚠️ Cú pháp: /diemdanh <tiêu đề>\n/noidung <nội dung, có thể nhiều dòng, ví dụ danh sách link> (không bắt buộc)\n/deadline <giờ>\n\nVD:\n/diemdanh HOÀN TẤT LIKE VÀ SHARE BÀI\n/noidung Link:\n1. https://...\n2. https://...\n/deadline 20h00'
+      }],
     });
     return;
   }
@@ -222,6 +241,7 @@ export async function handleDiemDanhCommand(
 
   const newCheckin: Checkin = {
     title: parsed.title,
+    content: parsed.content,
     deadline: parsed.deadline,
     creatorId,
     creatorName,
@@ -245,13 +265,27 @@ export async function handleDiemDanhCommand(
     participantCount: 0,
   });
 
+  // Thẻ Flex giữ nguyên như cũ (tiêu đề/deadline/nút bấm); nếu có "/noidung" thì gửi kèm 1 tin nhắn
+  // văn bản thường ngay sau đó — LINE tự nhận diện link trong tin nhắn thường thành dạng bấm mở được,
+  // trong khi khối text của thẻ Flex thì không tự làm được điều này.
+  const messagesToSend: line.messagingApi.Message[] = [flexMessage];
+  if (parsed.content) {
+    messagesToSend.push({
+      type: 'text',
+      text: `${parsed.title}\n\n${parsed.content}\nDeadline: ${formatDeadlineHM(parsed.deadline)}`,
+    });
+  }
+
   const response = await client.replyMessage({
     replyToken: event.replyToken as string,
-    messages: [flexMessage],
+    messages: messagesToSend,
   });
 
   const updates: Record<string, unknown> = { shortId };
-  const flexSent = response.sentMessages[response.sentMessages.length - 1];
+  // Thẻ Flex luôn là tin đầu tiên trong mảng gửi đi (bất kể có gửi kèm tin nội dung hay không) nên
+  // quote token của nó luôn nằm ở index 0 — dùng để trích dẫn lại đúng thẻ Flex (không phải tin nội
+  // dung) khi nhắc nhở sắp tới hạn hoặc phản hồi điểm danh sau này.
+  const flexSent = response.sentMessages[0];
   if (flexSent?.quoteToken) updates.flexQuoteToken = flexSent.quoteToken;
   await docRef.update(updates);
 }

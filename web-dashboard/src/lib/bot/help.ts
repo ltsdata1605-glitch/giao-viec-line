@@ -5,7 +5,12 @@ const USER_HELP_TEXT = `🤖 DANH SÁCH LỆNH BOT
 
 • /vieccuatoi — Xem việc bạn đang được giao, chưa hoàn thành
 • /tukhoa — Xem danh sách từ khoá Bot đang hỗ trợ
-• /diemdanh <tiêu đề> /deadline <giờ> — Tạo điểm danh (ai cũng tạo được). VD: /diemdanh HOÀN TẤT BÀI TEST /deadline 21h00
+• /diemdanh <tiêu đề> [/noidung <nội dung>] /deadline <giờ> — Tạo điểm danh (ai cũng tạo được). Phần /noidung không bắt buộc, để chèn nội dung chi tiết (VD danh sách link — nên tự rút gọn link trước khi dán để tin nhắn gọn hơn). VD:
+/diemdanh HOÀN TẤT LIKE VÀ SHARE BÀI
+/noidung Link:
+1. https://...
+2. https://...
+/deadline 20h00
 
 💡 Mã việc (VD: a1b2c) hiển thị trên thẻ công việc hoặc trong /vieccuatoi.
 💡 Gõ đúng từ khoá đã được cấu hình sẵn (vd tên chương trình khuyến mãi...) để nhận phản hồi tự động.
@@ -17,7 +22,12 @@ const ADMIN_HELP_TEXT = `🤖 DANH SÁCH LỆNH BOT (Quản trị viên)
 👤 Dành cho tất cả:
 • /vieccuatoi — Xem việc bạn đang được giao, chưa hoàn thành
 • /tukhoa — Xem danh sách từ khoá Bot đang hỗ trợ
-• /diemdanh <tiêu đề> /deadline <giờ> — Tạo điểm danh (ai cũng tạo được). VD: /diemdanh HOÀN TẤT BÀI TEST /deadline 21h00
+• /diemdanh <tiêu đề> [/noidung <nội dung>] /deadline <giờ> — Tạo điểm danh (ai cũng tạo được). Phần /noidung không bắt buộc, để chèn nội dung chi tiết (VD danh sách link — nên tự rút gọn link trước khi dán để tin nhắn gọn hơn). VD:
+/diemdanh HOÀN TẤT LIKE VÀ SHARE BÀI
+/noidung Link:
+1. https://...
+2. https://...
+/deadline 20h00
 
 👑 Dành riêng cho quản trị viên:
 • /giao <nội dung việc> — Giao việc mới (chỉ dùng khi chat riêng 1:1 với bot)
