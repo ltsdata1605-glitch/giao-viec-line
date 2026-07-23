@@ -1,6 +1,7 @@
 import * as line from '@line/bot-sdk';
 import { getReplyFromFirebase } from './keywords';
 import { getPmhKeywords, handlePmhAdminCommand } from './pmh';
+import type { LineSource } from './chatUtils';
 
 // Initialize LINE Client lazily to allow env vars to be loaded
 let lineClient: line.messagingApi.MessagingApiClient | null = null;
@@ -23,7 +24,7 @@ export async function handleLineEvent(event: line.webhook.Event) {
     const client = getLineClient();
     if (client) {
       const { captureUserProfile } = await import('./sync');
-      await captureUserProfile(event as line.webhook.MessageEvent, client).catch(console.error);
+      await captureUserProfile(event, client).catch(console.error);
     }
   }
 
@@ -39,12 +40,12 @@ export async function handleLineEvent(event: line.webhook.Event) {
         const text = `/${action} ${taskId}`;
         const { handleTaskUpdateCommand } = await import('./tasks');
         if (client) {
-          await handleTaskUpdateCommand(text, event as any, client);
+          await handleTaskUpdateCommand(text, event, client);
         }
       } else if (action && checkinId) {
         const { handleCheckinPostback } = await import('./checkin');
         if (client) {
-          await handleCheckinPostback(action, checkinId, event as any, client);
+          await handleCheckinPostback(action, checkinId, event, client);
         }
       }
     }
@@ -58,8 +59,8 @@ export async function handleLineEvent(event: line.webhook.Event) {
 
   const message = event.message as line.webhook.TextMessageContent;
   const text = message.text.trim();
-  const source = event.source as any;
-  const gId = source.groupId || source.roomId;
+  const source: LineSource | undefined = event.source;
+  const gId = source?.groupId || source?.roomId;
 
   // 0.4 Admin Private Chat cho PMH
   if (!gId && text.toLowerCase().startsWith('pmh')) {

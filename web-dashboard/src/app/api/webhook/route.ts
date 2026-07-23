@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = JSON.parse(body);
-    const events = data.events;
+    const events: line.webhook.Event[] = data.events;
 
     if (!events || events.length === 0) {
       return NextResponse.json({ message: 'No events' }, { status: 200 });
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     // xử lý lặp lại nhiều lần và gửi trùng thông báo. `deliveryContext.isRedelivery` là cờ chính thức
     // LINE cung cấp để nhận biết trường hợp này.
     await Promise.all(
-      events.map(async (event: any) => {
+      events.map(async (event) => {
         if (event?.deliveryContext?.isRedelivery) {
           console.log('Skipping redelivered webhook event', event.webhookEventId);
           return;

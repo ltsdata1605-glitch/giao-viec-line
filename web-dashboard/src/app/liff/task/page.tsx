@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import liff from '@line/liff';
+import type { Profile } from '@liff/get-profile';
+import type { Context } from '@liff/store';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { ADMIN_LINE_IDS } from '@/lib/adminIds';
@@ -56,8 +58,8 @@ function computeSendAt(quickReminder: string): number {
 
 export default function LiffTaskPage() {
   const [initialized, setInitialized] = useState(false);
-  const [profile, setProfile] = useState<any>(null);
-  const [context, setContext] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [context, setContext] = useState<Context | null>(null);
   const [usersList, setUsersList] = useState<UserData[]>([]);
   const [groupsList, setGroupsList] = useState<GroupData[]>([]);
   const [loading, setLoading] = useState(true);

@@ -7,6 +7,10 @@ import { parseVnDeadline, getVnDateKey } from '@/lib/dateUtils';
 import { sendGroupProgressReports } from '@/lib/bot/progressReport';
 import { sendCheckinReminders } from '@/lib/bot/checkin';
 
+// Firestore doc + id, dùng cho các danh sách "việc/từ khoá cần xử lý" gom lại trong 1 lượt cron —
+// đọc field nào dùng field đó (payload gửi đi cho các API notify-*), không cần ép về type nghiêm ngặt.
+type FirestoreDocWithId = { id: string } & FirebaseFirestore.DocumentData;
+
 /**
  * Tìm mốc thời gian kế tiếp rơi vào "ngày thứ N tính từ ngày cuối tháng" (N=0 là chính ngày cuối tháng,
  * N=2 là 2 ngày trước ngày cuối tháng...), giữ nguyên giờ:phút của sendDate, lặp qua từng tháng cho tới
@@ -76,7 +80,7 @@ export async function GET(request: Request) {
       .where('sendAt', '<=', now)
       .get();
 
-    const tasksToNotify: any[] = [];
+    const tasksToNotify: FirestoreDocWithId[] = [];
     const batch = adminDb.batch();
 
     for (const doc of pendingTasksSnap.docs) {
@@ -125,7 +129,7 @@ export async function GET(request: Request) {
       .get();
 
     const overdueBatch = adminDb.batch();
-    const tasksToEscalate: any[] = [];
+    const tasksToEscalate: FirestoreDocWithId[] = [];
 
     for (const doc of activeTasksSnap.docs) {
       const data = doc.data();
@@ -255,7 +259,7 @@ export async function GET(request: Request) {
     // 1.7. Xử lý Task lặp lại: gửi lại thông báo theo lịch, không phụ thuộc trạng thái hiện tại.
     const repeatingTasksSnap = await adminDb.collection('tasks').where('repeat', '!=', 'Không').get();
     const repeatBatch = adminDb.batch();
-    const tasksToResend: any[] = [];
+    const tasksToResend: FirestoreDocWithId[] = [];
 
     // "Trước ngày cuối/đầu tháng N ngày": đọc số N trực tiếp từ nhãn để không phải hardcode theo từng preset
     const cuoiThangMatch = (label: string) => /Trước ngày cuối tháng (\d+) ngày/.exec(label);
@@ -349,7 +353,7 @@ export async function GET(request: Request) {
       .where('sendAt', '<=', now)
       .get();
 
-    const keywordsToNotify: any[] = [];
+    const keywordsToNotify: FirestoreDocWithId[] = [];
     const keywordBatch = adminDb.batch();
 
     for (const doc of pendingKeywordsSnap.docs) {
@@ -468,9 +472,10 @@ export async function GET(request: Request) {
       timestamp: now
     });
 
-  } catch (err: any) {
+  } catch (err) {
     console.error('Cron error', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   } finally {
     if (lockRef) {
       await lockRef.set({ running: false }, { merge: true }).catch(() => {});

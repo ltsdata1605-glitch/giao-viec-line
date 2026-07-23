@@ -3,7 +3,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getVnDateKey, parseVnDeadline } from '@/lib/dateUtils';
 import { buildMentionText, type MentionSegment } from './mentions';
-import { getChatKey, getChatType } from './chatUtils';
+import { getChatKey, getChatType, type LineReplyableEvent } from './chatUtils';
 
 export interface CheckinParticipant {
   userId: string;
@@ -215,10 +215,9 @@ export async function handleDiemDanhCommand(
     return;
   }
 
-  const source = event.source as any;
-  const creatorId = source?.userId || 'unknown';
-  const chatKey = getChatKey(source);
-  const chatType = getChatType(source);
+  const creatorId = event.source?.userId || 'unknown';
+  const chatKey = getChatKey(event.source);
+  const chatType = getChatType(event.source);
   const creatorName = await resolveDisplayName(creatorId, chatType, chatKey, client);
 
   const newCheckin: Checkin = {
@@ -261,7 +260,7 @@ export async function handleDiemDanhCommand(
 export async function handleCheckinPostback(
   action: string,
   checkinId: string,
-  event: line.webhook.MessageEvent,
+  event: LineReplyableEvent,
   client: line.messagingApi.MessagingApiClient
 ) {
   if (!adminDb) return;
@@ -277,8 +276,7 @@ export async function handleCheckinPostback(
 
   const doc = snap.docs[0];
   const checkin = doc.data() as Checkin;
-  const source = event.source as any;
-  const clickerId: string = source?.userId || '';
+  const clickerId: string = event.source?.userId || '';
 
   if (action === 'diemdanh_done') {
     if (clickerId !== checkin.creatorId) {

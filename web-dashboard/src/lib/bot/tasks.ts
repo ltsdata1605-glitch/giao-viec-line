@@ -5,7 +5,10 @@ import { isAdmin } from './admin';
 import { parseGiaoDeadline, parseGiaoPriority, stripMatchedText } from './giaoParser';
 import { formatVnDateTime } from '@/lib/dateUtils';
 import { buildMentionText, type MentionSegment } from './mentions';
-import { getChatKey } from './chatUtils';
+import { getChatKey, type LineReplyableEvent, type LineSource } from './chatUtils';
+
+// Timestamp khi đọc lại từ Firestore, hoặc sentinel FieldValue.serverTimestamp() lúc ghi.
+type FirestoreTimestamp = FirebaseFirestore.Timestamp | FieldValue;
 
 // Vòng đời trạng thái task thống nhất giữa bot, dashboard và cron:
 // Chờ gửi (đã tạo, hẹn giờ gửi) -> Chưa làm (đã gửi, chưa ai nhận) -> Đang làm (đã có người nhận)
@@ -27,8 +30,8 @@ export interface Task {
   priority: 'Bình thường' | 'Quan trọng' | 'GẤP';
   // Lưu dạng chuỗi "YYYY-MM-DDTHH:mm" (từ input datetime-local) trên toàn dự án, không phải đối tượng Date
   deadline: string | null;
-  createdAt: any;
-  updatedAt: any;
+  createdAt: FirestoreTimestamp;
+  updatedAt: FirestoreTimestamp;
   // ID rút gọn (5 ký tự cuối của docId) để tra cứu nhanh qua lệnh bot, tránh phải quét toàn bộ collection.
   shortId?: string;
   // Quote token của thẻ Flex công việc đã gửi, theo từng nơi nhận (groupId/roomId/userId).
@@ -48,10 +51,10 @@ export interface Task {
   // (task đã nhận/hoàn tất rồi mà vẫn có người bấm nút).
   acceptedBy?: string;
   acceptedByName?: string;
-  acceptedAt?: any;
+  acceptedAt?: FirestoreTimestamp;
   completedBy?: string;
   completedByName?: string;
-  completedAt?: any;
+  completedAt?: FirestoreTimestamp;
 }
 
 /**
@@ -155,7 +158,7 @@ export function buildTaskFlexMessage(params: {
 }): line.messagingApi.FlexMessage {
   const { taskName, shortId, creatorName, assigneeText, deadlineText, acceptanceText, description, priorityText } = params;
 
-  const bodyContents: any[] = [
+  const bodyContents: line.messagingApi.FlexComponent[] = [
     { type: 'text', text: '🎯 CÔNG VIỆC SIÊU THỊ', color: '#1db446', weight: 'bold', size: 'xl' },
     { type: 'separator', margin: 'lg' },
     { type: 'text', text: taskName, weight: 'bold', size: 'md', wrap: true, margin: 'lg' }
@@ -172,7 +175,7 @@ export function buildTaskFlexMessage(params: {
     });
   }
 
-  const infoRows: any[] = [
+  const infoRows: line.messagingApi.FlexBox[] = [
     {
       type: 'box',
       layout: 'baseline',
@@ -275,7 +278,7 @@ export async function handleGiaoCommand(
   event: line.webhook.MessageEvent,
   client: line.messagingApi.MessagingApiClient
 ) {
-  const source = event.source as any;
+  const source: LineSource | undefined = event.source;
   const requesterId = source?.userId;
 
   // Chỉ dùng /giao qua chat riêng (1:1) với bot, để không làm phiền cả nhóm bằng
@@ -334,8 +337,8 @@ export async function handleGiaoCommand(
 
   if (message.mention && message.mention.mentionees) {
     message.mention.mentionees.forEach(m => {
-      if (m.type === 'user' && (m as any).userId) {
-        assignees.push((m as any).userId);
+      if (m.type === 'user' && m.userId) {
+        assignees.push(m.userId);
         // We could fetch user profile if needed
       }
     });
@@ -360,11 +363,10 @@ export async function handleGiaoCommand(
 
   // Create Task in Firestore
   if (adminDb) {
-    const source = event.source as any;
     const newTask: Task = {
       name: taskName,
-      groupId: source?.type === 'group' ? source.groupId : 'personal',
-      groupIds: source?.type === 'group' ? [source.groupId] : [],
+      groupId: source?.type === 'group' ? (source.groupId || 'unknown') : 'personal',
+      groupIds: source?.type === 'group' ? [source.groupId || 'unknown'] : [],
       assignees: assignees.length > 0 ? assignees : [source?.userId || 'unknown'],
       creatorId: source?.userId || 'unknown',
       status: 'Chưa làm',
@@ -418,8 +420,7 @@ export async function handleViecCuaToiCommand(
   client: line.messagingApi.MessagingApiClient
 ) {
   if (!adminDb) return;
-  const source = event.source as any;
-  const userId = source?.userId;
+  const userId = event.source?.userId;
   if (!userId) return;
 
   const snapshot = await adminDb.collection('tasks')
@@ -453,7 +454,7 @@ export async function handleViecCuaToiCommand(
  */
 export async function handleTaskUpdateCommand(
   text: string,
-  event: line.webhook.MessageEvent,
+  event: LineReplyableEvent,
   client: line.messagingApi.MessagingApiClient
 ) {
   if (!adminDb) return;
@@ -488,7 +489,7 @@ export async function handleTaskUpdateCommand(
   const taskData = doc.data();
   const currentStatus: TaskStatus = taskData.status;
   const creatorId = taskData.creatorId || 'unknown';
-  const clickerId = (event.source as any)?.userId || '';
+  const clickerId = event.source?.userId || '';
   const assignees: string[] = taskData.assignees || [];
 
   // "Nhận việc" khi đã Đang làm/Hoàn thành, hoặc "Hoàn tất" khi đã Hoàn thành: không còn gì để đổi,
@@ -594,7 +595,7 @@ export async function handleTaskUpdateCommand(
     }
 
     // Trả lời trích dẫn lại đúng thẻ Flex công việc đã gửi trong cuộc trò chuyện này (nếu có)
-    const chatKey = getChatKey(event.source as any);
+    const chatKey = getChatKey(event.source);
     const quoteToken = taskData.flexQuoteTokens?.[chatKey];
 
     await client.replyMessage({

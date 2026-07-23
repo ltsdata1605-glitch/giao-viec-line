@@ -22,6 +22,16 @@ interface Task {
   deadline: string;
   repeat: string;
   createdAt?: Date;
+  taskType?: string;
+  quickReminder?: string;
+  acceptanceType?: string;
+  reminderFrequency?: string;
+  creatorId?: string;
+  attachmentUrl?: string;
+  notes?: string;
+  intervalHours?: string;
+  repeatDays?: string[];
+  customRepeat?: string;
 }
 
 interface UserData { id: string; name: string; lineUserId: string; }
@@ -254,16 +264,16 @@ export default function TasksPage() {
       priority: task.priority,
       deadline: task.deadline,
       repeat: task.repeat,
-      taskType: (task as any).taskType || 'Vận hành',
-      quickReminder: (task as any).quickReminder || 'Gửi ngay',
-      acceptanceType: (task as any).acceptanceType || 'Bấm hoàn tất',
-      reminderFrequency: (task as any).reminderFrequency || '15',
-      creatorId: (task as any).creatorId || 'U5bff120f01066eefca60fd0c8ea3537c',
-      attachmentUrl: (task as any).attachmentUrl || '',
-      notes: (task as any).notes || '',
-      intervalHours: (task as any).intervalHours || '1',
-      repeatDays: (task as any).repeatDays || [],
-      customRepeat: (task as any).customRepeat || '',
+      taskType: task.taskType || 'Vận hành',
+      quickReminder: task.quickReminder || 'Gửi ngay',
+      acceptanceType: task.acceptanceType || 'Bấm hoàn tất',
+      reminderFrequency: task.reminderFrequency || '15',
+      creatorId: task.creatorId || 'U5bff120f01066eefca60fd0c8ea3537c',
+      attachmentUrl: task.attachmentUrl || '',
+      notes: task.notes || '',
+      intervalHours: task.intervalHours || '1',
+      repeatDays: task.repeatDays || [],
+      customRepeat: task.customRepeat || '',
     });
     setNewUrlInput('');
     setModalGroupSearch('');
@@ -308,9 +318,9 @@ export default function TasksPage() {
         reminderFrequency: form.reminderFrequency,
         attachmentUrl: form.attachmentUrl,
         notes: form.notes,
-        intervalHours: (form as any).intervalHours || '1',
-        repeatDays: (form as any).repeatDays || [],
-        customRepeat: (form as any).customRepeat || '',
+        intervalHours: form.intervalHours || '1',
+        repeatDays: form.repeatDays || [],
+        customRepeat: form.customRepeat || '',
         sendAt,
         creatorId: form.creatorId || 'U5bff120f01066eefca60fd0c8ea3537c',
         updatedAt: serverTimestamp(),
@@ -706,7 +716,7 @@ export default function TasksPage() {
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Người giao việc</label>
                 <select
-                  value={(form as any).creatorId || 'U5bff120f01066eefca60fd0c8ea3537c'}
+                  value={form.creatorId || 'U5bff120f01066eefca60fd0c8ea3537c'}
                   onChange={(e) => setForm({ ...form, creatorId: e.target.value })}
                   className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors"
                 >
@@ -785,7 +795,7 @@ export default function TasksPage() {
                 {form.repeat === 'Hàng giờ' && (
                   <div className="mb-3">
                     <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Lặp lại sau mấy giờ</label>
-                    <input type="number" min="1" value={(form as any).intervalHours || '1'} onChange={(e) => setForm({ ...form, intervalHours: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
+                    <input type="number" min="1" value={form.intervalHours || '1'} onChange={(e) => setForm({ ...form, intervalHours: e.target.value })} className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
                   </div>
                 )}
 
@@ -797,9 +807,9 @@ export default function TasksPage() {
                         <label key={day} className="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-text-primary)] bg-[var(--color-bg-primary)] border border-[var(--color-border)] px-3 py-1.5 rounded-lg hover:border-[var(--color-text-muted)] transition-colors">
                           <input 
                             type="checkbox" 
-                            checked={((form as any).repeatDays || []).includes(day)}
+                            checked={(form.repeatDays || []).includes(day)}
                             onChange={(e) => {
-                              const currentDays = (form as any).repeatDays || [];
+                              const currentDays = form.repeatDays || [];
                               if (e.target.checked) {
                                 setForm({ ...form, repeatDays: [...currentDays, day] });
                               } else {
@@ -818,7 +828,7 @@ export default function TasksPage() {
                 {form.repeat === 'Tuỳ chọn' && (
                   <div>
                     <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Chu kỳ tuỳ chọn</label>
-                    <input type="text" value={(form as any).customRepeat || ''} onChange={(e) => setForm({ ...form, customRepeat: e.target.value })} placeholder="VD: Mỗi 3 ngày" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
+                    <input type="text" value={form.customRepeat || ''} onChange={(e) => setForm({ ...form, customRepeat: e.target.value })} placeholder="VD: Mỗi 3 ngày" className="w-full px-4 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] transition-colors" />
                   </div>
                 )}
               </div>

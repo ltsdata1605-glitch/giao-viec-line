@@ -43,8 +43,7 @@ export async function handleHelpCommand(
   event: line.webhook.MessageEvent,
   client: line.messagingApi.MessagingApiClient
 ) {
-  const source = event.source as any;
-  const requesterId = source?.userId;
+  const requesterId = event.source?.userId;
   const admin = await isAdmin(requesterId);
 
   await client.replyMessage({

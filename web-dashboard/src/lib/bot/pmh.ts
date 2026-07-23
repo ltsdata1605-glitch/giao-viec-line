@@ -38,10 +38,8 @@ export async function getPmhKeywords(): Promise<string[]> {
 }
 
 export async function handlePmhAdminCommand(text: string, event: line.webhook.MessageEvent, client: line.messagingApi.MessagingApiClient) {
-  const source = event.source as any;
-  if (!adminDb || !event.replyToken || !source || !source.userId) return;
-
-  const userId = source.userId;
+  const userId = event.source?.userId;
+  if (!adminDb || !event.replyToken || !userId) return;
 
   // 1. Kiểm tra quyền Admin dựa vào LINE ID
   if (!(await isAdmin(userId))) {

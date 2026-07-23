@@ -2,6 +2,7 @@ import * as line from '@line/bot-sdk';
 import { adminDb } from '@/lib/firebase-admin';
 import { isAdmin } from './admin';
 import { parseVnDeadline, formatVnDateTime, getVnDateKey, getVnWeekRange, getVnMonthRange } from '@/lib/dateUtils';
+import type { LineSource } from './chatUtils';
 
 const IN_PROGRESS_STATUSES = ['Chưa làm', 'Đang làm'];
 const MAX_LISTED = 15;
@@ -190,8 +191,7 @@ export async function buildInteractionReportText(period: Period = 'all', groupSc
 }
 
 async function requireAdmin(event: line.webhook.MessageEvent, client: line.messagingApi.MessagingApiClient): Promise<boolean> {
-  const source = event.source as any;
-  const requesterId = source?.userId;
+  const requesterId = event.source?.userId;
   if (await isAdmin(requesterId)) return true;
   await client.replyMessage({
     replyToken: event.replyToken as string,
@@ -231,8 +231,8 @@ export async function handleTuongTacCommand(
 ) {
   if (!adminDb) return;
 
-  const source = event.source as any;
-  if (source?.type !== 'group' || !source.groupId) return; // 1:1/room: không có hiệu lực
+  const source: LineSource | undefined = event.source;
+  if (!source || source.type !== 'group' || !source.groupId) return; // 1:1/room: không có hiệu lực
 
   if (!(await requireAdmin(event, client))) return;
 

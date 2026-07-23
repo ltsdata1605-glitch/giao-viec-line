@@ -2,6 +2,7 @@ import * as line from '@line/bot-sdk';
 import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getVnDateKey } from '@/lib/dateUtils';
+import type { LineSource } from './chatUtils';
 
 /**
  * Thụ động học: Lưu lại thông tin người dùng / nhóm mỗi khi có tin nhắn
@@ -9,16 +10,16 @@ import { getVnDateKey } from '@/lib/dateUtils';
  * Đồng thời đếm số lượt tương tác theo loại tin nhắn (text/image/sticker/...) cho thống kê Báo cáo.
  */
 export async function captureUserProfile(
-  event: line.webhook.MessageEvent,
+  event: line.webhook.MessageEvent | line.webhook.JoinEvent,
   client: line.messagingApi.MessagingApiClient
 ) {
   if (!adminDb) return;
-  const source = event.source as any;
-  const userId = source.userId;
-  const groupId = source.type === 'group' ? source.groupId : null;
-  const roomId = source.type === 'room' ? source.roomId : null;
+  const source: LineSource | undefined = event.source;
+  const userId = source?.userId;
+  const groupId = source?.type === 'group' ? source.groupId : null;
+  const roomId = source?.type === 'room' ? source.roomId : null;
   // JoinEvent không có field message -> messageType null, chỉ capture profile, không đếm tương tác
-  const messageType: string | null = (event as any).message?.type || null;
+  const messageType: string | null = event.type === 'message' ? event.message.type : null;
 
   try {
     // 1. Capture User + đếm tương tác theo người
@@ -131,8 +132,8 @@ export async function handleDongboCommand(
   client: line.messagingApi.MessagingApiClient
 ) {
   if (!adminDb) return;
-  const source = event.source as any;
-  const groupId = source.type === 'group' ? source.groupId : null;
+  const source: LineSource | undefined = event.source;
+  const groupId = source?.type === 'group' ? source.groupId : null;
   const replyToken = event.replyToken as string;
 
   if (!groupId) {
@@ -155,7 +156,7 @@ export async function handleDongboCommand(
     
     // Lặp để lấy hết ID
     do {
-      const res: any = await client.getGroupMembersIds(groupId, next).catch(e => {
+      const res: line.messagingApi.MembersIdsResponse | null = await client.getGroupMembersIds(groupId, next).catch(e => {
         console.error('getGroupMembersIds error', e);
         return null;
       });

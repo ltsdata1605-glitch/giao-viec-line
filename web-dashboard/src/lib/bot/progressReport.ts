@@ -7,7 +7,7 @@ import { getVnStartOfDayMs } from '@/lib/dateUtils';
 // trước đây có thêm khung 14h (giữa ngày) nhưng đã bỏ theo yêu cầu giảm tải quota.
 const REPORT_TITLE = 'BÁO CÁO TIẾN ĐỘ CUỐI NGÀY';
 
-function statRow(icon: string, label: string, value: number, color: string) {
+function statRow(icon: string, label: string, value: number, color: string): line.messagingApi.FlexBox {
   return {
     type: 'box',
     layout: 'horizontal',
@@ -31,7 +31,7 @@ function buildGroupProgressFlex(params: {
 }): line.messagingApi.FlexMessage {
   const { title, groupName, total, completed, inProgress, notStarted, overdue, completionRate, topPerformers } = params;
 
-  const bodyContents: any[] = [
+  const bodyContents: line.messagingApi.FlexComponent[] = [
     { type: 'text', text: 'Tổng hợp trạng thái công việc hôm nay:', color: '#888888', size: 'sm', wrap: true },
     { type: 'separator', margin: 'md' },
     statRow('📊', 'Tổng số công việc', total, '#333333'),
@@ -127,7 +127,7 @@ export async function sendGroupProgressReports(
 
   // Gom việc theo từng nhóm (1 việc có thể thuộc nhiều nhóm nếu groupIds > 1 phần tử);
   // bỏ qua việc "Đã hủy" vì không còn tính vào tiến độ đang xử lý.
-  const tasksByGroup = new Map<string, any[]>();
+  const tasksByGroup = new Map<string, FirebaseFirestore.DocumentData[]>();
   tasksSnap.docs.forEach((doc) => {
     const t = doc.data();
     if (t.status === 'Đã hủy') return;
