@@ -225,11 +225,22 @@ export default function TasksPage() {
           assignees: raw.assignees || [],
           groupName: raw.groupName || '',
           groupId: raw.groupId || '',
+          groupIds: raw.groupIds || [],
           priority: raw.priority || 'Bình thường',
           deadline: raw.deadline instanceof Timestamp
             ? raw.deadline.toDate().toISOString().slice(0, 16)
             : (raw.deadline || ''),
           repeat: raw.repeat || 'Không',
+          taskType: raw.taskType || '',
+          quickReminder: raw.quickReminder || '',
+          acceptanceType: raw.acceptanceType || '',
+          reminderFrequency: raw.reminderFrequency || '',
+          creatorId: raw.creatorId || '',
+          attachmentUrl: raw.attachmentUrl || '',
+          notes: raw.notes || '',
+          intervalHours: raw.intervalHours || '',
+          repeatDays: raw.repeatDays || [],
+          customRepeat: raw.customRepeat || '',
         };
       }) as Task[];
       setTasks(data);
@@ -257,10 +268,10 @@ export default function TasksPage() {
       status: task.status,
       assigneeName: task.assigneeName,
       assigneeId: task.assigneeId || '',
-      assignees: task.assignees || (task.assigneeId ? [task.assigneeId] : []),
+      assignees: (task.assignees && task.assignees.length > 0) ? task.assignees : (task.assigneeId ? [task.assigneeId] : []),
       groupName: task.groupName,
       groupId: task.groupId,
-      groupIds: task.groupIds || (task.groupId && task.groupId !== 'personal' ? [task.groupId] : []),
+      groupIds: (task.groupIds && task.groupIds.length > 0) ? task.groupIds : (task.groupId && task.groupId !== 'personal' ? [task.groupId] : []),
       priority: task.priority,
       deadline: task.deadline,
       repeat: task.repeat,
