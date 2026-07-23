@@ -5,12 +5,21 @@ import { useRouter } from 'next/navigation';
 import liff from '@line/liff';
 import type { Profile } from '@liff/get-profile';
 import type { Context } from '@liff/store';
+import { db } from '@/lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 import { getVnDateKey } from '@/lib/dateUtils';
+
+interface GroupData {
+  id: string;
+  name: string;
+  lineGroupId: string;
+}
 
 const INPUT_CLS = 'w-full px-3 py-2.5 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-active)] focus:ring-1 focus:ring-[var(--color-accent)] transition-colors';
 const LABEL_CLS = 'block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5';
 const CARD_CLS = 'glass rounded-2xl p-4';
 const CARD_TITLE_CLS = 'text-sm font-bold text-[var(--color-text-primary)] border-l-4 border-[var(--color-accent)] pl-2 mb-4';
+const RADIO_CLS = 'border-[var(--color-border)] text-indigo-600 focus:ring-indigo-500 bg-[var(--color-bg-secondary)]';
 
 function getDefaultTime(): string {
   const d = new Date();
@@ -19,28 +28,22 @@ function getDefaultTime(): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// Suy ra "nơi chat" (nhóm/phòng/1:1) từ context LIFF — khớp đúng cách bot xác định chatKey/chatType
-// (xem getChatKey/getChatType trong lib/bot/chatUtils.ts) để thẻ Flex gửi đúng nơi và trích dẫn được.
-// Trả về null nếu mở form không phải từ trong 1 cuộc trò chuyện LINE thật (VD mở bằng trình duyệt
-// thường) — trường hợp này không có "nơi chat" nào để gửi thẻ điểm danh vào.
-function resolveChat(ctx: Context | null, userId: string): { chatKey: string; chatType: 'group' | 'room' | 'user' } | null {
-  if (!ctx) return null;
-  if (ctx.type === 'group' && ctx.groupId) return { chatKey: ctx.groupId, chatType: 'group' };
-  if (ctx.type === 'room' && ctx.roomId) return { chatKey: ctx.roomId, chatType: 'room' };
-  if (ctx.type === 'utou' && userId) return { chatKey: userId, chatType: 'user' };
-  return null;
-}
-
 export default function LiffCheckinPage() {
   const router = useRouter();
   const [initialized, setInitialized] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [context, setContext] = useState<Context | null>(null);
+  const [groupsList, setGroupsList] = useState<GroupData[]>([]);
+  const [groupSearch, setGroupSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [time, setTime] = useState(getDefaultTime());
+  // "group:<id>" | "room:<id>" | "user:<id>" — gõ lệnh /diemdanh trực tiếp trong nhóm sẽ tạo tin
+  // giao việc + phản hồi ngay trong nhóm đó, dễ gây "spam" cho cả nhóm; form này tách rời khỏi nơi
+  // đang mở, cho chọn thẳng nhóm cần gửi (kể cả mở form từ chat riêng với bot) để tránh việc đó.
+  const [destination, setDestination] = useState('');
 
   useEffect(() => {
     const initLiff = async () => {
@@ -51,10 +54,21 @@ export default function LiffCheckinPage() {
           liff.login();
           return;
         }
+
         const prof = await liff.getProfile();
         const ctx = liff.getContext();
         setProfile(prof);
         setContext(ctx);
+
+        // Chọn sẵn nơi hợp lý nhất theo ngữ cảnh mở form — vẫn đổi được sang nhóm khác ngay bên dưới.
+        if (ctx?.type === 'group' && ctx.groupId) {
+          setDestination(`group:${ctx.groupId}`);
+        } else if (ctx?.type === 'room' && ctx.roomId) {
+          setDestination(`room:${ctx.roomId}`);
+        } else {
+          setDestination(`user:${prof.userId}`);
+        }
+
         setInitialized(true);
       } catch (err) {
         console.error('LIFF init error', err);
@@ -62,7 +76,19 @@ export default function LiffCheckinPage() {
       }
     };
     initLiff();
-  }, []);
+
+    const fetchGroups = async () => {
+      try {
+        const gSnap = await getDocs(collection(db, 'groups'));
+        const rawGroups = gSnap.docs.map(d => ({ id: d.id, ...d.data() } as GroupData));
+        const uniqueGroups = Array.from(new Map(rawGroups.map(g => [g.lineGroupId, g])).values());
+        setGroupsList(uniqueGroups);
+      } catch (e) {
+        console.error('Error fetching groups', e);
+      }
+    };
+    fetchGroups();
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,9 +96,11 @@ export default function LiffCheckinPage() {
       alert('Vui lòng nhập tiêu đề và deadline.');
       return;
     }
-    const chat = resolveChat(context, profile?.userId || '');
-    if (!chat) {
-      alert('Không xác định được nơi gửi. Vui lòng mở form này từ trong 1 cuộc trò chuyện LINE.');
+    const sepIdx = destination.indexOf(':');
+    const destType = sepIdx > 0 ? destination.slice(0, sepIdx) : '';
+    const destKey = sepIdx > 0 ? destination.slice(sepIdx + 1) : '';
+    if (!['group', 'room', 'user'].includes(destType) || !destKey) {
+      alert('Vui lòng chọn nơi gửi điểm danh.');
       return;
     }
 
@@ -89,15 +117,17 @@ export default function LiffCheckinPage() {
           deadline,
           creatorId: profile?.userId || 'unknown',
           creatorName: profile?.displayName || 'Ẩn danh',
-          chatKey: chat.chatKey,
-          chatType: chat.chatType,
+          chatKey: destKey,
+          chatType: destType,
         }),
       });
       if (!res.ok) throw new Error('Tạo điểm danh thất bại');
 
       // Điểm danh đã tạo thành công tại đây. Bước gửi tin xác nhận + đóng cửa sổ qua LIFF SDK tách
       // riêng try/catch — chỉ hoạt động khi mở đúng từ trong 1 cuộc trò chuyện LINE thật, nếu thất
-      // bại sẽ KHÔNG bị báo nhầm thành "lỗi tạo điểm danh".
+      // bại sẽ KHÔNG bị báo nhầm thành "lỗi tạo điểm danh". Lưu ý: nếu gửi vào 1 nhóm KHÁC nhóm đang
+      // mở form (hoặc mở form từ chat riêng), tin xác nhận này chỉ hiện ở NƠI ĐANG MỞ FORM — thẻ điểm
+      // danh thật đã được đẩy vào đúng nhóm đã chọn qua /api/notify-checkin ở trên rồi.
       try {
         if (liff.isInClient()) {
           await liff.sendMessages([
@@ -127,15 +157,13 @@ export default function LiffCheckinPage() {
     );
   }
 
-  const chat = resolveChat(context, profile?.userId || '');
-
-  if (!chat) {
+  if (!profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg-primary)] p-6">
         <div className="text-center max-w-sm">
           <div className="text-4xl mb-3">⚠️</div>
-          <h1 className="text-base font-bold text-[var(--color-text-primary)] mb-2">Không mở được form ở đây</h1>
-          <p className="text-sm text-[var(--color-text-secondary)]">Vui lòng mở link này từ trong 1 cuộc trò chuyện LINE (nhóm hoặc chat riêng với bot) để tạo điểm danh.</p>
+          <h1 className="text-base font-bold text-[var(--color-text-primary)] mb-2">Không lấy được thông tin tài khoản LINE</h1>
+          <p className="text-sm text-[var(--color-text-secondary)]">Vui lòng thử mở lại link này.</p>
         </div>
       </div>
     );
@@ -148,9 +176,15 @@ export default function LiffCheckinPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="p-4 space-y-4 max-w-md mx-auto animate-fade-in-up">
-        <p className="text-sm text-[var(--color-text-secondary)] mb-2">
-          Điểm danh sẽ được gửi vào {chat.chatType === 'group' ? 'nhóm hiện tại' : chat.chatType === 'room' ? 'phòng chat hiện tại' : 'cuộc trò chuyện này'}.
-        </p>
+        <p className="text-sm text-[var(--color-text-secondary)] mb-2">Điền thông tin, chọn nhóm cần gửi và tạo điểm danh — không cần gõ lệnh trực tiếp trong nhóm.</p>
+
+        <button
+          type="button"
+          onClick={() => router.push('/liff/task')}
+          className="w-full text-center text-xs text-[var(--color-text-muted)] hover:text-[var(--color-accent-hover)] transition-colors py-1"
+        >
+          📝 Chuyển sang Form Giao việc
+        </button>
 
         <div className={CARD_CLS}>
           <h2 className={CARD_TITLE_CLS}>Thông tin điểm danh</h2>
@@ -176,13 +210,48 @@ export default function LiffCheckinPage() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => router.push('/liff/task')}
-          className="w-full text-center text-xs text-[var(--color-text-muted)] hover:text-[var(--color-accent-hover)] transition-colors py-1"
-        >
-          📝 Chuyển sang Form Giao việc
-        </button>
+        <div className={CARD_CLS}>
+          <h2 className={CARD_TITLE_CLS}>Gửi vào đâu <span className="text-red-400">*</span></h2>
+          <div className="space-y-1">
+            {context?.type === 'room' && context.roomId && (
+              <label className="flex items-center gap-2 py-1.5 cursor-pointer text-sm text-[var(--color-text-primary)]">
+                <input type="radio" name="dest" className={RADIO_CLS}
+                  checked={destination === `room:${context.roomId}`}
+                  onChange={() => setDestination(`room:${context.roomId}`)} />
+                <span>🏠 Phòng chat hiện tại</span>
+              </label>
+            )}
+            <label className="flex items-center gap-2 py-1.5 cursor-pointer text-sm text-[var(--color-text-primary)]">
+              <input type="radio" name="dest" className={RADIO_CLS}
+                checked={destination === `user:${profile.userId}`}
+                onChange={() => setDestination(`user:${profile.userId}`)} />
+              <span>💬 Chat riêng (chỉ mình tôi)</span>
+            </label>
+
+            {groupsList.length > 5 && (
+              <input
+                type="text"
+                value={groupSearch}
+                onChange={e => setGroupSearch(e.target.value)}
+                placeholder="Tìm tên nhóm..."
+                className={`${INPUT_CLS} my-2`}
+              />
+            )}
+            <div className="max-h-48 overflow-y-auto">
+              {groupsList.filter(g => g.name.toLowerCase().includes(groupSearch.trim().toLowerCase())).map(g => (
+                <label key={g.id} className="flex items-center gap-2 py-1.5 cursor-pointer text-sm text-[var(--color-text-primary)]">
+                  <input type="radio" name="dest" className={RADIO_CLS}
+                    checked={destination === `group:${g.lineGroupId}`}
+                    onChange={() => setDestination(`group:${g.lineGroupId}`)} />
+                  <span>{g.name}</span>
+                </label>
+              ))}
+              {groupsList.length === 0 && (
+                <p className="text-xs text-[var(--color-text-muted)] py-1">Chưa có nhóm nào được ghi nhận.</p>
+              )}
+            </div>
+          </div>
+        </div>
 
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm border-t border-[var(--color-border)] z-20">
           <button
