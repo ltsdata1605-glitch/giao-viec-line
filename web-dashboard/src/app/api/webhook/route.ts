@@ -25,9 +25,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'No events' }, { status: 200 });
     }
 
-    // Process all events
+    // Process all events. Bỏ qua event được LINE gửi lại (redelivery) — xảy ra khi platform không
+    // nhận được phản hồi đủ nhanh từ webhook này (VD: xử lý postback "Nhận việc" tốn vài giây do phải
+    // đọc/ghi Firestore + gọi LINE API), khiến cùng 1 thao tác (giao việc, nhận việc, điểm danh...) bị
+    // xử lý lặp lại nhiều lần và gửi trùng thông báo. `deliveryContext.isRedelivery` là cờ chính thức
+    // LINE cung cấp để nhận biết trường hợp này.
     await Promise.all(
       events.map(async (event: any) => {
+        if (event?.deliveryContext?.isRedelivery) {
+          console.log('Skipping redelivered webhook event', event.webhookEventId);
+          return;
+        }
         try {
           await handleLineEvent(event);
         } catch (err) {

@@ -493,7 +493,12 @@ export async function handleTaskUpdateCommand(
 
   // "Nhận việc" khi đã Đang làm/Hoàn thành, hoặc "Hoàn tất" khi đã Hoàn thành: không còn gì để đổi,
   // chỉ trả lời cho biết ai đã làm việc đó và lúc nào (không chặn quyền xem, ai bấm cũng thấy được).
+  // Riêng khi CHÍNH người vừa bấm cũng là người đã nhận/hoàn tất trước đó: im lặng bỏ qua, không trả
+  // lời gì — tránh spam nhiều tin giống hệt nhau khi người dùng bấm nút nhiều lần liên tiếp (nút Flex
+  // không tự ẩn/khoá sau khi bấm), vì họ đã biết kết quả rồi.
   if (command === '/nhan' && (currentStatus === 'Đang làm' || currentStatus === 'Hoàn thành')) {
+    const sameClicker = clickerId && (clickerId === taskData.acceptedBy || clickerId === taskData.completedBy);
+    if (sameClicker) return;
     const info = currentStatus === 'Hoàn thành' && taskData.completedByName && taskData.completedAt
       ? `Công việc "${taskData.name}" đã được ${taskData.completedByName} hoàn tất lúc ${formatVnDateTime(taskData.completedAt.toMillis())}.`
       : taskData.acceptedByName && taskData.acceptedAt
@@ -507,6 +512,7 @@ export async function handleTaskUpdateCommand(
   }
 
   if (command === '/xong' && currentStatus === 'Hoàn thành') {
+    if (clickerId && clickerId === taskData.completedBy) return;
     const info = taskData.completedByName && taskData.completedAt
       ? `Công việc "${taskData.name}" đã được ${taskData.completedByName} hoàn tất lúc ${formatVnDateTime(taskData.completedAt.toMillis())}.`
       : `ℹ️ Công việc "${taskData.name}" đã ở trạng thái "Hoàn thành" rồi.`;

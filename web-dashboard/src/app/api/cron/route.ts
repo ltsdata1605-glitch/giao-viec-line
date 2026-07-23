@@ -28,6 +28,7 @@ function nextMonthAnchor(sendDate: Date, now: number, dayOffsetFromMonthEnd: num
 }
 
 export async function GET(request: Request) {
+  let lockRef: FirebaseFirestore.DocumentReference | null = null;
   try {
     // Vercel cron security check (Optional: verify secret header)
     const authHeader = request.headers.get('authorization');
@@ -40,6 +41,28 @@ export async function GET(request: Request) {
     }
 
     const now = Date.now();
+
+    // Chặn 2 lượt cron chạy đè lên nhau cùng lúc (dịch vụ cron ngoài gọi trùng lịch, hoặc tự động
+    // gọi lại khi request trước bị timeout) — nguyên nhân từng gây gửi trùng thông báo thực tế (1
+    // việc mới bị gửi 2 lần, nhắc việc bị gửi 2 lần mỗi đợt). Dùng transaction để giữ "khoá" suốt
+    // thời gian xử lý; lượt gọi đến khi khoá còn giữ sẽ bỏ qua toàn bộ, không xử lý gì thêm.
+    // Tự nhả khoá sau STALE_LOCK_MS phòng lượt chạy trước bị crash giữa chừng không kịp nhả khoá
+    // ở finally, tránh khoá bị kẹt vĩnh viễn.
+    const STALE_LOCK_MS = 5 * 60 * 1000;
+    const lockDocRef = adminDb.collection('systemState').doc('cronLock');
+    lockRef = lockDocRef;
+    const lockAcquired = await adminDb.runTransaction(async (tx) => {
+      const snap = await tx.get(lockDocRef);
+      const data = snap.exists ? snap.data() : null;
+      if (data?.running && now - (data.startedAt || 0) < STALE_LOCK_MS) return false;
+      tx.set(lockDocRef, { running: true, startedAt: now });
+      return true;
+    });
+
+    if (!lockAcquired) {
+      return NextResponse.json({ success: true, skipped: 'overlapping run' });
+    }
+
     const dayMap: Record<string, number> = { 'CN': 0, 'T2': 1, 'T3': 2, 'T4': 3, 'T5': 4, 'T6': 5, 'T7': 6 };
     // Dùng để gửi trực tiếp tin nhắc việc / leo thang, tận dụng flexQuoteTokens đã lưu theo từng nơi nhận
     // nên không đi qua /api/notify-task (endpoint đó luôn build lại thẻ Flex mới, không phù hợp cho nhắc nhẹ).
@@ -448,5 +471,9 @@ export async function GET(request: Request) {
   } catch (err: any) {
     console.error('Cron error', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
+  } finally {
+    if (lockRef) {
+      await lockRef.set({ running: false }, { merge: true }).catch(() => {});
+    }
   }
 }
