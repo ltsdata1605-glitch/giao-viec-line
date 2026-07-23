@@ -212,37 +212,33 @@ async function resolveDisplayName(
   return userId.slice(0, 8);
 }
 
+export interface CreateCheckinParams {
+  title: string;
+  content: string;
+  deadline: string;
+  creatorId: string;
+  creatorName: string;
+  chatKey: string;
+  chatType: 'group' | 'room' | 'user';
+}
+
 /**
- * Lệnh /diemdanh <tiêu đề> /deadline <giờ>: bất kỳ ai cũng tạo được (không giới hạn admin).
+ * Tạo 1 đợt điểm danh mới + gửi thẻ Flex (kèm tin nội dung nếu có "/noidung") — dùng chung cho lệnh
+ * /diemdanh (gửi qua replyMessage, có replyToken) và form LIFF /liff/checkin (gửi qua pushMessage,
+ * vì mở form từ link không có replyToken để reply). `send` nhận mảng message cần gửi (thẻ Flex luôn
+ * là tin đầu tiên), trả về response gốc của LINE để lấy quoteToken lưu lại cho lần trích dẫn sau.
  */
-export async function handleDiemDanhCommand(
-  text: string,
-  event: line.webhook.MessageEvent,
-  client: line.messagingApi.MessagingApiClient
-) {
-  if (!adminDb) return;
-
-  const parsed = parseDiemDanhCommand(text);
-  if (!parsed) {
-    await client.replyMessage({
-      replyToken: event.replyToken as string,
-      messages: [{
-        type: 'text',
-        text: '⚠️ Cú pháp: /diemdanh <tiêu đề>\n/noidung <nội dung, có thể nhiều dòng, ví dụ danh sách link> (không bắt buộc)\n/deadline <giờ>\n\nVD:\n/diemdanh HOÀN TẤT LIKE VÀ SHARE BÀI\n/noidung Link:\n1. https://...\n2. https://...\n/deadline 20h00'
-      }],
-    });
-    return;
-  }
-
-  const creatorId = event.source?.userId || 'unknown';
-  const chatKey = getChatKey(event.source);
-  const chatType = getChatType(event.source);
-  const creatorName = await resolveDisplayName(creatorId, chatType, chatKey, client);
+export async function createCheckinAndNotify(
+  params: CreateCheckinParams,
+  send: (messages: line.messagingApi.Message[]) => Promise<{ sentMessages: line.messagingApi.SentMessage[] }>
+): Promise<{ checkinId: string; shortId: string }> {
+  if (!adminDb) throw new Error('Chưa cấu hình cơ sở dữ liệu.');
+  const { title, content, deadline, creatorId, creatorName, chatKey, chatType } = params;
 
   const newCheckin: Checkin = {
-    title: parsed.title,
-    content: parsed.content,
-    deadline: parsed.deadline,
+    title,
+    content,
+    deadline,
     creatorId,
     creatorName,
     chatKey,
@@ -258,28 +254,25 @@ export async function handleDiemDanhCommand(
   const shortId = docRef.id.slice(-5);
 
   const flexMessage = buildCheckinFlexMessage({
-    title: parsed.title,
-    deadlineText: formatDeadlineHM(parsed.deadline),
+    title,
+    deadlineText: formatDeadlineHM(deadline),
     shortId,
     creatorName,
     participantCount: 0,
   });
 
-  // Thẻ Flex giữ nguyên như cũ (tiêu đề/deadline/nút bấm); nếu có "/noidung" thì gửi kèm 1 tin nhắn
+  // Thẻ Flex giữ nguyên như cũ (tiêu đề/deadline/nút bấm); nếu có nội dung thì gửi kèm 1 tin nhắn
   // văn bản thường ngay sau đó — LINE tự nhận diện link trong tin nhắn thường thành dạng bấm mở được,
   // trong khi khối text của thẻ Flex thì không tự làm được điều này.
   const messagesToSend: line.messagingApi.Message[] = [flexMessage];
-  if (parsed.content) {
+  if (content) {
     messagesToSend.push({
       type: 'text',
-      text: `${parsed.title}\n\n${parsed.content}\nDeadline: ${formatDeadlineHM(parsed.deadline)}`,
+      text: `${title}\n\n${content}\nDeadline: ${formatDeadlineHM(deadline)}`,
     });
   }
 
-  const response = await client.replyMessage({
-    replyToken: event.replyToken as string,
-    messages: messagesToSend,
-  });
+  const response = await send(messagesToSend);
 
   const updates: Record<string, unknown> = { shortId };
   // Thẻ Flex luôn là tin đầu tiên trong mảng gửi đi (bất kể có gửi kèm tin nội dung hay không) nên
@@ -288,6 +281,65 @@ export async function handleDiemDanhCommand(
   const flexSent = response.sentMessages[0];
   if (flexSent?.quoteToken) updates.flexQuoteToken = flexSent.quoteToken;
   await docRef.update(updates);
+
+  return { checkinId: docRef.id, shortId };
+}
+
+/**
+ * Lệnh /diemdanh <tiêu đề> [/noidung <nội dung>] /deadline <giờ>: bất kỳ ai cũng tạo được (không
+ * giới hạn admin). Gõ trơn "/diemdanh" không kèm gì sẽ gợi ý mở Form LIFF thay vì bắt nhớ cú pháp,
+ * giống hệt cách "/giao" bare hiện nút mở Form Giao Việc.
+ */
+export async function handleDiemDanhCommand(
+  text: string,
+  event: line.webhook.MessageEvent,
+  client: line.messagingApi.MessagingApiClient
+) {
+  if (!adminDb) return;
+
+  if (text.trim().toLowerCase() === '/diemdanh') {
+    const liffUrl = process.env.NEXT_PUBLIC_LIFF_URL || `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`;
+    const checkinLiffUrl = `${liffUrl}${liffUrl.includes('?') ? '&' : '?'}type=checkin`;
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [
+        {
+          type: 'template',
+          altText: 'Vui lòng mở Form trên điện thoại để tạo Điểm Danh.',
+          template: {
+            type: 'buttons',
+            text: 'Bấm vào nút bên dưới để mở Form Điểm Danh nhanh chóng, hoặc gõ cú pháp /diemdanh trực tiếp (xem /help):',
+            actions: [
+              { type: 'uri', label: '🙋 Mở Form Điểm Danh', uri: checkinLiffUrl }
+            ]
+          }
+        }
+      ]
+    });
+    return;
+  }
+
+  const parsed = parseDiemDanhCommand(text);
+  if (!parsed) {
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{
+        type: 'text',
+        text: '⚠️ Cú pháp: /diemdanh <tiêu đề>\n/noidung <nội dung, có thể nhiều dòng, ví dụ danh sách link> (không bắt buộc)\n/deadline <giờ>\n\nVD:\n/diemdanh HOÀN TẤT LIKE VÀ SHARE BÀI\n/noidung Link:\n1. https://...\n2. https://...\n/deadline 20h00\n\n💡 Hoặc gõ trơn /diemdanh để mở Form nhanh.'
+      }],
+    });
+    return;
+  }
+
+  const creatorId = event.source?.userId || 'unknown';
+  const chatKey = getChatKey(event.source);
+  const chatType = getChatType(event.source);
+  const creatorName = await resolveDisplayName(creatorId, chatType, chatKey, client);
+
+  await createCheckinAndNotify(
+    { title: parsed.title, content: parsed.content, deadline: parsed.deadline, creatorId, creatorName, chatKey, chatType },
+    (messages) => client.replyMessage({ replyToken: event.replyToken as string, messages })
+  );
 }
 
 /** Xử lý postback từ 2 nút trên thẻ điểm danh: "diemdanh_checkin" (điểm danh) và "diemdanh_done" (hoàn tất). */

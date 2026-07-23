@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import liff from '@line/liff';
 import type { Profile } from '@liff/get-profile';
 import type { Context } from '@liff/store';
@@ -57,6 +58,7 @@ function computeSendAt(quickReminder: string): number {
 }
 
 export default function LiffTaskPage() {
+  const router = useRouter();
   const [initialized, setInitialized] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [context, setContext] = useState<Context | null>(null);
@@ -105,6 +107,16 @@ export default function LiffTaskPage() {
           liff.login();
           return;
         }
+
+        // Nút "Mở Form Điểm Danh" (lệnh /diemdanh gõ trơn) dùng chung LIFF ID này, chỉ thêm
+        // ?type=checkin để phân biệt — vì 1 LIFF ID chỉ có đúng 1 "Endpoint URL" cố định (trang này),
+        // nên chuyển hẳn sang /liff/checkin ngay khi phát hiện, vẫn giữ nguyên phiên đăng nhập LIFF
+        // hiện tại (không cần đăng nhập lại).
+        if (new URLSearchParams(window.location.search).get('type') === 'checkin') {
+          router.replace('/liff/checkin');
+          return;
+        }
+
         const prof = await liff.getProfile();
         const ctx = liff.getContext();
         setProfile(prof);
@@ -138,7 +150,7 @@ export default function LiffTaskPage() {
       }
     };
     fetchUsersAndGroups();
-  }, []);
+  }, [router]);
 
   const handleQuickTemplate = (tpl: typeof QUICK_TEMPLATES[0]) => {
     setForm(f => ({ ...f, name: tpl.title, description: tpl.desc }));
@@ -313,6 +325,14 @@ export default function LiffTaskPage() {
 
       <form onSubmit={handleSubmit} className="p-4 space-y-4 max-w-md mx-auto animate-fade-in-up">
         <p className="text-sm text-[var(--color-text-secondary)] mb-2">Nhập nhanh nội dung, chọn nhóm/người nhận và gửi nhắc việc.</p>
+
+        <button
+          type="button"
+          onClick={() => router.push('/liff/checkin')}
+          className="w-full text-center text-xs text-[var(--color-text-muted)] hover:text-[var(--color-accent-hover)] transition-colors py-1"
+        >
+          🙋 Chuyển sang Form Điểm danh
+        </button>
 
         {/* Mẫu nhanh */}
         <div>
