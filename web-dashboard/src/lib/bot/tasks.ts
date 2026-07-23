@@ -486,96 +486,115 @@ export async function handleTaskUpdateCommand(
     return;
   }
 
-  const taskData = doc.data();
-  const currentStatus: TaskStatus = taskData.status;
-  const creatorId = taskData.creatorId || 'unknown';
   const clickerId = event.source?.userId || '';
-  const assignees: string[] = taskData.assignees || [];
 
-  // "Nhận việc" khi đã Đang làm/Hoàn thành, hoặc "Hoàn tất" khi đã Hoàn thành: không còn gì để đổi,
-  // chỉ trả lời cho biết ai đã làm việc đó và lúc nào (không chặn quyền xem, ai bấm cũng thấy được).
-  // Riêng khi CHÍNH người vừa bấm cũng là người đã nhận/hoàn tất trước đó: im lặng bỏ qua, không trả
-  // lời gì — tránh spam nhiều tin giống hệt nhau khi người dùng bấm nút nhiều lần liên tiếp (nút Flex
-  // không tự ẩn/khoá sau khi bấm), vì họ đã biết kết quả rồi.
-  if (command === '/nhan' && (currentStatus === 'Đang làm' || currentStatus === 'Hoàn thành')) {
-    const sameClicker = clickerId && (clickerId === taskData.acceptedBy || clickerId === taskData.completedBy);
-    if (sameClicker) return;
-    const info = currentStatus === 'Hoàn thành' && taskData.completedByName && taskData.completedAt
-      ? `Công việc "${taskData.name}" đã được ${taskData.completedByName} hoàn tất lúc ${formatVnDateTime(taskData.completedAt.toMillis())}.`
-      : taskData.acceptedByName && taskData.acceptedAt
-        ? `Công việc "${taskData.name}" đã được ${taskData.acceptedByName} nhận lúc ${formatVnDateTime(taskData.acceptedAt.toMillis())}.`
-        : `ℹ️ Công việc "${taskData.name}" đã ở trạng thái "${currentStatus}" rồi.`;
-    await client.replyMessage({
-      replyToken: event.replyToken as string,
-      messages: [{ type: 'text', text: info }]
-    });
-    return;
-  }
+  // Kiểm tra quyền NGAY TỪ ĐẦU, trước khi xét trạng thái công việc hiện tại — chỉ người được giao
+  // việc mới được bấm "Nhận việc"/"Hoàn tất" (2 nút trên thẻ Flex), chỉ người giao việc hoặc admin
+  // mới được /huy. Kiểm tra trước để người ngoài cuộc không thấy được bất kỳ thông tin gì (kể cả tin
+  // "đã có người nhận/hoàn tất") khi bấm nhầm nút không thuộc về mình.
+  const initialData = doc.data();
+  const assignees: string[] = initialData.assignees || [];
+  const creatorId = initialData.creatorId || 'unknown';
 
-  if (command === '/xong' && currentStatus === 'Hoàn thành') {
-    if (clickerId && clickerId === taskData.completedBy) return;
-    const info = taskData.completedByName && taskData.completedAt
-      ? `Công việc "${taskData.name}" đã được ${taskData.completedByName} hoàn tất lúc ${formatVnDateTime(taskData.completedAt.toMillis())}.`
-      : `ℹ️ Công việc "${taskData.name}" đã ở trạng thái "Hoàn thành" rồi.`;
-    await client.replyMessage({
-      replyToken: event.replyToken as string,
-      messages: [{ type: 'text', text: info }]
-    });
-    return;
-  }
-
-  let newStatus = '';
-  if (command === '/xong') newStatus = 'Hoàn thành';
-  else if (command === '/huy') newStatus = 'Đã hủy';
-  else if (command === '/nhan') newStatus = 'Đang làm';
-
-  // Chặn chuyển trạng thái từ các trạng thái đã kết thúc (Hoàn thành/Đã hủy) — case "Hoàn thành" cho
-  // /nhan và /xong đã được xử lý riêng ở trên với thông tin chi tiết hơn, ở đây còn lại chủ yếu là "Đã hủy".
-  if (FINAL_TASK_STATUSES.includes(currentStatus)) {
-    const message = currentStatus === newStatus
-      ? `ℹ️ Công việc "${taskData.name}" đã ở trạng thái "${currentStatus}" rồi.`
-      : `⚠️ Công việc "${taskData.name}" đã "${currentStatus}", không thể chuyển sang "${newStatus}" nữa.`;
-    await client.replyMessage({
-      replyToken: event.replyToken as string,
-      messages: [{ type: 'text', text: message }]
-    });
-    return;
-  }
-
-  // Chỉ người giao việc hoặc admin mới được hủy công việc (tránh người ngoài cuộc hủy việc của người khác)
-  if (command === '/huy' && clickerId !== creatorId && !(await isAdmin(clickerId))) {
-    await client.replyMessage({
-      replyToken: event.replyToken as string,
-      messages: [{ type: 'text', text: `⚠️ Chỉ người giao việc hoặc admin mới được hủy công việc "${taskData.name}".` }]
-    });
-    return;
-  }
-
-  // Chỉ người được giao việc mới được bấm "Nhận việc" / "Hoàn tất" (tránh người ngoài cuộc thao tác hộ)
   if ((command === '/nhan' || command === '/xong') && !assignees.includes(clickerId)) {
     await client.replyMessage({
       replyToken: event.replyToken as string,
-      messages: [{ type: 'text', text: `⚠️ Chỉ người được giao công việc "${taskData.name}" mới có thể bấm nút này.` }]
+      messages: [{ type: 'text', text: `⚠️ Chỉ người được giao công việc "${initialData.name}" mới có thể bấm nút này.` }]
     });
     return;
   }
 
-  const updates: Record<string, unknown> = { status: newStatus, updatedAt: FieldValue.serverTimestamp() };
-  const clickerName = await getUserDisplayName(clickerId);
-  if (command === '/nhan') {
-    updates.acceptedBy = clickerId;
-    updates.acceptedByName = clickerName;
-    updates.acceptedAt = FieldValue.serverTimestamp();
-  } else if (command === '/xong') {
-    updates.completedBy = clickerId;
-    updates.completedByName = clickerName;
-    updates.completedAt = FieldValue.serverTimestamp();
+  if (command === '/huy' && clickerId !== creatorId && !(await isAdmin(clickerId))) {
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{ type: 'text', text: `⚠️ Chỉ người giao việc hoặc admin mới được hủy công việc "${initialData.name}".` }]
+    });
+    return;
   }
-  await doc.ref.update(updates);
+
+  const clickerName = await getUserDisplayName(clickerId);
+
+  // Đọc trạng thái mới nhất + ghi cập nhật trong CÙNG 1 transaction để tránh race khi 2 người cùng
+  // được giao 1 việc bấm gần như đồng thời: nếu không, cả 2 request có thể cùng đọc trạng thái cũ
+  // (VD "Chưa làm") trước khi request kia kịp ghi xong, khiến cả 2 đều nhận phản hồi "đã nhận việc
+  // thành công" dù Firestore chỉ ghi nhận đúng 1 người. Firestore tự phát hiện xung đột ghi và chạy
+  // lại hàm này nếu cần, nên KHÔNG được gửi tin LINE bên trong transaction (có thể bị gọi lại nhiều
+  // lần) — chỉ tính toán kết quả, gửi tin ở ngoài sau khi transaction đã commit chắc chắn.
+  type TxOutcome =
+    | { kind: 'silent' }
+    | { kind: 'info'; text: string }
+    | { kind: 'updated'; taskName: string; newStatus: string };
+
+  const outcome: TxOutcome = await adminDb.runTransaction(async (tx) => {
+    const snap = await tx.get(doc.ref);
+    const taskData = snap.data() as FirebaseFirestore.DocumentData;
+    const currentStatus: TaskStatus = taskData.status;
+
+    // "Nhận việc" khi đã Đang làm/Hoàn thành, hoặc "Hoàn tất" khi đã Hoàn thành: không còn gì để đổi,
+    // chỉ trả lời cho biết ai đã làm việc đó và lúc nào. Riêng khi CHÍNH người vừa bấm cũng là người
+    // đã nhận/hoàn tất trước đó: im lặng bỏ qua, không trả lời gì — tránh spam nhiều tin giống hệt
+    // nhau khi người dùng bấm nút nhiều lần liên tiếp (nút Flex không tự ẩn/khoá sau khi bấm).
+    if (command === '/nhan' && (currentStatus === 'Đang làm' || currentStatus === 'Hoàn thành')) {
+      const sameClicker = clickerId && (clickerId === taskData.acceptedBy || clickerId === taskData.completedBy);
+      if (sameClicker) return { kind: 'silent' };
+      const info = currentStatus === 'Hoàn thành' && taskData.completedByName && taskData.completedAt
+        ? `Công việc "${taskData.name}" đã được ${taskData.completedByName} hoàn tất lúc ${formatVnDateTime(taskData.completedAt.toMillis())}.`
+        : taskData.acceptedByName && taskData.acceptedAt
+          ? `Công việc "${taskData.name}" đã được ${taskData.acceptedByName} nhận lúc ${formatVnDateTime(taskData.acceptedAt.toMillis())}.`
+          : `ℹ️ Công việc "${taskData.name}" đã ở trạng thái "${currentStatus}" rồi.`;
+      return { kind: 'info', text: info };
+    }
+
+    if (command === '/xong' && currentStatus === 'Hoàn thành') {
+      if (clickerId && clickerId === taskData.completedBy) return { kind: 'silent' };
+      const info = taskData.completedByName && taskData.completedAt
+        ? `Công việc "${taskData.name}" đã được ${taskData.completedByName} hoàn tất lúc ${formatVnDateTime(taskData.completedAt.toMillis())}.`
+        : `ℹ️ Công việc "${taskData.name}" đã ở trạng thái "Hoàn thành" rồi.`;
+      return { kind: 'info', text: info };
+    }
+
+    let newStatus = '';
+    if (command === '/xong') newStatus = 'Hoàn thành';
+    else if (command === '/huy') newStatus = 'Đã hủy';
+    else if (command === '/nhan') newStatus = 'Đang làm';
+
+    // Chặn chuyển trạng thái từ các trạng thái đã kết thúc (Hoàn thành/Đã hủy) — case "Hoàn thành" cho
+    // /nhan và /xong đã được xử lý riêng ở trên với thông tin chi tiết hơn, ở đây còn lại chủ yếu là "Đã hủy".
+    if (FINAL_TASK_STATUSES.includes(currentStatus)) {
+      const info = currentStatus === newStatus
+        ? `ℹ️ Công việc "${taskData.name}" đã ở trạng thái "${currentStatus}" rồi.`
+        : `⚠️ Công việc "${taskData.name}" đã "${currentStatus}", không thể chuyển sang "${newStatus}" nữa.`;
+      return { kind: 'info', text: info };
+    }
+
+    const updates: Record<string, unknown> = { status: newStatus, updatedAt: FieldValue.serverTimestamp() };
+    if (command === '/nhan') {
+      updates.acceptedBy = clickerId;
+      updates.acceptedByName = clickerName;
+      updates.acceptedAt = FieldValue.serverTimestamp();
+    } else if (command === '/xong') {
+      updates.completedBy = clickerId;
+      updates.completedByName = clickerName;
+      updates.completedAt = FieldValue.serverTimestamp();
+    }
+    tx.update(doc.ref, updates);
+
+    return { kind: 'updated', taskName: taskData.name || '', newStatus };
+  });
+
+  if (outcome.kind === 'silent') return;
+
+  if (outcome.kind === 'info') {
+    await client.replyMessage({
+      replyToken: event.replyToken as string,
+      messages: [{ type: 'text', text: outcome.text }]
+    });
+    return;
+  }
 
   if (command === '/nhan') {
     // Gọi tên người nhận việc bằng văn bản thường (không tag/ping), chỉ tag người giao để báo tin
-    const segments: MentionSegment[] = [{ text: `${clickerName}, đã nhận việc "${taskData.name}".` }];
+    const segments: MentionSegment[] = [{ text: `${clickerName}, đã nhận việc "${outcome.taskName}".` }];
     if (creatorId !== 'unknown' && creatorId.startsWith('U')) {
       segments.push({ text: ' Thông tin ' }, { mentionUserId: creatorId });
     }
@@ -589,14 +608,14 @@ export async function handleTaskUpdateCommand(
 
   if (command === '/xong') {
     // Gọi tên người hoàn tất bằng văn bản thường (không tag/ping), chỉ tag người giao để báo tin
-    const segments: MentionSegment[] = [{ text: `${clickerName}, đã hoàn tất việc "${taskData.name}".` }];
+    const segments: MentionSegment[] = [{ text: `${clickerName}, đã hoàn tất việc "${outcome.taskName}".` }];
     if (creatorId !== 'unknown' && creatorId.startsWith('U')) {
       segments.push({ text: ' Thông tin ' }, { mentionUserId: creatorId });
     }
 
     // Trả lời trích dẫn lại đúng thẻ Flex công việc đã gửi trong cuộc trò chuyện này (nếu có)
     const chatKey = getChatKey(event.source);
-    const quoteToken = taskData.flexQuoteTokens?.[chatKey];
+    const quoteToken = initialData.flexQuoteTokens?.[chatKey];
 
     await client.replyMessage({
       replyToken: event.replyToken as string,
@@ -607,6 +626,6 @@ export async function handleTaskUpdateCommand(
 
   await client.replyMessage({
     replyToken: event.replyToken as string,
-    messages: [{ type: 'text', text: `✅ Đã chuyển trạng thái công việc [${taskData.name}] thành: ${newStatus}` }]
+    messages: [{ type: 'text', text: `✅ Đã chuyển trạng thái công việc [${outcome.taskName}] thành: ${outcome.newStatus}` }]
   });
 }

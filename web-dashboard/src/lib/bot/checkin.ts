@@ -275,56 +275,85 @@ export async function handleCheckinPostback(
   }
 
   const doc = snap.docs[0];
-  const checkin = doc.data() as Checkin;
+  const initialCheckin = doc.data() as Checkin;
   const clickerId: string = event.source?.userId || '';
 
   if (action === 'diemdanh_done') {
-    if (clickerId !== checkin.creatorId) {
+    if (clickerId !== initialCheckin.creatorId) {
       await client.replyMessage({
         replyToken: event.replyToken as string,
-        messages: [{ type: 'text', text: `⚠️ Chỉ người tạo điểm danh "${checkin.title}" mới có thể bấm "Hoàn tất".` }],
-      });
-      return;
-    }
-    if (checkin.status === 'closed') {
-      await client.replyMessage({
-        replyToken: event.replyToken as string,
-        messages: [buildMentionText([{ text: buildRosterText(checkin, 'ℹ️ Điểm danh này đã kết thúc trước đó.') }], checkin.flexQuoteToken)],
+        messages: [{ type: 'text', text: `⚠️ Chỉ người tạo điểm danh "${initialCheckin.title}" mới có thể bấm "Hoàn tất".` }],
       });
       return;
     }
 
-    await doc.ref.update({ status: 'closed', updatedAt: FieldValue.serverTimestamp() });
+    // Đọc trạng thái mới nhất + ghi trong CÙNG 1 transaction để tránh 2 lượt bấm gần như đồng thời
+    // (VD người tạo bấm 2 lần liên tiếp) cùng đọc status "open" trước khi lượt kia ghi xong, dẫn đến
+    // cả 2 đều gửi tin "Đã kết thúc điểm danh!" trùng lặp.
+    type DoneOutcome = { kind: 'already-closed'; checkin: Checkin } | { kind: 'closed'; checkin: Checkin };
+    const outcome: DoneOutcome = await adminDb.runTransaction(async (tx) => {
+      const s = await tx.get(doc.ref);
+      const c = s.data() as Checkin;
+      if (c.status === 'closed') return { kind: 'already-closed', checkin: c };
+      tx.update(doc.ref, { status: 'closed', updatedAt: FieldValue.serverTimestamp() });
+      return { kind: 'closed', checkin: { ...c, status: 'closed' } };
+    });
+
+    const prefix = outcome.kind === 'already-closed' ? 'ℹ️ Điểm danh này đã kết thúc trước đó.' : '🎉 Đã kết thúc điểm danh!';
     await client.replyMessage({
       replyToken: event.replyToken as string,
-      messages: [buildMentionText([{ text: buildRosterText(checkin, '🎉 Đã kết thúc điểm danh!') }], checkin.flexQuoteToken)],
+      messages: [buildMentionText([{ text: buildRosterText(outcome.checkin, prefix) }], initialCheckin.flexQuoteToken)],
     });
     return;
   }
 
   if (action === 'diemdanh_checkin') {
-    if (checkin.status === 'closed') {
+    if (initialCheckin.status === 'closed') {
       await client.replyMessage({
         replyToken: event.replyToken as string,
-        messages: [buildMentionText([{ text: buildRosterText(checkin, '⚠️ Điểm danh này đã kết thúc, không thể điểm danh thêm.') }], checkin.flexQuoteToken)],
+        messages: [buildMentionText([{ text: buildRosterText(initialCheckin, '⚠️ Điểm danh này đã kết thúc, không thể điểm danh thêm.') }], initialCheckin.flexQuoteToken)],
       });
       return;
     }
 
     // Đã điểm danh trước đó rồi: im lặng bỏ qua, không phản hồi gì — tránh mỗi lần bấm lại (vô tình
-    // bấm trùng) lại gửi thêm tin vào nhóm.
-    if (checkin.participants.some((p) => p.userId === clickerId)) {
+    // bấm trùng) lại gửi thêm tin vào nhóm. Đây chỉ là kiểm tra nhanh theo dữ liệu vừa đọc để khỏi tốn
+    // công tra tên/vào transaction cho trường hợp phổ biến; transaction bên dưới mới là nơi kiểm tra
+    // chính xác cuối cùng.
+    if (initialCheckin.participants.some((p) => p.userId === clickerId)) {
       return;
     }
 
-    const name = await resolveDisplayName(clickerId, checkin.chatType, checkin.chatKey, client);
-    const participants = [...checkin.participants, { userId: clickerId, name }];
-    await doc.ref.update({ participants, updatedAt: FieldValue.serverTimestamp() });
-    const updatedCheckin = { ...checkin, participants };
+    const name = await resolveDisplayName(clickerId, initialCheckin.chatType, initialCheckin.chatKey, client);
+
+    // Đọc danh sách điểm danh mới nhất + ghi thêm người trong CÙNG 1 transaction — tránh mất dữ liệu
+    // khi 2 người bấm "Điểm danh" gần như đồng thời: nếu chỉ đọc-rồi-ghi thường (không transaction),
+    // cả 2 request có thể cùng đọc chung 1 danh sách cũ trước khi request kia ghi xong, khiến người
+    // ghi sau "ghi đè" mất luôn người ghi trước khỏi danh sách.
+    type CheckinOutcome = { kind: 'closed'; checkin: Checkin } | { kind: 'silent' } | { kind: 'added'; checkin: Checkin };
+    const outcome: CheckinOutcome = await adminDb.runTransaction(async (tx) => {
+      const s = await tx.get(doc.ref);
+      const c = s.data() as Checkin;
+      if (c.status === 'closed') return { kind: 'closed', checkin: c };
+      if (c.participants.some((p) => p.userId === clickerId)) return { kind: 'silent' };
+      const participants = [...c.participants, { userId: clickerId, name }];
+      tx.update(doc.ref, { participants, updatedAt: FieldValue.serverTimestamp() });
+      return { kind: 'added', checkin: { ...c, participants } };
+    });
+
+    if (outcome.kind === 'silent') return;
+
+    if (outcome.kind === 'closed') {
+      await client.replyMessage({
+        replyToken: event.replyToken as string,
+        messages: [buildMentionText([{ text: buildRosterText(outcome.checkin, '⚠️ Điểm danh này đã kết thúc, không thể điểm danh thêm.') }], initialCheckin.flexQuoteToken)],
+      });
+      return;
+    }
 
     await client.replyMessage({
       replyToken: event.replyToken as string,
-      messages: [buildMentionText([{ text: buildRosterText(updatedCheckin) }], checkin.flexQuoteToken)],
+      messages: [buildMentionText([{ text: buildRosterText(outcome.checkin) }], initialCheckin.flexQuoteToken)],
     });
   }
 }
